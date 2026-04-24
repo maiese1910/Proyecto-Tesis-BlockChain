@@ -1,6 +1,6 @@
-import asyncio
-import json
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import os
+from web3 import Web3
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -19,6 +19,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Configuración Web3 / Blockchain ────────────────────────────────────────
+WEB3_PROVIDER_URL = os.getenv("WEB3_PROVIDER_URL")
+CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
+
+# ABI mínima para la función de verificación
+CONTRACT_ABI = [
+    {
+        "inputs": [{"internalType": "string", "name": "_hash", "type": "string"}],
+        "name": "verifyDocument",
+        "outputs": [
+            {"internalType": "bool", "name": "exists", "type": "bool"},
+            {"internalType": "string", "name": "ownerName", "type": "string"},
+            {"internalType": "string", "name": "cedula", "type": "string"},
+            {"internalType": "string", "name": "documentType", "type": "string"},
+            {"internalType": "uint256", "name": "timestamp", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
+
+w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_URL))
+
+def get_contract():
+    if not CONTRACT_ADDRESS or "direccion" in CONTRACT_ADDRESS:
+        return None
+    return w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
 
 # ─── Estado Global en Memoria (Se actualiza en vivo) ─────────────────────────
 stats = {
@@ -109,7 +137,33 @@ def formato_checklist_resumen(estados: dict) -> str:
 
 @app.get("/")
 async def root():
-    return {"status": "online", "stats": stats}
+    return {"status": "online", "stats": stats, "blockchain_connected": w3.is_connected()}
+
+
+@app.get("/blockchain/verify/{doc_hash}")
+async def verify_blockchain_document(doc_hash: str):
+    """Consulta la blockchain para verificar un hash de documento."""
+    contract = get_contract()
+    if not contract:
+        return {
+            "exists": False, 
+            "error": "Contrato no configurado. Por favor, despliega el contrato y actualiza el archivo .env"
+        }
+    
+    try:
+        # Llamada a la blockchain
+        result = contract.functions.verifyDocument(doc_hash).call()
+        exists, owner_name, cedula, doc_type, timestamp = result
+        
+        return {
+            "exists": exists,
+            "ownerName": owner_name,
+            "cedula": cedula,
+            "documentType": doc_type,
+            "timestamp": int(timestamp)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error consultando la blockchain: {str(e)}")
 
 
 @app.websocket("/ws/stats")

@@ -2,23 +2,16 @@ import React, { useState } from 'react';
 import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Simula la verificación contra el contrato blockchain
-// En producción: llama al backend FastAPI → web3.py → Sepolia
-const simulateVerify = async (hash) => {
-  await new Promise(r => setTimeout(r, 2000));
-
-  // Simulación: si el hash empieza con "0X" y tiene longitud suficiente → existe
-  if (hash.startsWith('0X') && hash.length > 20) {
-    return {
-      exists: true,
-      ownerName: 'Juan Carlos Pérez García',
-      cedula: 'V-12.345.678',
-      documentType: 'Planilla Única Bancaria (PUB) — SAREN',
-      timestamp: Math.floor(Date.now() / 1000) - 300,
-      txHash: '0x' + Math.random().toString(16).slice(2, 66),
-    };
+// Conexión real con el backend FastAPI → Blockchain
+const verifyOnChain = async (hash) => {
+  try {
+    const response = await fetch(`http://localhost:8000/blockchain/verify/${hash}`);
+    if (!response.ok) throw new Error('Error en la comunicación con el servidor');
+    return await response.json();
+  } catch (error) {
+    console.error("Verification Error:", error);
+    return { exists: false, error: "No se pudo conectar con el servicio de verificación." };
   }
-  return { exists: false };
 };
 
 const BlockchainVerifier = () => {
@@ -30,7 +23,7 @@ const BlockchainVerifier = () => {
     if (!hashInput.trim()) return;
     setLoading(true);
     setResult(null);
-    const data = await simulateVerify(hashInput.trim().toUpperCase());
+    const data = await verifyOnChain(hashInput.trim().toUpperCase());
     setResult(data);
     setLoading(false);
   };
