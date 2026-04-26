@@ -88,14 +88,13 @@
 
 ---
 
-## 9. 🏛️ Verificación Blockchain de Documentos
-
+## 9. ⛓️ Integración Blockchain (Sepolia Testnet)
 | Campo | Detalle |
 |---|---|
-| **Descripción** | Registro inmutable del expediente validado en una red Blockchain (Sepolia/Ethereum testnet). Una vez que el sistema confirma que el expediente está completo, se emite un hash único como certificado de validación digital. |
-| **Estado** | 🚧 Pendiente de implementar |
-| **Tecnología** | Web3.py, Pinata IPFS, Smart Contract en Solidity. Claves en `.env`. |
-| **Prioridad** | Media — presentar como "arquitectura preparada" en la defensa. |
+| **Descripción** | Conexión real con la red de prueba Ethereum Sepolia. Los documentos validados se registran de forma inmutable a través de un contrato inteligente. |
+| **Estado** | ✅ Implementado |
+| **Tecnología** | Web3.py, FastAPI, Smart Contract Solidity. |
+| **Dónde se ve** | Al registrar un documento desde el chat o la planilla, se genera un transaction hash real en Etherscan. |
 
 ---
 
@@ -141,13 +140,27 @@
 ---
 
 ## 11. 🔍 Verificador Público de Documentos Blockchain
-
 | Campo | Detalle |
 |---|---|
 | **Descripción** | Portal donde cualquier persona (jurado, empleador, ente gubernamental) puede pegar el hash de un documento y verificar su autenticidad en la Blockchain. Muestra: nombre del propietario, cédula, tipo de documento, fecha exacta de registro y link al transaction hash en Sepolia Etherscan. |
-| **Estado** | ✅ Implementado (con simulación) — Requiere CONTRACT_ADDRESS en .env para conectar a Sepolia real |
+| **Estado** | ✅ Implementado |
 | **Dónde se ve** | Menú → "Verificar Blockchain". |
-| **Para la defensa** | Pegar el hash generado en la PUB → aparece "✅ Documento Auténtico" con todos los detalles y el link a Etherscan. |
+
+---
+
+## 🚀 SUPER PLUS: Diferenciadores Técnicos para la Defensa
+
+### A. 📜 Certificado Digital con Verificación QR
+- **Descripción**: Al registrar un título, el sistema genera automáticamente un certificado digital con un código QR único. El jurado puede escanearlo para ser redirigido instantáneamente al verificador blockchain de la app.
+- **Impacto**: Elimina la necesidad de confiar en el frontend; la prueba está en la cadena de bloques.
+
+### B. 📊 Panel de Auditoría "Live" (Efecto WOW)
+- **Descripción**: El dashboard principal incluye un log de auditoría que muestra en tiempo real lo que ocurre en el sistema (ej. "IA analizando archivo", "Transacción enviada a Sepolia").
+- **Impacto**: Crea una atmósfera de sistema corporativo/gubernamental robusto durante la presentación.
+
+### C. 🤖 Asistente IA con "Visión de Documentos"
+- **Descripción**: El chatbot no solo recibe archivos, sino que simula un análisis visual profundo (nitidez, presencia de sellos, metadatos) antes de aprobar un paso de la auditoría.
+- **Impacto**: Aumenta el rigor académico percibido del proyecto.
 
 ---
 

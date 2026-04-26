@@ -43,19 +43,21 @@ const Dashboard = () => {
     docs_prevalidados: 0,
     tiempo_ahorrado_hrs: 0.0,
     titulos_blockchain: 0,
+    audit_log: []
   });
   const [connected, setConnected] = useState(false);
   const ws = useRef(null);
 
   useEffect(() => {
-    ws.current = new WebSocket('ws://localhost:8001/ws/stats');
+    // Usar el mismo puerto que el backend FastAPI (8000)
+    ws.current = new WebSocket('ws://localhost:8000/ws/stats');
 
     ws.current.onopen = () => setConnected(true);
 
     ws.current.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        setStats(data);
+        setStats(prev => ({ ...prev, ...data }));
       } catch (_) {}
     };
 
@@ -157,19 +159,61 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <motion.div
-        className="glass-panel"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>Aviso Importante</h3>
-        <p style={{ color: 'var(--text-muted)', lineHeight: '1.6' }}>
-          Este sistema ha sido calibrado específicamente para los requisitos de la Facultad de Ingeniería de la Universidad Santa María.
-          Utiliza la sección de <strong>Pre-validación</strong> antes de dirigirte a los entes gubernamentales para evitar rechazos
-          por formato de planillas, falta de validación GTU o timbres incorrectos.
-        </p>
-      </motion.div>
+      <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+        <motion.div
+          className="glass-panel"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Award size={20} /> Auditoría en Tiempo Real
+          </h3>
+          <div className="audit-log-container" style={{ 
+            background: 'rgba(0,0,0,0.2)', 
+            borderRadius: '12px', 
+            padding: '1rem', 
+            height: '250px', 
+            overflowY: 'auto',
+            fontFamily: 'monospace',
+            fontSize: '0.9rem'
+          }}>
+            {stats.audit_log && stats.audit_log.length > 0 ? (
+              stats.audit_log.map((log, i) => (
+                <div key={i} style={{ 
+                  padding: '0.4rem 0', 
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  color: log.includes('ERROR') ? '#f87171' : log.includes('IA') ? '#38bdf8' : '#e2e8f0'
+                }}>
+                  {log}
+                </div>
+              ))
+            ) : (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '4rem' }}>Esperando actividad...</p>
+            )}
+          </div>
+        </motion.div>
+
+        <motion.div
+          className="glass-panel"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>Aviso Académico</h3>
+          <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', fontSize: '0.9rem' }}>
+            Este sistema ha sido calibrado específicamente para los requisitos de la Facultad de Ingeniería de la Universidad Santa María.
+            <br /><br />
+            Utiliza la sección de <strong>Pre-validación</strong> antes de dirigirte a los entes gubernamentales para evitar rechazos
+            por formato de planillas o timbres incorrectos.
+          </p>
+          <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(167, 139, 250, 0.1)', borderRadius: '12px', border: '1px dashed rgba(167, 139, 250, 0.3)' }}>
+            <p style={{ fontSize: '0.8rem', color: '#a78bfa' }}>
+              <strong>Tip para la Defensa:</strong> Mantén este panel abierto mientras realizas auditorías en otra pestaña para mostrar la reactividad del sistema al jurado.
+            </p>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 };

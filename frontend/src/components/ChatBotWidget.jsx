@@ -16,7 +16,7 @@ const ChatBotWidget = () => {
   }, [messages]);
 
   useEffect(() => {
-    ws.current = new WebSocket('ws://localhost:8001/ws/chat');
+    ws.current = new WebSocket('ws://localhost:8000/ws/chat');
 
     ws.current.onopen = () => {
       setStatus('En línea');

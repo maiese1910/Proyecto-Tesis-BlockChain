@@ -225,16 +225,40 @@ const PUBForm = () => {
 
   const handleBlockchain = async () => {
     setIsHashing(true);
-    addBotMessage('⛓️ **Generando huella digital Blockchain...**\n\nCalculando hash SHA256 del documento. Por favor espera.');
-    await new Promise(r => setTimeout(r, 2000));
-    const hash = generateHash(formData);
-    setBlockchainHash(hash);
-    setIsHashing(false);
-    addBotMessage(
-      `🔐 **¡Registro exitoso en Blockchain!**\n\n` +
-      `**Hash del documento:**\n\`${hash}\`\n\n` +
-      `Este código es único e inmutable. Cualquier alteración del documento invalidará el hash, garantizando su autenticidad ante cualquier ente gubernamental.`
-    );
+    addBotMessage('⛓️ **Registrando huella digital en Blockchain (Sepolia)...**\n\nPor favor confirma la transacción en tu dispositivo si es necesario.');
+    
+    try {
+      const hash = generateHash(formData);
+      const response = await fetch('http://localhost:8000/blockchain/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hash: hash,
+          ownerName: formData.nombre_completo,
+          cedula: formData.cedula,
+          documentType: formData.tramite
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setBlockchainHash(hash);
+        addBotMessage(
+          `🔐 **¡Registro exitoso en Blockchain!**\n\n` +
+          `**Hash del documento:**\n\`${hash}\`\n\n` +
+          `**Transaction Hash:**\n\`${data.txHash}\`\n\n` +
+          `Este registro es inmutable. Puedes verificarlo en [Etherscan](${data.certificateUrl}).`
+        );
+      } else {
+        addBotMessage(`❌ **Error en el registro:** ${data.error || 'No se pudo completar la transacción.'}`, true);
+      }
+    } catch (err) {
+      console.error(err);
+      addBotMessage('❌ **Error de conexión:** No se pudo contactar con el servidor de Blockchain.', true);
+    } finally {
+      setIsHashing(false);
+    }
   };
 
   const handleAyudaRapida = () => {

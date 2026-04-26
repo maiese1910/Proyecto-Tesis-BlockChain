@@ -1,4 +1,7 @@
 import os
+import json
+import asyncio
+import datetime
 from web3 import Web3
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,9 +26,22 @@ app.add_middleware(
 # ─── Configuración Web3 / Blockchain ────────────────────────────────────────
 WEB3_PROVIDER_URL = os.getenv("WEB3_PROVIDER_URL")
 CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
+WALLET_PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
 
-# ABI mínima para la función de verificación
+# ABI mínima para la función de verificación y registro
 CONTRACT_ABI = [
+    {
+        "inputs": [
+            {"internalType": "string", "name": "_hash", "type": "string"},
+            {"internalType": "string", "name": "_ownerName", "type": "string"},
+            {"internalType": "string", "name": "_cedula", "type": "string"},
+            {"internalType": "string", "name": "_documentType", "type": "string"}
+        ],
+        "name": "registerDocument",
+        "outputs": [],
+        "stateMutability": "external",
+        "type": "function"
+    },
     {
         "inputs": [{"internalType": "string", "name": "_hash", "type": "string"}],
         "name": "verifyDocument",
@@ -44,9 +60,33 @@ CONTRACT_ABI = [
 w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_URL))
 
 def get_contract():
-    if not CONTRACT_ADDRESS or "direccion" in CONTRACT_ADDRESS:
+    if not CONTRACT_ADDRESS or "0x" not in CONTRACT_ADDRESS:
         return None
     return w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
+
+async def send_register_transaction(doc_hash, owner, cedula, doc_type):
+    """Firma y envía una transacción para registrar un documento."""
+    if not WALLET_PRIVATE_KEY:
+        return None
+    
+    account = w3.eth.account.from_key(WALLET_PRIVATE_KEY)
+    contract = get_contract()
+    
+    nonce = w3.eth.get_transaction_count(account.address)
+    
+    # Construir la transacción
+    txn = contract.functions.registerDocument(
+        doc_hash, owner, cedula, doc_type
+    ).build_transaction({
+        'chainId': 11155111,  # Sepolia
+        'gas': 300000,
+        'gasPrice': w3.eth.gas_price,
+        'nonce': nonce,
+    })
+    
+    signed_txn = w3.eth.account.sign_transaction(txn, private_key=WALLET_PRIVATE_KEY)
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+    return w3.to_hex(tx_hash)
 
 # ─── Estado Global en Memoria (Se actualiza en vivo) ─────────────────────────
 stats = {
@@ -54,6 +94,7 @@ stats = {
     "docs_prevalidados": 0,        # Documentos analizados (archivos subidos)
     "tiempo_ahorrado_hrs": 0.0,    # Estimado: cada validación ahorra ~30 min
     "titulos_blockchain": 0,       # Se incrementa al completar una auditoría
+    "audit_log": []                # Registro de las últimas acciones (Audit Panel)
 }
 
 # ─── Connection Manager para Stats en Tiempo Real ───────────────────────────
@@ -83,10 +124,17 @@ class StatsManager:
 stats_manager = StatsManager()
 
 
-async def increment_stat(key: str, amount: float = 1):
-    """Incrementa un contador y hace broadcast inmediato a todos los dashboards."""
+async def increment_stat(key: str, amount: float = 1, log_entry: str = None):
+    """Incrementa un contador y hace broadcast inmediato. Opcionalmente añade un log."""
     if key in stats:
         stats[key] = round(stats[key] + amount, 1)
+    
+    if log_entry:
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        stats["audit_log"].insert(0, f"[{timestamp}] {log_entry}")
+        # Mantener solo los últimos 10 logs
+        stats["audit_log"] = stats["audit_log"][:10]
+        
     await stats_manager.broadcast()
 
 
@@ -166,6 +214,62 @@ async def verify_blockchain_document(doc_hash: str):
         raise HTTPException(status_code=500, detail=f"Error consultando la blockchain: {str(e)}")
 
 
+@app.post("/blockchain/register")
+async def register_blockchain_document(data: dict):
+    """Registra un nuevo documento en la blockchain."""
+    try:
+        doc_hash = data.get("hash")
+        owner = data.get("ownerName")
+        cedula = data.get("cedula")
+        doc_type = data.get("documentType")
+        
+        tx_hash = await send_register_transaction(doc_hash, owner, cedula, doc_type)
+        
+        if tx_hash:
+            log_msg = f"NUEVO REGISTRO: {doc_type} de {owner} (C.I. {cedula}) emitido exitosamente."
+            await increment_stat("titulos_blockchain", 1, log_entry=log_msg)
+            return {
+                "success": True,
+                "txHash": tx_hash,
+                "certificateUrl": f"https://sepolia.etherscan.io/tx/{tx_hash}",
+                "qrContent": f"http://localhost:5173/verificar?hash={doc_hash}"
+            }
+        else:
+            return {"success": False, "error": "No se pudo firmar la transacción."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/blockchain/certificate/{doc_hash}")
+async def get_digital_certificate(doc_hash: str):
+    """Genera la metadata para un Certificado Digital de Verificación."""
+    contract = get_contract()
+    if not contract:
+        raise HTTPException(status_code=503, detail="Blockchain no conectada")
+    
+    try:
+        result = contract.functions.verifyDocument(doc_hash).call()
+        exists, owner_name, cedula, doc_type, timestamp = result
+        
+        if not exists:
+            raise HTTPException(status_code=404, detail="Documento no encontrado en Blockchain")
+            
+        return {
+            "title": "CERTIFICADO DE AUTENTICIDAD DIGITAL",
+            "institution": "Universidad Santa María - Facultad de Ingeniería",
+            "owner": owner_name,
+            "id_number": cedula,
+            "document_type": doc_type,
+            "blockchain_status": "VALIDADO E INMUTABLE",
+            "network": "Ethereum Sepolia Testnet",
+            "registration_date": str(datetime.datetime.fromtimestamp(timestamp)),
+            "document_hash": doc_hash,
+            "qr_link": f"http://localhost:5173/verificar?hash={doc_hash}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.websocket("/ws/stats")
 async def stats_endpoint(websocket: WebSocket):
     """Dashboard se suscribe aquí para recibir actualizaciones en tiempo real."""
@@ -212,7 +316,8 @@ async def chat_endpoint(websocket: WebSocket):
                 await asyncio.sleep(1.2)
 
                 # Incrementar métricas en tiempo real
-                await increment_stat("docs_prevalidados", 1)
+                log_msg = f"IA VISION: Analizando '{nombre_archivo}'... Validando sellos y nitidez."
+                await increment_stat("docs_prevalidados", 1, log_entry=log_msg)
                 await increment_stat("tiempo_ahorrado_hrs", 0.5)
 
                 if modo_auditoria and checklist_paso < len(CHECKLIST_SAREN):
