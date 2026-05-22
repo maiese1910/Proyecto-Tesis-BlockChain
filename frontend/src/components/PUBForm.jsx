@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, FileText, Download, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import DigitalCertificate from './DigitalCertificate';
 
 // ─── Validadores por campo ───────────────────────────────────────────────────
 const validators = {
@@ -129,6 +130,7 @@ const PUBForm = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [blockchainHash, setBlockchainHash] = useState(null);
   const [isHashing, setIsHashing] = useState(false);
+  const [showCert, setShowCert] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -463,6 +465,12 @@ const PUBForm = () => {
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                   Cualquier modificación al documento invalidará este hash.
                 </p>
+                <button
+                  onClick={() => setShowCert(true)}
+                  style={{ marginTop: '1rem', width: '100%', padding: '0.8rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  <ShieldCheck size={18} /> Ver Certificado Digital
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -479,6 +487,12 @@ const PUBForm = () => {
         </motion.div>
 
       </div>
+      
+      <AnimatePresence>
+        {showCert && blockchainHash && (
+          <DigitalCertificate docHash={blockchainHash} onClose={() => setShowCert(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

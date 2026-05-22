@@ -12,6 +12,7 @@ const SurvivalGuide = () => {
     saren: {
       location: "Sede del Registro Principal (Según tu Estado/Municipio)",
       warning: "Cita previa obligatoria a través de la web del SAREN.",
+      image: "/images/saren_facade.png",
       steps: (turno) => [
         {
           title: "Planificación de Llegada",
@@ -52,6 +53,7 @@ const SurvivalGuide = () => {
     mppre: {
       location: "Oficina del MPPRE o IPOSTEL autorizada (Cita Electrónica)",
       warning: "Citas asignadas según el terminal de tu cédula.",
+      image: "/images/mppre_facade.png",
       steps: (turno) => [
         {
           title: "Día de Cita",
@@ -140,7 +142,19 @@ const SurvivalGuide = () => {
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>
                 <MapPin /> Coordenadas Exactas
               </h3>
-              <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>{currentLogic.location}</p>
+              <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>{currentLogic.location}</p>
+              
+              <div style={{ position: 'relative', width: '100%', height: '250px', borderRadius: '8px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <img 
+                  src={currentLogic.image} 
+                  alt="Fachada de la Sede" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,0.7)', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', backdropFilter: 'blur(4px)' }}>
+                  📍 Foto Referencial de la Sede
+                </div>
+              </div>
+
               <p style={{ color: 'var(--warning)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <ShieldAlert size={16} /> {currentLogic.warning}
               </p>

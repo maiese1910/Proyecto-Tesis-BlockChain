@@ -7,6 +7,7 @@ import SurvivalGuide from './components/SurvivalGuide';
 import ChatBotWidget from './components/ChatBotWidget';
 import PUBForm from './components/PUBForm';
 import BlockchainVerifier from './components/BlockchainVerifier';
+import ToastNotification from './components/ToastNotification';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -78,6 +79,7 @@ function App() {
 
   return (
     <div className="app-layout">
+      <ToastNotification />
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleLogout} />
       <div className="main-content">
         {renderContent()}
