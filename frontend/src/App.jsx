@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import LoginRegister from './components/LoginRegister';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -87,6 +88,7 @@ function App() {
       <div className="main-content">
         {renderContent()}
       </div>
+      <Analytics />
     </div>
   );
 }
