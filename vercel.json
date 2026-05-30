@@ -21,6 +21,7 @@
       "src": "/ws/(.*)",
       "dest": "/api/main.py"
     },
+    { "handle": "filesystem" },
     {
       "src": "/(.*)",
       "dest": "/index.html"
