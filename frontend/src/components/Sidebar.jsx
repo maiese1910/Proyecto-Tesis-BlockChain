@@ -1,5 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, MessageSquare, ShieldCheck, Map, FileText, ClipboardList, Link, LogOut, User } from 'lucide-react';
+import WalletConnect from './WalletConnect';
 
 const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
   const menuItems = [
@@ -33,6 +34,9 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
               </p>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{user.carrera?.split(' ').slice(-1)[0]}</p>
             </div>
+          </div>
+          <div style={{ marginTop: '0.8rem', display: 'flex', justifyContent: 'center' }}>
+            <WalletConnect />
           </div>
         </div>
       )}

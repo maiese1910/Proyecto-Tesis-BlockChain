@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import html2pdf from 'html2pdf.js';
 import { X, CheckCircle, Shield, Printer, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -156,16 +157,24 @@ const DigitalCertificate = ({ docHash, onClose }) => {
                 </p>
               </div>
 
-            </div>
-
             {/* Botones de acción */}
             <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem', justifyContent: 'center' }}>
               <button 
-                onClick={() => window.print()}
+                onClick={() => {
+                  const element = document.getElementById('printable-certificate');
+                  const opt = {
+                    margin:       10,
+                    filename:     `Certificado_Blockchain_${certData.id_number}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                  };
+                  html2pdf().set(opt).from(element).save();
+                }}
                 className="send-btn" 
                 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', background: 'rgba(255,255,255,0.1)', color: 'var(--text-main)' }}
               >
-                <Printer size={18} /> Imprimir Certificado
+                <Printer size={18} /> Descargar PDF Oficial
               </button>
               <a 
                 href={certData.qr_link}

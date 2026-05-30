@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, FileText, Download, ShieldCheck } from 'lucide-react';
+import { Send, FileText, Download, ShieldCheck, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import html2pdf from 'html2pdf.js';
 import DigitalCertificate from './DigitalCertificate';
 
 // ─── Validadores por campo ───────────────────────────────────────────────────
@@ -399,19 +400,30 @@ const PUBForm = () => {
               <button
                 className="send-btn"
                 style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                onClick={() => window.print()}
+                onClick={() => {
+                  const element = document.getElementById('pub-preview');
+                  const opt = {
+                    margin:       10,
+                    filename:     `Planilla_PUB_${formData.cedula || 'USM'}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                  };
+                  html2pdf().set(opt).from(element).save();
+                }}
               >
-                <Download size={16} /> Imprimir
+                <Download size={16} /> Exportar PDF Oficial
               </button>
             )}
           </div>
 
-          {/* Membrete oficial */}
-          <div style={{ textAlign: 'center', borderBottom: '2px solid var(--border)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>República Bolivariana de Venezuela</p>
-            <h4 style={{ fontSize: '1rem', margin: '0.3rem 0' }}>Servicio Autónomo de Registros y Notarías</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '700', letterSpacing: '1px' }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
-          </div>
+          <div id="pub-preview" style={{ padding: '1rem', background: 'var(--surface)' }}>
+            {/* Membrete oficial */}
+            <div style={{ textAlign: 'center', borderBottom: '2px solid var(--border)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>República Bolivariana de Venezuela</p>
+              <h4 style={{ fontSize: '1rem', margin: '0.3rem 0' }}>Servicio Autónomo de Registros y Notarías</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '700', letterSpacing: '1px' }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
+            </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', flex: 1 }}>
             {PUB_FIELDS.map((field, i) => {
@@ -475,6 +487,7 @@ const PUBForm = () => {
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
 
           {isComplete && !blockchainHash && (
             <motion.div

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Users, FileCheck, Clock, Award } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import TrackingTimeline from './TrackingTimeline';
 
 // Componente que anima un número cuando cambia
 const AnimatedNumber = ({ value, suffix = '' }) => {
@@ -196,23 +197,11 @@ const Dashboard = () => {
         </motion.div>
 
         <motion.div
-          className="glass-panel"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>Aviso Académico</h3>
-          <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', fontSize: '0.9rem' }}>
-            Este sistema ha sido calibrado específicamente para los requisitos de la Facultad de Ingeniería de la Universidad Santa María.
-            <br /><br />
-            Utiliza la sección de <strong>Pre-validación</strong> antes de dirigirte a los entes gubernamentales para evitar rechazos
-            por formato de planillas o timbres incorrectos.
-          </p>
-          <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(167, 139, 250, 0.1)', borderRadius: '12px', border: '1px dashed rgba(167, 139, 250, 0.3)' }}>
-            <p style={{ fontSize: '0.8rem', color: '#a78bfa' }}>
-              <strong>Tip para la Defensa:</strong> Mantén este panel abierto mientras realizas auditorías en otra pestaña para mostrar la reactividad del sistema al jurado.
-            </p>
-          </div>
+          <TrackingTimeline user={user} />
         </motion.div>
       </div>
     </div>

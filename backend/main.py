@@ -234,6 +234,13 @@ async def get_all_records():
     """Obtiene todos los registros (para el Panel Gubernamental)."""
     return {"success": True, "records": load_db()}
 
+@app.get("/blockchain/records/cedula/{cedula}")
+async def get_records_by_cedula(cedula: str):
+    """Obtiene los registros de un estudiante específico (para el Timeline)."""
+    records = load_db()
+    user_records = [r for r in records if r.get("cedula") == cedula]
+    return {"success": True, "records": user_records}
+
 @app.post("/blockchain/records/{doc_hash}/verify")
 async def verify_record_status(doc_hash: str):
     """Actualiza el estado de un registro a verificado (por el ente gubernamental)."""
