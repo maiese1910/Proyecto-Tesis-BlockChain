@@ -156,6 +156,7 @@ const DigitalCertificate = ({ docHash, onClose }) => {
                   Escanear para verificar en la Blockchain
                 </p>
               </div>
+            </div>
 
             {/* Botones de acción */}
             <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem', justifyContent: 'center' }}>
