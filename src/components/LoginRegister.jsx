@@ -51,21 +51,14 @@ const LoginRegister = ({ onLogin }) => {
       height: '100vh', width: '100vw', padding: '2rem',
       background: 'radial-gradient(circle at 20% 50%, rgba(14,165,233,0.12), transparent 40%), radial-gradient(circle at 80% 30%, rgba(124,58,237,0.12), transparent 40%)',
     }}>
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{ width: '100%', maxWidth: '480px' }}
-      >
+      <div style={{ width: '100%', maxWidth: '480px' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200 }}
+          <div
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 72, height: 72, borderRadius: '20px', background: 'linear-gradient(135deg, #0ea5e9, #7c3aed)', marginBottom: '1.5rem', boxShadow: '0 0 30px rgba(14,165,233,0.4)' }}
           >
             <GraduationCap size={36} color="white" />
-          </motion.div>
+          </div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, background: 'linear-gradient(to right, #38bdf8, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             USM Validation Platform
           </h1>
@@ -78,7 +71,7 @@ const LoginRegister = ({ onLogin }) => {
 
           {/* ── Bienvenida ────────────────────────────────────────── */}
           {mode === 'welcome' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>¿Cómo deseas continuar?</h2>
               <button
                 className="send-btn"
@@ -93,12 +86,12 @@ const LoginRegister = ({ onLogin }) => {
               >
                 <Shield size={20} /> Ya tengo un perfil registrado
               </button>
-            </motion.div>
+            </div>
           )}
 
           {/* ── Registro ──────────────────────────────────────────── */}
           {mode === 'register' && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
               <h2 style={{ marginBottom: '0.5rem' }}>Crear Perfil</h2>
 
               {[{ icon: <User size={16} />, placeholder: 'Nombre completo (ej: Juan Pérez)', key: 'nombre' }].map(f => (
@@ -199,7 +192,7 @@ const LoginRegister = ({ onLogin }) => {
 
           {/* ── Login ─────────────────────────────────────────────── */}
           {mode === 'login' && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', textAlign: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', textAlign: 'center' }}>
               <h2>Acceder a mi Perfil</h2>
               <p style={{ color: 'var(--text-muted)' }}>Recuperaremos tu perfil guardado en este dispositivo.</p>
               {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>⚠️ {error}</p>}
@@ -209,10 +202,10 @@ const LoginRegister = ({ onLogin }) => {
               <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 ← Volver
               </button>
-            </motion.div>
+            </div>
           )}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
