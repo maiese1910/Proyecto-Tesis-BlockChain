@@ -187,7 +187,7 @@ const LoginRegister = ({ onLogin }) => {
               <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
                 ← Volver
               </button>
-            </motion.div>
+            </div>
           )}
 
           {/* ── Login ─────────────────────────────────────────────── */}
