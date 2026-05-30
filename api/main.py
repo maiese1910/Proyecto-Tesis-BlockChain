@@ -258,6 +258,88 @@ async def verify_record_status(doc_hash: str):
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
     raise HTTPException(status_code=500, detail="Supabase no configurado.")
 
+class AdminLoginReq(BaseModel):
+    username: str
+    password: str
+
+@app.post("/admin/login")
+async def admin_login(req: AdminLoginReq):
+    if not supabase:
+        # Fallback si no hay supabase config
+        if req.username == "admin" and req.password == "usm2026":
+            return {"success": True, "token": "admin-super-token-123"}
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    try:
+        res = supabase.table("admins").select("*").eq("username", req.username).execute()
+        if len(res.data) > 0:
+            user = res.data[0]
+            if user["password"] == req.password:
+                return {"success": True, "token": "admin-super-token-123", "username": req.username}
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class NewAdminReq(BaseModel):
+    username: str
+    password: str
+
+@app.post("/admin/users")
+async def create_admin(req: NewAdminReq):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    try:
+        # Check if exists
+        exist = supabase.table("admins").select("username").eq("username", req.username).execute()
+        if len(exist.data) > 0:
+            raise HTTPException(status_code=400, detail="El usuario ya existe")
+            
+        supabase.table("admins").insert({
+            "username": req.username,
+            "password": req.password
+        }).execute()
+        return {"success": True, "message": "Administrador creado exitosamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ProfileReq(BaseModel):
+    cedula: str
+    nombre: str
+    carrera: str
+    semestre: str
+
+@app.post("/profiles/register")
+async def register_profile(req: ProfileReq):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    try:
+        # Usar upsert para no fallar si ya existe
+        data = {
+            "cedula": req.cedula,
+            "nombre": req.nombre,
+            "carrera": req.carrera,
+            "semestre": req.semestre
+        }
+        supabase.table("profiles").upsert(data).execute()
+        return {"success": True, "profile": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/profiles/{cedula}")
+async def get_profile(cedula: str):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+    try:
+        res = supabase.table("profiles").select("*").eq("cedula", cedula).execute()
+        if len(res.data) > 0:
+            return {"success": True, "profile": res.data[0]}
+        else:
+            raise HTTPException(status_code=404, detail="Perfil no encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/blockchain/register")
 async def register_blockchain_document(data: dict):
     """Registra un nuevo documento en la blockchain y localmente para el panel."""

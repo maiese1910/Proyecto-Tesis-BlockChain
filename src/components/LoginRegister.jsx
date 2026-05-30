@@ -18,7 +18,11 @@ const LoginRegister = ({ onLogin }) => {
     'Ingeniería Eléctrica', 'Ingeniería Mecánica', 'Arquitectura',
   ];
 
-  const validateAndRegister = () => {
+  const [loginCedula, setLoginCedula] = useState('');
+  const [loading, setLoading] = useState(false);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  const validateAndRegister = async () => {
     if (!form.nombre.trim() || form.nombre.trim().split(' ').length < 2)
       return setError('Ingresa tu nombre completo (nombre y apellido).');
     const cedulaCompleta = `${form.cedula_tipo}-${form.cedula}`;
@@ -27,22 +31,61 @@ const LoginRegister = ({ onLogin }) => {
     if (!form.carrera) return setError('Selecciona tu carrera.');
     if (!form.semestre) return setError('Selecciona tu semestre actual.');
     setError('');
+    setLoading(true);
 
     const user = {
       nombre: form.nombre.trim(),
       cedula: cedulaCompleta,
       carrera: form.carrera,
-      semestre: form.semestre,
-      registradoEn: new Date().toLocaleDateString('es-VE'),
+      semestre: form.semestre
     };
-    localStorage.setItem('usm_user', JSON.stringify(user));
-    onLogin(user);
+
+    try {
+      const res = await fetch(`${API_URL}/profiles/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('usm_user', JSON.stringify(user));
+        onLogin(user);
+      } else {
+        setError('Error al crear perfil en la nube.');
+      }
+    } catch (err) {
+      setError('Error de conexión con el servidor.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogin = () => {
-    const stored = localStorage.getItem('usm_user');
-    if (!stored) return setError('No hay ningún perfil registrado. Crea uno primero.');
-    onLogin(JSON.parse(stored));
+  const handleLogin = async () => {
+    if (!loginCedula || loginCedula.length < 6) return setError('Ingresa una cédula válida.');
+    setError('');
+    setLoading(true);
+
+    try {
+      // Intentamos buscarlo con y sin prefijo V- por flexibilidad
+      let queryCedula = loginCedula;
+      if (!queryCedula.includes('-')) {
+        queryCedula = `V-${formatCedula(queryCedula)}`;
+      }
+
+      const res = await fetch(`${API_URL}/profiles/${queryCedula}`);
+      const data = await res.json();
+
+      if (data.success && data.profile) {
+        localStorage.setItem('usm_user', JSON.stringify(data.profile));
+        onLogin(data.profile);
+      } else {
+        setError(data.detail || 'Perfil no encontrado. Verifica tu cédula o regístrate.');
+      }
+    } catch (err) {
+      setError('Error al conectar con la base de datos.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -81,7 +124,14 @@ const LoginRegister = ({ onLogin }) => {
                 <User size={20} /> Crear Perfil de Graduando <ArrowRight size={18} />
               </button>
               <button
-                onClick={() => setMode('login')}
+                onClick={() => {
+                  const stored = localStorage.getItem('usm_user');
+                  if (stored) {
+                    onLogin(JSON.parse(stored));
+                  } else {
+                    setMode('login');
+                  }
+                }}
                 style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', fontSize: '1rem', transition: 'all 0.2s' }}
               >
                 <Shield size={20} /> Ya tengo un perfil registrado
@@ -109,7 +159,6 @@ const LoginRegister = ({ onLogin }) => {
 
               {/* Campo de cédula con toggle V/E */}
               <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                {/* Botones de nacionalidad */}
                 {['V', 'E'].map(tipo => (
                   <button
                     key={tipo}
@@ -132,7 +181,6 @@ const LoginRegister = ({ onLogin }) => {
                     {tipo}
                   </button>
                 ))}
-                {/* Input solo numérico */}
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.2rem 1rem' }}>
                   <CreditCard size={16} color="var(--text-muted)" />
                   <input
@@ -145,9 +193,6 @@ const LoginRegister = ({ onLogin }) => {
                   />
                 </div>
               </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '-0.5rem' }}>
-                Tu cédula quedará como: <strong style={{ color: 'var(--primary)' }}>{form.cedula_tipo}-{form.cedula || '0.000.000'}</strong>
-              </p>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.2rem 1rem' }}>
                 <BookOpen size={16} color="var(--text-muted)" />
@@ -181,8 +226,8 @@ const LoginRegister = ({ onLogin }) => {
 
               {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: '500' }}>⚠️ {error}</p>}
 
-              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem' }} onClick={validateAndRegister}>
-                Crear Perfil y Entrar →
+              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem' }} onClick={validateAndRegister} disabled={loading}>
+                {loading ? 'Guardando...' : 'Crear Perfil y Entrar →'}
               </button>
               <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
                 ← Volver
@@ -194,10 +239,22 @@ const LoginRegister = ({ onLogin }) => {
           {mode === 'login' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', textAlign: 'center' }}>
               <h2>Acceder a mi Perfil</h2>
-              <p style={{ color: 'var(--text-muted)' }}>Recuperaremos tu perfil guardado en este dispositivo.</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Ingresa tu número de cédula para recuperar tus datos de la nube.</p>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.2rem 1rem', marginTop: '0.5rem' }}>
+                <CreditCard size={16} color="var(--text-muted)" />
+                <input
+                  className="chat-input"
+                  style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.8rem 0' }}
+                  placeholder="Ej: V-28.123.456 o 28123456"
+                  value={loginCedula}
+                  onChange={e => setLoginCedula(e.target.value)}
+                />
+              </div>
+
               {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>⚠️ {error}</p>}
-              <button className="send-btn" style={{ padding: '1rem' }} onClick={handleLogin}>
-                <Shield size={18} /> Acceder a mi perfil
+              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem' }} onClick={handleLogin} disabled={loading}>
+                <Shield size={18} /> {loading ? 'Buscando...' : 'Acceder a mi perfil'}
               </button>
               <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 ← Volver
