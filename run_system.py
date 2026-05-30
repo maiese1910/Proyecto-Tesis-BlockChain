@@ -30,7 +30,7 @@ def main():
     subprocess.run([os.path.join("venv", "Scripts", "python.exe"), "-m", "pip", "install", "-r", "requirements.txt"], cwd=backend_dir)
     
     # 2. Iniciar Backend
-    backend_cmd = f"{os.path.join('venv', 'Scripts', 'python.exe')} -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+    backend_cmd = f"{os.path.join('venv', 'Scripts', 'python.exe')} -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload"
     backend_proc = run_command(backend_cmd, backend_dir, "Backend (FastAPI)")
 
     # 3. Iniciar Frontend
