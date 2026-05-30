@@ -20,7 +20,7 @@ const LoginRegister = ({ onLogin }) => {
 
   const [loginCedula, setLoginCedula] = useState('');
   const [loading, setLoading] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
 
   const validateAndRegister = async () => {
     if (!form.nombre.trim() || form.nombre.trim().split(' ').length < 2)

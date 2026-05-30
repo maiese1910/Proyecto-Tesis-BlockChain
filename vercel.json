@@ -21,6 +21,18 @@
       "src": "/ws/(.*)",
       "dest": "/api/main.py"
     },
+    {
+      "src": "/admin/login",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/admin/users",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/profiles/(.*)",
+      "dest": "/api/main.py"
+    },
     { "handle": "filesystem" },
     {
       "src": "/(.*)",
