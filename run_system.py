@@ -20,7 +20,7 @@ def run_command(command, cwd=None, name="Process"):
 def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))
     backend_dir = root_dir
-    frontend_dir = os.path.join(root_dir, "frontend")
+    frontend_dir = root_dir
 
     print("🏛️  SISTEMA DE APOSTILLA USM - INICIO GLOBAL")
     print("==========================================")
