@@ -4,16 +4,64 @@ import GovernmentPanel from './components/GovernmentPanel';
 import ToastNotification from './components/ToastNotification';
 
 const AdminLogin = ({ onLogin }) => {
+  const [mode, setMode] = useState('login'); // login | register
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [cargo, setCargo] = useState('');
+  const [ente, setEnte] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (username === 'admin' && password === 'usm2026') {
-      onLogin();
-    } else {
-      setError('Credenciales inválidas. Acceso denegado.');
+    if (!username || !password) return setError('Ingresa usuario y contraseña.');
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        onLogin(data);
+      } else {
+        setError(data.detail || 'Credenciales inválidas. Acceso denegado.');
+      }
+    } catch (err) {
+      setError('Error de conexión con el servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!username || !password || !cargo || !ente) return setError('Todos los campos son obligatorios.');
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/admin/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, cargo, ente })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Log them in immediately after registration
+        onLogin({ username, cargo, ente, token: 'admin-super-token-123' });
+      } else {
+        setError(data.detail || 'Error al registrar.');
+      }
+    } catch (err) {
+      setError('Error de conexión con el servidor.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -27,39 +75,56 @@ const AdminLogin = ({ onLogin }) => {
         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'rgba(220,38,38,0.1)', color: '#ef4444', marginBottom: '1.5rem' }}>
           <Shield size={32} />
         </div>
-        <h2 style={{ marginBottom: '0.5rem', color: '#f8fafc' }}>Acceso Restringido</h2>
+        <h2 style={{ marginBottom: '0.5rem', color: '#f8fafc' }}>{mode === 'login' ? 'Acceso Restringido' : 'Registro Gubernamental'}</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Panel Gubernamental de Auditoría</p>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
-            <UserIcon color="var(--text-muted)" />
-            <input 
-              type="text" 
-              className="chat-input" 
-              placeholder="Usuario" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }}
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
-            <KeyRound size={20} color="var(--text-muted)" />
-            <input 
-              type="password" 
-              className="chat-input" 
-              placeholder="Contraseña" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }}
-            />
-          </div>
-
-          {error && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: '0.5rem 0' }}>{error}</p>}
-
-          <button type="submit" className="send-btn" style={{ background: '#ef4444', color: 'white', padding: '1rem', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-            <Lock size={18} /> Iniciar Sesión Segura
-          </button>
-        </form>
+        {mode === 'login' ? (
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <UserIcon color="var(--text-muted)" />
+              <input type="text" className="chat-input" placeholder="Usuario Funcionario" value={username} onChange={(e) => setUsername(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <KeyRound size={20} color="var(--text-muted)" />
+              <input type="password" className="chat-input" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
+            </div>
+            {error && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: '0.5rem 0' }}>{error}</p>}
+            <button type="submit" disabled={loading} className="send-btn" style={{ background: '#ef4444', color: 'white', padding: '1rem', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <Lock size={18} /> {loading ? 'Validando...' : 'Iniciar Sesión Segura'}
+            </button>
+            <button type="button" onClick={() => setMode('register')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+              ¿Nuevo funcionario? Crear cuenta
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <input type="text" className="chat-input" placeholder="Usuario (Ej: jcarlos)" value={username} onChange={(e) => setUsername(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <input type="password" className="chat-input" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <select className="chat-input" value={ente} onChange={e => setEnte(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0', color: ente ? 'white' : 'var(--text-muted)' }}>
+                <option value="">Seleccione el Ente...</option>
+                <option value="SAREN">SAREN</option>
+                <option value="MPPRE">MPPRE</option>
+                <option value="GTU">GTU</option>
+                <option value="USM">USM</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <input type="text" className="chat-input" placeholder="Cargo (Ej: Registrador Principal)" value={cargo} onChange={(e) => setCargo(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
+            </div>
+            {error && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: '0.5rem 0' }}>{error}</p>}
+            <button type="submit" disabled={loading} className="send-btn" style={{ background: '#ef4444', color: 'white', padding: '1rem', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <Shield size={18} /> {loading ? 'Registrando...' : 'Registrar Funcionario'}
+            </button>
+            <button type="button" onClick={() => setMode('login')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+              ← Volver al login
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -74,14 +139,22 @@ const AdminApp = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('admin_auth') === 'true';
   });
+  const [adminData, setAdminData] = useState(() => {
+    const stored = localStorage.getItem('admin_data');
+    return stored ? JSON.parse(stored) : null;
+  });
 
-  const handleLogin = () => {
+  const handleLogin = (data) => {
     localStorage.setItem('admin_auth', 'true');
+    localStorage.setItem('admin_data', JSON.stringify(data));
+    setAdminData(data);
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('admin_auth');
+    localStorage.removeItem('admin_data');
+    setAdminData(null);
     setIsAuthenticated(false);
   };
 
@@ -92,12 +165,16 @@ const AdminApp = () => {
   return (
     <div className="app-layout" style={{ background: '#020617' }}>
       <ToastNotification />
-      {/* We don't render the sidebar for the admin, or we render a specific admin sidebar. For now, a top bar and the panel. */}
       <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '1rem 2rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <Shield size={24} color="#ef4444" />
-            <h1 style={{ fontSize: '1.2rem', color: '#f8fafc', margin: 0 }}>Panel de Control — Gobierno</h1>
+            <h1 style={{ fontSize: '1.2rem', color: '#f8fafc', margin: 0 }}>Panel de Control — {adminData?.ente || 'Gobierno'}</h1>
+            {adminData && (
+              <span style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600' }}>
+                {adminData.cargo || 'Funcionario'} ({adminData.username})
+              </span>
+            )}
           </div>
           <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>
             Cerrar Sesión

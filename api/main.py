@@ -275,7 +275,13 @@ async def admin_login(req: AdminLoginReq):
         if len(res.data) > 0:
             user = res.data[0]
             if user["password"] == req.password:
-                return {"success": True, "token": "admin-super-token-123", "username": req.username}
+                return {
+                    "success": True, 
+                    "token": "admin-super-token-123", 
+                    "username": req.username,
+                    "cargo": user.get("cargo", "Administrador"),
+                    "ente": user.get("ente", "Gubernamental")
+                }
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -283,6 +289,8 @@ async def admin_login(req: AdminLoginReq):
 class NewAdminReq(BaseModel):
     username: str
     password: str
+    cargo: str
+    ente: str
 
 @app.post("/admin/users")
 async def create_admin(req: NewAdminReq):
@@ -296,7 +304,9 @@ async def create_admin(req: NewAdminReq):
             
         supabase.table("admins").insert({
             "username": req.username,
-            "password": req.password
+            "password": req.password,
+            "cargo": req.cargo,
+            "ente": req.ente
         }).execute()
         return {"success": True, "message": "Administrador creado exitosamente"}
     except Exception as e:
