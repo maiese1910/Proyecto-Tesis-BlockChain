@@ -16,38 +16,50 @@ const ChatBotWidget = () => {
   }, [messages]);
 
   useEffect(() => {
-    const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
-    ws.current = new WebSocket(`${WS_URL}/ws/chat`);
+    // Check connection by pinging root
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    fetch(`${API_URL}/`)
+      .then(res => {
+        if(res.ok) {
+          setStatus('En línea');
+          setIsConnected(true);
+        }
+      })
+      .catch(() => setStatus('Desconectado'));
+      
+    // Enviar /start silencioso para iniciar sesion
+    sendMessage('/start', true);
+  }, []);
 
-    ws.current.onopen = () => {
-      setStatus('En línea');
-      setIsConnected(true);
-    };
+  const sendMessage = async (text, isInit = false, isFile = false) => {
+    if (!text.trim() && !isFile) return;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const sessionId = localStorage.getItem('usm_user') ? JSON.parse(localStorage.getItem('usm_user')).cedula : 'default';
 
-    ws.current.onmessage = (event) => {
-      let formattedText = event.data
+    if (!isInit) {
+      setMessages((prev) => [...prev, { text, sender: 'user', isFile }]);
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/chat/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, message: text, is_file: isFile })
+      });
+      const data = await res.json();
+      let formattedText = data.reply
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>');
-        
       setMessages((prev) => [...prev, { text: formattedText, sender: 'bot' }]);
-    };
-
-    ws.current.onclose = () => {
-      setStatus('Desconectado');
-      setIsConnected(false);
-    };
-
-    return () => {
-      if (ws.current) ws.current.close();
-    };
-  }, []);
+    } catch(err) {
+      setMessages((prev) => [...prev, { text: 'Error de conexión...', sender: 'bot' }]);
+    }
+  };
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (!inputVal.trim() || !isConnected) return;
-
-    setMessages((prev) => [...prev, { text: inputVal, sender: 'user' }]);
-    ws.current.send(inputVal);
+    if (!isConnected) return;
+    sendMessage(inputVal);
     setInputVal('');
   };
 
@@ -56,12 +68,7 @@ const ChatBotWidget = () => {
     if (!file || !isConnected) return;
 
     const fileMsg = `📎 Documento adjunto: ${file.name}`;
-    setMessages((prev) => [...prev, { text: fileMsg, sender: 'user', isFile: true }]);
-    
-    // Enviamos una etiqueta especial al backend para que sepa que es un archivo
-    ws.current.send(`[FILE_UPLOAD]${file.name}`);
-    
-    // Resetear el input
+    sendMessage(`[FILE_UPLOAD]${file.name}`, false, true);
     e.target.value = null;
   };
 

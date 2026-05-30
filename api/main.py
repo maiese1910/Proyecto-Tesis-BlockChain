@@ -340,136 +340,104 @@ async def stats_endpoint(websocket: WebSocket):
         stats_manager.disconnect(websocket)
 
 
-@app.websocket("/ws/chat")
-async def chat_endpoint(websocket: WebSocket):
-    await websocket.accept()
+chat_sessions = {}
 
-    # Contar usuario activo
-    await increment_stat("graduandos_activos", 1)
+@app.post("/chat/message")
+async def chat_rest_endpoint(data: dict):
+    session_id = data.get("session_id", "default")
+    texto_usuario = data.get("message", "")
+    is_file = data.get("is_file", False)
+    
+    # Init session
+    if session_id not in chat_sessions:
+        chat_sessions[session_id] = {
+            "modo_auditoria": False,
+            "checklist_paso": 0,
+            "checklist_estados": {}
+        }
+        
+    session = chat_sessions[session_id]
+    
+    if texto_usuario.lower() == "/start":
+        await increment_stat("graduandos_activos", 1)
+        return {"reply": (
+            "🏛️ **ASISTENTE GUBERNAMENTAL PARA EGRESADOS USM** 🏛️\n\n"
+            "Hola, ingeniero. Soy tu asistente virtual especializado en los trámites "
+            "gubernamentales (**GTU, SAREN, MPPRE**).\n\n"
+            "• Escribe **'auditar'** para revisar tu expediente paso a paso.\n"
+            "• Adjunta documentos con el 📎 para validación inmediata.\n"
+            "• O hazme cualquier pregunta sobre los trámites."
+        )}
 
-    # Estado de sesión
-    modo_auditoria = False
-    checklist_paso = 0
-    checklist_estados = {}
+    if is_file or texto_usuario.startswith("[FILE_UPLOAD]"):
+        nombre_archivo = texto_usuario.replace("[FILE_UPLOAD]", "")
+        log_msg = f"IA VISION: Analizando '{nombre_archivo}'... Validando sellos y nitidez."
+        await increment_stat("docs_prevalidados", 1, log_entry=log_msg)
+        await increment_stat("tiempo_ahorrado_hrs", 0.5)
 
-    mensaje_bienvenida = (
-        "🏛️ **ASISTENTE GUBERNAMENTAL PARA EGRESADOS USM** 🏛️\n\n"
-        "Hola, ingeniero. Soy tu asistente virtual especializado en los trámites "
-        "gubernamentales (**GTU, SAREN, MPPRE**).\n\n"
-        "• Escribe **'auditar'** para revisar tu expediente paso a paso.\n"
-        "• Adjunta documentos con el 📎 para validación inmediata.\n"
-        "• O hazme cualquier pregunta sobre los trámites."
-    )
-    await websocket.send_text(mensaje_bienvenida)
+        if session["modo_auditoria"] and session["checklist_paso"] < len(CHECKLIST_SAREN):
+            item_actual = CHECKLIST_SAREN[session["checklist_paso"]]
+            session["checklist_estados"][item_actual["id"]] = "✅"
+            session["checklist_paso"] += 1
+            resumen = formato_checklist_resumen(session["checklist_estados"])
 
-    try:
-        while True:
-            texto_usuario = await websocket.receive_text()
+            if session["checklist_paso"] < len(CHECKLIST_SAREN):
+                siguiente = CHECKLIST_SAREN[session["checklist_paso"]]
+                respuesta = f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
+            else:
+                respuesta = f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n{resumen}\n\n🎉 **¡Expediente completo!** Puedes presentarte en taquilla con confianza. ¡Suerte, ingeniero!"
+                await increment_stat("titulos_blockchain", 1)
+                session["modo_auditoria"] = False
+            return {"reply": respuesta}
+        else:
+            return {"reply": (
+                f"🔍 **`{nombre_archivo}` recibido y analizado.**\n\n"
+                "✅ Metadatos correctos.\n"
+                "✅ Nitidez de escaneo aceptable.\n"
+                "⚠️ Verifica que esté impreso a doble cara si es para el SAREN.\n\n"
+                "Escribe **'auditar'** para una revisión guiada completa."
+            )}
 
-            # ── Archivo adjunto ───────────────────────────────────────────
-            if texto_usuario.startswith("[FILE_UPLOAD]"):
-                nombre_archivo = texto_usuario.replace("[FILE_UPLOAD]", "")
-                await asyncio.sleep(1.2)
+    if session["modo_auditoria"]:
+        item_actual = CHECKLIST_SAREN[session["checklist_paso"]]
+        respuesta_lower = texto_usuario.strip().lower()
+        aprobado = any(w in respuesta_lower for w in ["sí", "si", "yes", "tengo", "listo", "ok", "claro", "afirmativo"])
 
-                # Incrementar métricas en tiempo real
-                log_msg = f"IA VISION: Analizando '{nombre_archivo}'... Validando sellos y nitidez."
-                await increment_stat("docs_prevalidados", 1, log_entry=log_msg)
+        if aprobado:
+            session["checklist_estados"][item_actual["id"]] = "✅"
+            session["checklist_paso"] += 1
+            resumen = formato_checklist_resumen(session["checklist_estados"])
+
+            if session["checklist_paso"] < len(CHECKLIST_SAREN):
+                siguiente = CHECKLIST_SAREN[session["checklist_paso"]]
+                respuesta = f"✅ **{item_actual['label']}** — APROBADO.\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
+            else:
+                respuesta = f"✅ **{item_actual['label']}** — APROBADO.\n\n{resumen}\n\n🎉 **¡Expediente listo al 100%!** Puedes presentarte en taquilla. ¡Suerte, ingeniero!"
+                await increment_stat("docs_prevalidados", 1)
                 await increment_stat("tiempo_ahorrado_hrs", 0.5)
+                session["modo_auditoria"] = False
+            return {"reply": respuesta}
+        else:
+            session["checklist_estados"][item_actual["id"]] = "❌"
+            resumen = formato_checklist_resumen(session["checklist_estados"])
+            return {"reply": f"{item_actual['pista']}\n\n{resumen}\n\nCuando lo tengas, responde **'listo'** o adjunta el documento con el 📎."}
 
-                if modo_auditoria and checklist_paso < len(CHECKLIST_SAREN):
-                    item_actual = CHECKLIST_SAREN[checklist_paso]
-                    checklist_estados[item_actual["id"]] = "✅"
-                    checklist_paso += 1
-                    resumen = formato_checklist_resumen(checklist_estados)
+    if "auditar" in texto_usuario.lower():
+        session["modo_auditoria"] = True
+        session["checklist_paso"] = 0
+        session["checklist_estados"] = {}
+        return {"reply": (
+            "🔎 **Iniciando Auditoría de Expediente SAREN**\n\n"
+            "Te guiaré por los **5 requisitos obligatorios**.\n"
+            "• Responde **sí** si lo tienes.\n"
+            "• Responde **no** si te falta (te daré las instrucciones exactas).\n"
+            "• O adjunta el documento con el 📎 para verificación visual.\n\n"
+            f"---\n{CHECKLIST_SAREN[0]['pregunta']}"
+        )}
 
-                    if checklist_paso < len(CHECKLIST_SAREN):
-                        siguiente = CHECKLIST_SAREN[checklist_paso]
-                        respuesta = (
-                            f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n"
-                            f"{resumen}\n\n---\n{siguiente['pregunta']}"
-                        )
-                    else:
-                        respuesta = (
-                            f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n"
-                            f"{resumen}\n\n"
-                            "🎉 **¡Expediente completo!** Puedes presentarte en taquilla con confianza. ¡Suerte, ingeniero!"
-                        )
-                        await increment_stat("titulos_blockchain", 1)
-                        modo_auditoria = False
-                else:
-                    respuesta = (
-                        f"🔍 **`{nombre_archivo}` recibido y analizado.**\n\n"
-                        "✅ Metadatos correctos.\n"
-                        "✅ Nitidez de escaneo aceptable.\n"
-                        "⚠️ Verifica que esté impreso a doble cara si es para el SAREN.\n\n"
-                        "Escribe **'auditar'** para una revisión guiada completa."
-                    )
-                await websocket.send_text(respuesta)
-                continue
-
-            # ── Modo auditoría activo ─────────────────────────────────────
-            if modo_auditoria:
-                item_actual = CHECKLIST_SAREN[checklist_paso]
-                respuesta_lower = texto_usuario.strip().lower()
-                aprobado = any(w in respuesta_lower for w in ["sí", "si", "yes", "tengo", "listo", "ok", "claro", "afirmativo"])
-
-                if aprobado:
-                    checklist_estados[item_actual["id"]] = "✅"
-                    checklist_paso += 1
-                    resumen = formato_checklist_resumen(checklist_estados)
-
-                    if checklist_paso < len(CHECKLIST_SAREN):
-                        siguiente = CHECKLIST_SAREN[checklist_paso]
-                        respuesta = (
-                            f"✅ **{item_actual['label']}** — APROBADO.\n\n"
-                            f"{resumen}\n\n---\n{siguiente['pregunta']}"
-                        )
-                    else:
-                        respuesta = (
-                            f"✅ **{item_actual['label']}** — APROBADO.\n\n"
-                            f"{resumen}\n\n"
-                            "🎉 **¡Expediente listo al 100%!** Puedes presentarte en taquilla. ¡Suerte, ingeniero!"
-                        )
-                        await increment_stat("docs_prevalidados", 1)
-                        await increment_stat("tiempo_ahorrado_hrs", 0.5)
-                        modo_auditoria = False
-                else:
-                    checklist_estados[item_actual["id"]] = "❌"
-                    resumen = formato_checklist_resumen(checklist_estados)
-                    respuesta = (
-                        f"{item_actual['pista']}\n\n"
-                        f"{resumen}\n\n"
-                        "Cuando lo tengas, responde **'listo'** o adjunta el documento con el 📎."
-                    )
-
-                await websocket.send_text(respuesta)
-                continue
-
-            # ── Comando auditar ───────────────────────────────────────────
-            if "auditar" in texto_usuario.lower():
-                modo_auditoria = True
-                checklist_paso = 0
-                checklist_estados = {}
-                respuesta = (
-                    "🔎 **Iniciando Auditoría de Expediente SAREN**\n\n"
-                    "Te guiaré por los **5 requisitos obligatorios**.\n"
-                    "• Responde **sí** si lo tienes.\n"
-                    "• Responde **no** si te falta (te daré las instrucciones exactas).\n"
-                    "• O adjunta el documento con el 📎 para verificación visual.\n\n"
-                    f"---\n{CHECKLIST_SAREN[0]['pregunta']}"
-                )
-                await websocket.send_text(respuesta)
-                continue
-
-            # ── Pregunta general ──────────────────────────────────────────
-            respuesta = (
-                f"✅ Consulta recibida: **{texto_usuario}**\n\n"
-                "Según los instructivos vigentes del SAREN/GTU: lleva todos tus documentos en carpeta "
-                "manila tamaño oficio y llega mínimo 1 hora antes de la apertura del Registro. "
-                "Escribe **'auditar'** para una revisión completa de tu expediente."
-            )
-            await websocket.send_text(respuesta)
-
-    except WebSocketDisconnect:
-        await increment_stat("graduandos_activos", -1)
-        print("Cliente desconectado del WebSocket")
+    return {"reply": (
+        f"✅ Consulta recibida: **{texto_usuario}**\n\n"
+        "Según los instructivos vigentes del SAREN/GTU: lleva todos tus documentos en carpeta "
+        "manila tamaño oficio y llega mínimo 1 hora antes de la apertura del Registro. "
+        "Escribe **'auditar'** para una revisión completa de tu expediente."
+    )}

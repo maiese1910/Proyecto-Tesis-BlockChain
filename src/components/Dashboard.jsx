@@ -50,32 +50,32 @@ const Dashboard = ({ user }) => {
   const ws = useRef(null);
 
   useEffect(() => {
-    // Usar el mismo puerto que el backend FastAPI (8000)
-    const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
-    ws.current = new WebSocket(`${WS_URL}/ws/stats`);
-
-    ws.current.onopen = () => setConnected(true);
-
-    ws.current.onmessage = (event) => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    
+    const fetchStats = async () => {
       try {
-        const data = JSON.parse(event.data);
-        setStats(prev => ({ ...prev, ...data }));
-      } catch (_) {}
-    };
-
-    ws.current.onclose = () => setConnected(false);
-
-    // Mantener viva la conexión con ping cada 20s
-    const ping = setInterval(() => {
-      if (ws.current?.readyState === WebSocket.OPEN) {
-        ws.current.send('ping');
+        const response = await fetch(`${API_URL}/`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.stats) {
+            setStats(prev => ({ ...prev, ...data.stats }));
+          }
+          setConnected(true);
+        } else {
+          setConnected(false);
+        }
+      } catch (error) {
+        setConnected(false);
       }
-    }, 20000);
-
-    return () => {
-      clearInterval(ping);
-      ws.current?.close();
     };
+
+    // Fetch immediately
+    fetchStats();
+
+    // Poll every 5 seconds
+    const interval = setInterval(fetchStats, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const statCards = [
