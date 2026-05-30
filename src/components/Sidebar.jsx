@@ -10,7 +10,6 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
     { id: 'survival', label: 'Guía de Supervivencia', icon: <Map className="icon" /> },
     { id: 'pub', label: 'Llenar Planilla PUB', icon: <ClipboardList className="icon" /> },
     { id: 'blockchain', label: 'Verificar Blockchain', icon: <Link className="icon" /> },
-    { id: 'government', label: 'Panel Gubernamental', icon: <ShieldCheck className="icon" style={{ color: '#f59e0b' }} /> },
     { id: 'forms', label: 'Planillas Oficiales', icon: <FileText className="icon" /> },
   ];
 

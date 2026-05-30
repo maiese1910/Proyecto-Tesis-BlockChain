@@ -6,6 +6,7 @@ from web3 import Web3
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 load_dotenv()
 
@@ -27,6 +28,10 @@ app.add_middleware(
 WEB3_PROVIDER_URL = os.getenv("WEB3_PROVIDER_URL")
 CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
 WALLET_PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 # ABI mínima para la función de verificación y registro
 CONTRACT_ABI = [
@@ -216,45 +221,42 @@ async def verify_blockchain_document(doc_hash: str):
 
 DB_FILE = "db.json"
 
-def load_db():
-    if not os.path.exists(DB_FILE):
-        return []
-    try:
-        with open(DB_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_db(data):
-    with open(DB_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+def map_record(r):
+    return {
+        "hash": r.get("hash"),
+        "ownerName": r.get("owner_name"),
+        "cedula": r.get("cedula"),
+        "documentType": r.get("document_type"),
+        "txHash": r.get("tx_hash"),
+        "status": r.get("status"),
+        "timestamp": r.get("created_at")
+    }
 
 @app.get("/blockchain/records")
 async def get_all_records():
     """Obtiene todos los registros (para el Panel Gubernamental)."""
-    return {"success": True, "records": load_db()}
+    if supabase:
+        res = supabase.table("records").select("*").order("created_at", desc=True).execute()
+        return {"success": True, "records": [map_record(r) for r in res.data]}
+    return {"success": False, "error": "Supabase no configurado"}
 
 @app.get("/blockchain/records/cedula/{cedula}")
 async def get_records_by_cedula(cedula: str):
     """Obtiene los registros de un estudiante específico (para el Timeline)."""
-    records = load_db()
-    user_records = [r for r in records if r.get("cedula") == cedula]
-    return {"success": True, "records": user_records}
+    if supabase:
+        res = supabase.table("records").select("*").eq("cedula", cedula).order("created_at", desc=True).execute()
+        return {"success": True, "records": [map_record(r) for r in res.data]}
+    return {"success": False, "error": "Supabase no configurado"}
 
 @app.post("/blockchain/records/{doc_hash}/verify")
 async def verify_record_status(doc_hash: str):
     """Actualiza el estado de un registro a verificado (por el ente gubernamental)."""
-    records = load_db()
-    found = False
-    for r in records:
-        if r.get("hash") == doc_hash:
-            r["status"] = "Verificado por SAREN/MPPRE"
-            found = True
-            break
-    if found:
-        save_db(records)
-        return {"success": True, "message": "Documento verificado exitosamente."}
-    raise HTTPException(status_code=404, detail="Documento no encontrado.")
+    if supabase:
+        res = supabase.table("records").update({"status": "Verificado por SAREN/MPPRE"}).eq("hash", doc_hash).execute()
+        if len(res.data) > 0:
+            return {"success": True, "message": "Documento verificado exitosamente."}
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+    raise HTTPException(status_code=500, detail="Supabase no configurado.")
 
 @app.post("/blockchain/register")
 async def register_blockchain_document(data: dict):
@@ -272,17 +274,15 @@ async def register_blockchain_document(data: dict):
             await increment_stat("titulos_blockchain", 1, log_entry=log_msg)
             
             # Guardar en base de datos local para el panel gubernamental
-            records = load_db()
-            records.insert(0, {
-                "hash": doc_hash,
-                "ownerName": owner,
-                "cedula": cedula,
-                "documentType": doc_type,
-                "txHash": tx_hash,
-                "timestamp": str(datetime.datetime.now()),
-                "status": "Pendiente de Auditoría"
-            })
-            save_db(records)
+            if supabase:
+                supabase.table("records").insert({
+                    "hash": doc_hash,
+                    "owner_name": owner,
+                    "cedula": cedula,
+                    "document_type": doc_type,
+                    "tx_hash": tx_hash,
+                    "status": "Pendiente de Auditoría"
+                }).execute()
             
             return {
                 "success": True,
