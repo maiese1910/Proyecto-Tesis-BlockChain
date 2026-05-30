@@ -38,7 +38,7 @@ const AnimatedNumber = ({ value, suffix = '' }) => {
   );
 };
 
-const Dashboard = () => {
+const Dashboard = ({ user }) => {
   const [stats, setStats] = useState({
     graduandos_activos: 0,
     docs_prevalidados: 0,
