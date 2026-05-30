@@ -1,16 +1,29 @@
 {
-  "rewrites": [
+  "builds": [
     {
-      "source": "/blockchain/(.*)",
-      "destination": "/api/main.py"
+      "src": "api/main.py",
+      "use": "@vercel/python"
     },
     {
-      "source": "/ws/(.*)",
-      "destination": "/api/main.py"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/blockchain/(.*)",
+      "dest": "/api/main.py"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/ws/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
