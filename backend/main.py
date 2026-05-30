@@ -214,9 +214,44 @@ async def verify_blockchain_document(doc_hash: str):
         raise HTTPException(status_code=500, detail=f"Error consultando la blockchain: {str(e)}")
 
 
+DB_FILE = "db.json"
+
+def load_db():
+    if not os.path.exists(DB_FILE):
+        return []
+    try:
+        with open(DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_db(data):
+    with open(DB_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+@app.get("/blockchain/records")
+async def get_all_records():
+    """Obtiene todos los registros (para el Panel Gubernamental)."""
+    return {"success": True, "records": load_db()}
+
+@app.post("/blockchain/records/{doc_hash}/verify")
+async def verify_record_status(doc_hash: str):
+    """Actualiza el estado de un registro a verificado (por el ente gubernamental)."""
+    records = load_db()
+    found = False
+    for r in records:
+        if r.get("hash") == doc_hash:
+            r["status"] = "Verificado por SAREN/MPPRE"
+            found = True
+            break
+    if found:
+        save_db(records)
+        return {"success": True, "message": "Documento verificado exitosamente."}
+    raise HTTPException(status_code=404, detail="Documento no encontrado.")
+
 @app.post("/blockchain/register")
 async def register_blockchain_document(data: dict):
-    """Registra un nuevo documento en la blockchain."""
+    """Registra un nuevo documento en la blockchain y localmente para el panel."""
     try:
         doc_hash = data.get("hash")
         owner = data.get("ownerName")
@@ -228,6 +263,20 @@ async def register_blockchain_document(data: dict):
         if tx_hash:
             log_msg = f"NUEVO REGISTRO: {doc_type} de {owner} (C.I. {cedula}) emitido exitosamente."
             await increment_stat("titulos_blockchain", 1, log_entry=log_msg)
+            
+            # Guardar en base de datos local para el panel gubernamental
+            records = load_db()
+            records.insert(0, {
+                "hash": doc_hash,
+                "ownerName": owner,
+                "cedula": cedula,
+                "documentType": doc_type,
+                "txHash": tx_hash,
+                "timestamp": str(datetime.datetime.now()),
+                "status": "Pendiente de Auditoría"
+            })
+            save_db(records)
+            
             return {
                 "success": True,
                 "txHash": tx_hash,

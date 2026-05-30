@@ -50,7 +50,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Usar el mismo puerto que el backend FastAPI (8000)
-    ws.current = new WebSocket('ws://localhost:8000/ws/stats');
+    const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+    ws.current = new WebSocket(`${WS_URL}/ws/stats`);
 
     ws.current.onopen = () => setConnected(true);
 

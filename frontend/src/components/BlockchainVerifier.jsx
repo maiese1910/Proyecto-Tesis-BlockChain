@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Conexión real con el backend FastAPI → Blockchain
 const verifyOnChain = async (hash) => {
   try {
-    const response = await fetch(`http://localhost:8000/blockchain/verify/${hash}`);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const response = await fetch(`${API_URL}/blockchain/verify/${hash}`);
     if (!response.ok) throw new Error('Error en la comunicación con el servidor');
     return await response.json();
   } catch (error) {

@@ -8,7 +8,8 @@ const ToastNotification = () => {
 
   useEffect(() => {
     // Conectar al WebSocket global de estadísticas
-    const websocket = new WebSocket('ws://localhost:8000/ws/stats');
+    const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+    const websocket = new WebSocket(`${WS_URL}/ws/stats`);
     let lastLogCount = 0;
 
     websocket.onmessage = (event) => {

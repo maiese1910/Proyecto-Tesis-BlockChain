@@ -11,7 +11,8 @@ const DigitalCertificate = ({ docHash, onClose }) => {
   useEffect(() => {
     const fetchCertificate = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/blockchain/certificate/${docHash}`);
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_URL}/blockchain/certificate/${docHash}`);
         if (!response.ok) {
           throw new Error('No se pudo obtener el certificado de la Blockchain.');
         }

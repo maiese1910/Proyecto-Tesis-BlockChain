@@ -231,7 +231,8 @@ const PUBForm = () => {
     
     try {
       const hash = generateHash(formData);
-      const response = await fetch('http://localhost:8000/blockchain/register', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_URL}/blockchain/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

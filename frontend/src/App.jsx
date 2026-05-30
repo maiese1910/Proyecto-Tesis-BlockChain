@@ -8,6 +8,7 @@ import ChatBotWidget from './components/ChatBotWidget';
 import PUBForm from './components/PUBForm';
 import BlockchainVerifier from './components/BlockchainVerifier';
 import ToastNotification from './components/ToastNotification';
+import GovernmentPanel from './components/GovernmentPanel';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -48,6 +49,8 @@ function App() {
         return <PUBForm user={user} />;
       case 'blockchain':
         return <BlockchainVerifier />;
+      case 'government':
+        return <GovernmentPanel />;
       case 'chat':
         return (
           <div className="view-container" style={{ padding: '2rem 0' }}>
