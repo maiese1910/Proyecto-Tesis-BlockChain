@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Wallet, ShieldCheck } from 'lucide-react';
 
@@ -6,6 +6,33 @@ const WalletConnect = () => {
   const [address, setAddress] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto-conectar si ya se dio permiso previamente
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (typeof window.ethereum !== 'undefined') {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            setAddress(accounts[0]);
+          }
+        } catch (err) {
+          console.error("Error auto-connecting:", err);
+        }
+      }
+    };
+    checkConnection();
+
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length > 0) {
+          setAddress(accounts[0]);
+        } else {
+          setAddress(null);
+        }
+      });
+    }
+  }, []);
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -22,15 +49,6 @@ const WalletConnect = () => {
         const address = await signer.getAddress();
         
         setAddress(address);
-        
-        // Listen for account changes
-        window.ethereum.on('accountsChanged', (accounts) => {
-          if (accounts.length > 0) {
-            setAddress(accounts[0]);
-          } else {
-            setAddress(null);
-          }
-        });
       } catch (err) {
         console.error(err);
         setError('Error al conectar la billetera.');

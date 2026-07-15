@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Clock, ShieldCheck, MapPin } from 'lucide-react';
+import { blockchainAPI } from '../services/api';
 
 const TrackingTimeline = ({ user }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
   useEffect(() => {
     const fetchRecords = async () => {
       if (!user?.cedula) return;
       try {
-        const response = await fetch(`${API_URL}/blockchain/records/cedula/${user.cedula}`);
-        const data = await response.json();
+        const data = await blockchainAPI.getRecordsByCedula(user.cedula);
         if (data.success) {
           setRecords(data.records);
         }

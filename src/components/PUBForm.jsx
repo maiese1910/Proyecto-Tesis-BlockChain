@@ -3,6 +3,7 @@ import { Send, FileText, Download, ShieldCheck, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2pdf from 'html2pdf.js';
 import DigitalCertificate from './DigitalCertificate';
+import { blockchainAPI, hashAPI } from '../services/api';
 
 // ─── Validadores por campo ───────────────────────────────────────────────────
 const validators = {
@@ -109,17 +110,9 @@ const PUB_FIELDS = [
   },
 ];
 
-// ─── Generador de hash simulado (SHA256-like display) ────────────────────────
-const generateHash = (data) => {
-  const str = JSON.stringify(data) + Date.now();
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  const hex = Math.abs(hash).toString(16).padStart(8, '0');
-  return `0x${hex}${Math.random().toString(16).slice(2, 10)}${Math.random().toString(16).slice(2, 18)}`.toUpperCase();
+// ─── Generador de hash SHA-256 REAL usando Web Crypto API ──────────────────
+const generateHash = async (data) => {
+  return await hashAPI.generateClientHash(data);
 };
 
 const PUBForm = () => {
@@ -231,26 +224,19 @@ const PUBForm = () => {
     addBotMessage('⛓️ **Registrando huella digital en Blockchain (Sepolia)...**\n\nPor favor confirma la transacción en tu dispositivo si es necesario.');
     
     try {
-      const hash = generateHash(formData);
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_URL}/blockchain/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hash: hash,
-          ownerName: formData.nombre_completo,
-          cedula: formData.cedula,
-          documentType: formData.tramite
-        })
+      const hash = await generateHash(formData);
+      const data = await blockchainAPI.register({
+        hash: hash,
+        ownerName: formData.nombre_completo,
+        cedula: formData.cedula,
+        documentType: formData.tramite
       });
-
-      const data = await response.json();
 
       if (data.success) {
         setBlockchainHash(hash);
         addBotMessage(
           `🔐 **¡Registro exitoso en Blockchain!**\n\n` +
-          `**Hash del documento:**\n\`${hash}\`\n\n` +
+          `**Hash del documento (SHA-256 real):**\n\`${hash}\`\n\n` +
           `**Transaction Hash:**\n\`${data.txHash}\`\n\n` +
           `Este registro es inmutable. Puedes verificarlo en [Etherscan](${data.certificateUrl}).`
         );

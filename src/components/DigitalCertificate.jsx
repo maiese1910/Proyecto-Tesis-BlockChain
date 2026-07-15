@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import html2pdf from 'html2pdf.js';
 import { X, CheckCircle, Shield, Printer, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { blockchainAPI } from '../services/api';
 
 const DigitalCertificate = ({ docHash, onClose }) => {
   const [certData, setCertData] = useState(null);
@@ -12,15 +13,10 @@ const DigitalCertificate = ({ docHash, onClose }) => {
   useEffect(() => {
     const fetchCertificate = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${API_URL}/blockchain/certificate/${docHash}`);
-        if (!response.ok) {
-          throw new Error('No se pudo obtener el certificado de la Blockchain.');
-        }
-        const data = await response.json();
+        const data = await blockchainAPI.getCertificate(docHash);
         setCertData(data);
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'No se pudo obtener el certificado de la Blockchain.');
       } finally {
         setLoading(false);
       }

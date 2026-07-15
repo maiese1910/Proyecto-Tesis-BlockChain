@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { blockchainAPI } from '../services/api';
 
 // Conexión real con el backend FastAPI → Blockchain
 const verifyOnChain = async (hash) => {
   try {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    const response = await fetch(`${API_URL}/blockchain/verify/${hash}`);
-    if (!response.ok) throw new Error('Error en la comunicación con el servidor');
-    return await response.json();
+    return await blockchainAPI.verify(hash);
   } catch (error) {
     console.error("Verification Error:", error);
     return { exists: false, error: "No se pudo conectar con el servicio de verificación." };

@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 
 venv/
+__pycache__/
+*.pyc
+
+# Archivos sensibles - NUNCA subir
+.env
+.env.local
+.env.production

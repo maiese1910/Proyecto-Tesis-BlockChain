@@ -1,11 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Sun, Navigation, Info, ShieldAlert, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { dynamicDataAPI } from '../services/api';
 
 const SurvivalGuide = () => {
   const [tramite, setTramite] = useState('');
   const [turno, setTurno] = useState('');
   const [showGuide, setShowGuide] = useState(false);
+  const [guiasDB, setGuiasDB] = useState(null);
+
+  // Cargar guías dinámicas desde el servidor
+  useEffect(() => {
+    dynamicDataAPI.getGuias()
+      .then(data => {
+        if (data.success && data.guias) {
+          const db = {};
+          data.guias.forEach(g => {
+            db[g.ente] = {
+              location: g.location,
+              warning: g.warning,
+              image: g.image_url || '',
+              steps: (turno) => {
+                // Map steps with icons based on index
+                const icons = [
+                  <Clock color="var(--primary)" />,
+                  <ShieldAlert color="var(--danger)" />,
+                  <Navigation color="var(--warning)" />,
+                  <MapPin color="var(--success)" />,
+                ];
+                return (g.steps || []).map((s, i) => ({
+                  ...s,
+                  icon: icons[i % icons.length]
+                }));
+              }
+            };
+          });
+          setGuiasDB(db);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Base de datos de logística de supervivencia (Entes Gubernamentales)
   const logicDB = {
@@ -81,7 +115,9 @@ const SurvivalGuide = () => {
     if (tramite && turno) setShowGuide(true);
   };
 
-  const currentLogic = tramite ? logicDB[tramite] : null;
+  // Preferir datos dinámicos (Supabase) sobre estáticos
+  const activeDB = guiasDB || logicDB;
+  const currentLogic = tramite ? activeDB[tramite] : null;
 
   return (
     <div className="view-container">

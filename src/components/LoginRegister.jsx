@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GraduationCap, User, CreditCard, BookOpen, ArrowRight, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { profilesAPI, dynamicDataAPI } from '../services/api';
 
 const LoginRegister = ({ onLogin }) => {
   const [mode, setMode] = useState('welcome'); // welcome | register | login
@@ -13,14 +14,20 @@ const LoginRegister = ({ onLogin }) => {
     return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
-  const carreras = [
+  const [carreras, setCarreras] = useState([
     'Ingeniería en Sistemas', 'Ingeniería Civil', 'Ingeniería Industrial',
     'Ingeniería Eléctrica', 'Ingeniería Mecánica', 'Arquitectura',
-  ];
+  ]);
+
+  // Cargar carreras dinámicamente desde el servidor
+  useEffect(() => {
+    dynamicDataAPI.getCarreras()
+      .then(data => { if (data.carreras) setCarreras(data.carreras); })
+      .catch(() => {});
+  }, []);
 
   const [loginCedula, setLoginCedula] = useState('');
   const [loading, setLoading] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
 
   const validateAndRegister = async () => {
     if (!form.nombre.trim() || form.nombre.trim().split(' ').length < 2)
@@ -41,12 +48,7 @@ const LoginRegister = ({ onLogin }) => {
     };
 
     try {
-      const res = await fetch(`${API_URL}/profiles/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
-      });
-      const data = await res.json();
+      const data = await profilesAPI.register(user);
       if (data.success) {
         localStorage.setItem('usm_user', JSON.stringify(user));
         onLogin(user);
@@ -54,7 +56,7 @@ const LoginRegister = ({ onLogin }) => {
         setError('Error al crear perfil en la nube.');
       }
     } catch (err) {
-      setError('Error de conexión con el servidor.');
+      setError(err.message || 'Error de conexión con el servidor.');
     } finally {
       setLoading(false);
     }
@@ -72,17 +74,16 @@ const LoginRegister = ({ onLogin }) => {
         queryCedula = `V-${formatCedula(queryCedula)}`;
       }
 
-      const res = await fetch(`${API_URL}/profiles/${queryCedula}`);
-      const data = await res.json();
+      const data = await profilesAPI.getProfile(queryCedula);
 
       if (data.success && data.profile) {
         localStorage.setItem('usm_user', JSON.stringify(data.profile));
         onLogin(data.profile);
       } else {
-        setError(data.detail || 'Perfil no encontrado. Verifica tu cédula o regístrate.');
+        setError('Perfil no encontrado. Verifica tu cédula o regístrate.');
       }
     } catch (err) {
-      setError('Error al conectar con la base de datos.');
+      setError(err.message || 'Error al conectar con la base de datos.');
     } finally {
       setLoading(false);
     }

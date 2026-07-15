@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Users, FileCheck, Clock, Award } from 'lucide-react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion } from 'framer-motion';
 import TrackingTimeline from './TrackingTimeline';
+import { statsAPI } from '../services/api';
 
 // Componente que anima un número cuando cambia
 const AnimatedNumber = ({ value, suffix = '' }) => {
@@ -50,31 +51,20 @@ const Dashboard = ({ user }) => {
   const ws = useRef(null);
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
-    
     const fetchStats = async () => {
       try {
-        const response = await fetch(`${API_URL}/`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.stats) {
-            setStats(prev => ({ ...prev, ...data.stats }));
-          }
-          setConnected(true);
-        } else {
-          setConnected(false);
+        const data = await statsAPI.getStats();
+        if (data.stats) {
+          setStats(prev => ({ ...prev, ...data.stats }));
         }
+        setConnected(true);
       } catch (error) {
         setConnected(false);
       }
     };
 
-    // Fetch immediately
     fetchStats();
-
-    // Poll every 5 seconds
     const interval = setInterval(fetchStats, 5000);
-
     return () => clearInterval(interval);
   }, []);
 

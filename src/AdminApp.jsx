@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Shield, KeyRound, Lock } from 'lucide-react';
 import GovernmentPanel from './components/GovernmentPanel';
+import AdminDashboard from './components/AdminDashboard';
 import ToastNotification from './components/ToastNotification';
+import { authAPI } from './services/api';
 
 const AdminLogin = ({ onLogin }) => {
   const [mode, setMode] = useState('login'); // login | register
@@ -12,8 +14,6 @@ const AdminLogin = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
-
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!username || !password) return setError('Ingresa usuario y contraseña.');
@@ -21,19 +21,14 @@ const AdminLogin = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
+      const data = await authAPI.loginAdmin(username, password);
       if (data.success) {
         onLogin(data);
       } else {
-        setError(data.detail || 'Credenciales inválidas. Acceso denegado.');
+        setError('Credenciales inválidas. Acceso denegado.');
       }
     } catch (err) {
-      setError('Error de conexión con el servidor.');
+      setError(err.message || 'Error de conexión con el servidor.');
     } finally {
       setLoading(false);
     }
@@ -46,20 +41,14 @@ const AdminLogin = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/admin/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, cargo, ente })
-      });
-      const data = await res.json();
+      const data = await authAPI.registerAdmin({ username, password, cargo, ente });
       if (data.success) {
-        // Log them in immediately after registration
-        onLogin({ username, cargo, ente, token: 'admin-super-token-123' });
+        onLogin({ username, cargo, ente, token: data.token });
       } else {
-        setError(data.detail || 'Error al registrar.');
+        setError('Error al registrar.');
       }
     } catch (err) {
-      setError('Error de conexión con el servidor.');
+      setError(err.message || 'Error de conexión con el servidor.');
     } finally {
       setLoading(false);
     }
@@ -181,7 +170,11 @@ const AdminApp = () => {
           </button>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
-          <GovernmentPanel />
+          {(adminData?.ente === 'USM' || adminData?.ente === 'GTU') ? (
+            <AdminDashboard adminData={adminData} />
+          ) : (
+            <GovernmentPanel />
+          )}
         </div>
       </div>
     </div>

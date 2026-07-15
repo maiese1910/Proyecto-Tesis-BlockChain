@@ -22,15 +22,35 @@
       "dest": "/api/main.py"
     },
     {
-      "src": "/admin/login",
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/admin/users",
+      "src": "/admin/(.*)",
       "dest": "/api/main.py"
     },
     {
       "src": "/profiles/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/chat/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/hash/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/carreras",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/guias",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/planillas",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/pub/(.*)",
       "dest": "/api/main.py"
     },
     { "handle": "filesystem" },

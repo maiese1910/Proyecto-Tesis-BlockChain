@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
+import { blockchainAPI } from '../services/api';
 
 const GovernmentPanel = () => {
   const [records, setRecords] = useState([]);
@@ -7,12 +8,9 @@ const GovernmentPanel = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [verifying, setVerifying] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
-
   const fetchRecords = async () => {
     try {
-      const response = await fetch(`${API_URL}/blockchain/records`);
-      const data = await response.json();
+      const data = await blockchainAPI.getAllRecords();
       if (data.success) {
         setRecords(data.records);
       }
@@ -33,12 +31,8 @@ const GovernmentPanel = () => {
   const handleVerify = async (hash) => {
     setVerifying(hash);
     try {
-      const response = await fetch(`${API_URL}/blockchain/records/${hash}/verify`, {
-        method: 'POST'
-      });
-      const data = await response.json();
+      const data = await blockchainAPI.verifyRecord(hash);
       if (data.success) {
-        // Update local state immediately
         setRecords(prev => prev.map(r => 
           r.hash === hash ? { ...r, status: "Verificado por SAREN/MPPRE" } : r
         ));
@@ -59,12 +53,8 @@ const GovernmentPanel = () => {
     e.preventDefault();
     setAdminMsg('Creando...');
     try {
-      const response = await fetch(`${API_URL}/admin/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAdmin)
-      });
-      const data = await response.json();
+      const { authAPI } = await import('../services/api');
+      const data = await authAPI.registerAdmin(newAdmin);
       if (data.success) {
         setAdminMsg('✅ Administrador creado exitosamente.');
         setNewAdmin({ username: '', password: '' });
@@ -73,7 +63,7 @@ const GovernmentPanel = () => {
         setAdminMsg(`❌ Error: ${data.detail || 'No se pudo crear'}`);
       }
     } catch (err) {
-      setAdminMsg('❌ Error de conexión.');
+      setAdminMsg(`❌ Error: ${err.message || 'Error de conexión.'}`);
     }
   };
 

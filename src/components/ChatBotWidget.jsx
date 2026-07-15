@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Paperclip, Send } from 'lucide-react';
+import { chatAPI } from '../services/api';
 
-const ChatBotWidget = () => {
+const ChatBotWidget = ({ user }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState('');
   const [status, setStatus] = useState('Conectando...');
   const [isConnected, setIsConnected] = useState(false);
-  
-  const ws = useRef(null);
+
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -15,59 +15,59 @@ const ChatBotWidget = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const getSessionId = () => {
+    if (user?.cedula) return user.cedula;
+    const stored = localStorage.getItem('usm_user');
+    if (stored) {
+      try { return JSON.parse(stored).cedula; } catch(_) {}
+    }
+    return 'default';
+  };
+
   useEffect(() => {
-    // Check connection by pinging root
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    fetch(`${API_URL}/`)
-      .then(res => {
-        if(res.ok) {
-          setStatus('En línea');
-          setIsConnected(true);
-        }
-      })
-      .catch(() => setStatus('Desconectado'));
-      
-    // Enviar /start silencioso para iniciar sesion
+    // Check connection and send /start
     sendMessage('/start', true);
   }, []);
 
   const sendMessage = async (text, isInit = false, isFile = false) => {
     if (!text.trim() && !isFile) return;
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    const sessionId = localStorage.getItem('usm_user') ? JSON.parse(localStorage.getItem('usm_user')).cedula : 'default';
 
     if (!isInit) {
       setMessages((prev) => [...prev, { text, sender: 'user', isFile }]);
     }
 
     try {
-      const res = await fetch(`${API_URL}/chat/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: text, is_file: isFile })
-      });
-      const data = await res.json();
+      const data = await chatAPI.sendMessage(getSessionId(), text, isFile);
       let formattedText = data.reply
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>');
       setMessages((prev) => [...prev, { text: formattedText, sender: 'bot' }]);
+      setStatus('En línea');
+      setIsConnected(true);
     } catch(err) {
-      setMessages((prev) => [...prev, { text: 'Error de conexión...', sender: 'bot' }]);
+      if (isInit) {
+        setStatus('Desconectado');
+        setIsConnected(false);
+      } else {
+        setMessages((prev) => [...prev, { text: 'Error de conexión con el servidor...', sender: 'bot' }]);
+      }
     }
   };
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (!isConnected) return;
+    if (!inputVal.trim()) return;
     sendMessage(inputVal);
     setInputVal('');
   };
 
+  const handleAudit = () => {
+    sendMessage('auditar');
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (!file || !isConnected) return;
-
-    const fileMsg = `📎 Documento adjunto: ${file.name}`;
+    if (!file) return;
     sendMessage(`[FILE_UPLOAD]${file.name}`, false, true);
     e.target.value = null;
   };
@@ -93,12 +93,7 @@ const ChatBotWidget = () => {
         <div style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.5rem' }}>
           <button
             type="button"
-            onClick={() => {
-              if (!isConnected) return;
-              const msg = "auditar";
-              setMessages(prev => [...prev, { text: msg, sender: 'user' }]);
-              ws.current.send(msg);
-            }}
+            onClick={handleAudit}
             disabled={!isConnected}
             style={{
               background: 'rgba(14, 165, 233, 0.15)',
@@ -117,16 +112,16 @@ const ChatBotWidget = () => {
         </div>
 
         <form className="input-wrapper" onSubmit={handleSend}>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            style={{ display: 'none' }} 
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
             onChange={handleFileUpload}
             accept=".pdf,.jpg,.jpeg,.png"
           />
-          <button 
-            type="button" 
-            className="send-btn" 
+          <button
+            type="button"
+            className="send-btn"
             style={{ padding: '0 1rem', background: 'rgba(255,255,255,0.1)', color: 'var(--text-muted)' }}
             onClick={() => fileInputRef.current.click()}
             title="Adjuntar documento para verificación"
@@ -134,10 +129,10 @@ const ChatBotWidget = () => {
             <Paperclip size={20} />
           </button>
 
-          <input 
-            type="text" 
+          <input
+            type="text"
             className="chat-input"
-            placeholder={isConnected ? "Escribe 'sí / no / listo' o tu pregunta..." : "Esperando conexión..."} 
+            placeholder={isConnected ? "Escribe 'sí / no / listo' o tu pregunta..." : "Esperando conexión..."}
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             disabled={!isConnected}

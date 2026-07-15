@@ -22,7 +22,7 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
 
       {/* Perfil del usuario */}
       {user && (
-        <div style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
+        <div className="user-profile" style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
           <div style={{ background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <User size={18} color="white" />

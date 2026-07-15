@@ -395,3 +395,88 @@ select.chat-input option {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* ==========================================================================
+   Responsive Design (Mobile & Tablet)
+   ========================================================================== */
+@media (max-width: 900px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-brand {
+    padding: 0;
+    margin: 0;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sidebar-brand h1 {
+    font-size: 1.2rem;
+    margin: 0;
+  }
+  
+  .sidebar-brand p {
+    display: none;
+  }
+
+  .user-profile {
+    display: none;
+  }
+
+  .nav-menu {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0;
+    gap: 0.5rem;
+  }
+
+  /* Hide scrollbar for nav-menu on mobile */
+  .nav-menu::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 0.6rem;
+    border-radius: 50%; /* Make them circles */
+    justify-content: center;
+  }
+  
+  .nav-item span {
+    display: none; /* Hide text, only show icons */
+  }
+
+  .main-content {
+    padding: 1rem;
+    padding-bottom: 5rem; /* Space for bottom nav if needed */
+  }
+
+  .glass-panel {
+    padding: 1.5rem;
+  }
+  
+  .dashboard-header h2 {
+    font-size: 1.8rem;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-zone {
+    padding: 1.5rem;
+  }
+}
