@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, FileText, Download, ShieldCheck, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2pdf from 'html2pdf.js';
+import { QRCodeSVG } from 'qrcode.react';
 import DigitalCertificate from './DigitalCertificate';
 import { blockchainAPI, hashAPI } from '../services/api';
 
@@ -525,9 +526,8 @@ const PUBForm = () => {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e0', padding: '0.5rem' }}>
                  <p style={{ fontSize: '0.5rem', color: '#a0aec0', marginBottom: '0.3rem', textAlign: 'center' }}>Timbre Fiscal Electrónico (Blockchain)</p>
                  {blockchainHash ? (
-                   <div style={{ background: '#000', width: '60px', height: '60px', display: 'grid', placeItems: 'center' }}>
-                     {/* Simulación visual de QR usando bloques css */}
-                     <div style={{ width: '50px', height: '50px', background: 'repeating-linear-gradient(45deg, #fff 0px, #fff 2px, #000 2px, #000 4px)', border: '2px solid #fff' }}></div>
+                   <div style={{ width: '60px', height: '60px', display: 'grid', placeItems: 'center' }}>
+                     <QRCodeSVG value={`${window.location.origin}/scanner?hash=${blockchainHash}`} size={60} />
                    </div>
                  ) : (
                    <div style={{ width: '60px', height: '60px', background: '#edf2f7' }}></div>
