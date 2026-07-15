@@ -563,7 +563,6 @@ const PUBForm = () => {
               </motion.div>
             )}
           </AnimatePresence>
-          </div>
 
           {isComplete && !blockchainHash && (
             <motion.div
