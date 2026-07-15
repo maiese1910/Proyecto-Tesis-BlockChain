@@ -12,8 +12,11 @@ const renderApp = () => {
   return <App />
 }
 
+import { Analytics } from '@vercel/analytics/react';
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {renderApp()}
+    <Analytics />
   </React.StrictMode>,
 )
