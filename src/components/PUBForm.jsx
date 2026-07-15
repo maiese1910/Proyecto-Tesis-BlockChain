@@ -48,6 +48,10 @@ const validators = {
       return 'El monto debe ser mayor a cero.';
     return null;
   },
+  confirmacion_pago: (v) => {
+    if (v.trim().toLowerCase() !== 'listo') return 'Debes escribir **"listo"** cuando hayas realizado la transferencia para continuar.';
+    return null;
+  }
 };
 
 // ─── Definición de campos de la PUB ─────────────────────────────────────────
@@ -84,8 +88,8 @@ const PUB_FIELDS = [
     id: 'tramite',
     label: 'Tipo de Trámite',
     placeholder: 'Registro de Título Universitario',
-    pregunta: '**Campo 5 — Tipo de Trámite**\n\nEscribe el tipo de trámite. Para egresados USM suele ser:\n• *Registro de Título Universitario*\n• *Apostilla de Documento Educativo*',
-    ayuda: 'Escribe exactamente **"Registro de Título Universitario"**. No uses abreviaciones; el funcionario puede rechazarlo.',
+    pregunta: '**Campo 5 — Tipo de Trámite**\n\nEscribe el tipo de trámite. Ejemplos:\n• *Registro de Título Universitario*\n• *Apostilla de Documento Educativo*\n• *Legalización*',
+    ayuda: 'Escribe exactamente el nombre del trámite. La IA calculará el costo basado en esto.',
   },
   {
     id: 'institucion',
@@ -95,19 +99,12 @@ const PUB_FIELDS = [
     ayuda: 'Escribe el nombre oficial completo: **"Universidad Santa María"**. No uses variantes informales.',
   },
   {
-    id: 'banco',
-    label: 'Banco Receptor del Pago',
-    placeholder: 'Ej: Banco de Venezuela',
-    pregunta: '**Campo 7 — Banco Receptor**\n\n¿En qué banco realizaste el pago del arancel del SAREN?\n*(Ej: Banco de Venezuela, Banesco, BNC)*',
-    ayuda: 'Indica el banco donde hiciste el pago del arancel, no tu banco personal. Verifica en la sede del Registro cuál aceptan actualmente.',
-  },
-  {
-    id: 'monto',
-    label: 'Monto Pagado (Bs.)',
-    placeholder: 'Ej: 150.00',
-    pregunta: '**Campo 8 — Monto del Arancel (último campo)**\n\n¿Cuál fue el monto exacto pagado en el banco? (en Bs.)',
-    ayuda: 'Usa el monto exacto del comprobante bancario incluyendo los céntimos. Ejemplo: **150.00**. Cualquier diferencia causará rechazo.',
-  },
+    id: 'confirmacion_pago',
+    label: 'Confirmación de Pago',
+    placeholder: 'Escribe "listo"',
+    pregunta: '', // Se genera dinámicamente
+    ayuda: 'Realiza la transferencia al número de cuenta indicado y escribe "listo".',
+  }
 ];
 
 // ─── Generador de hash SHA-256 REAL usando Web Crypto API ──────────────────
@@ -203,17 +200,49 @@ const PUBForm = () => {
 
     if (nextIndex < PUB_FIELDS.length) {
       setCurrentFieldIndex(nextIndex);
-      setTimeout(() => {
-        addBotMessage(`✅ **${currentField.label}** registrado correctamente.\n\n${PUB_FIELDS[nextIndex].pregunta}`);
-      }, 450);
+      
+      // Lógica especial de calculadora de aranceles antes de pedir la confirmación de pago
+      if (PUB_FIELDS[nextIndex].id === 'confirmacion_pago') {
+        // Simular cálculo de IA basado en el trámite
+        const tramiteLower = updatedData.tramite.toLowerCase();
+        let montoCalculado = 0;
+        let ut = 0;
+        
+        if (tramiteLower.includes('titulo') || tramiteLower.includes('título')) {
+          ut = 5;
+          montoCalculado = 450.00; // 5 UT a 90 Bs
+        } else if (tramiteLower.includes('apostilla')) {
+          ut = 10;
+          montoCalculado = 900.00; // 10 UT a 90 Bs
+        } else {
+          ut = 3;
+          montoCalculado = 270.00; 
+        }
+
+        // Auto-llenar campos invisibles para el PDF
+        setFormData(prev => ({
+          ...prev, 
+          banco: 'Banco de Venezuela', 
+          monto: montoCalculado.toFixed(2),
+          nro_cuenta: '0102-0552-22-0000001234'
+        }));
+
+        setTimeout(() => {
+          addBotMessage(`✅ **Institución Educativa** registrada.\n\n🤖 **Calculadora IA de Aranceles:**\nHe analizado tu trámite (*${updatedData.tramite}*). El costo estipulado por el SAREN corresponde a **${ut} U.T.**\n\n💰 **Monto Total a Pagar: ${montoCalculado.toFixed(2)} Bs.**\n\nPor favor, realiza la transferencia a:\n• **Banco:** Banco de Venezuela\n• **Cuenta:** 0102-0552-22-0000001234\n• **A nombre de:** SAREN Recaudación (G-20000000-0)\n\n👉 Escribe la palabra **"listo"** cuando hayas realizado la transferencia para finalizar tu planilla.`);
+        }, 450);
+      } else {
+        setTimeout(() => {
+          addBotMessage(`✅ **${currentField.label}** registrado correctamente.\n\n${PUB_FIELDS[nextIndex].pregunta}`);
+        }, 450);
+      }
     } else {
       setIsComplete(true);
       setCurrentFieldIndex(-1);
       setTimeout(() => {
         addBotMessage(
           '🎉 **¡Planilla PUB completada y validada al 100%!**\n\n' +
-          'Todos los campos son correctos. Tu documento está limpio y listo.\n\n' +
-          '👉 Ahora puedes **registrar la huella digital (hash) en Blockchain** usando el botón que aparece a la derecha. Esto le dará autenticidad inmutable a tu planilla antes de imprimirla.'
+          'Todos los datos, incluyendo la verificación del arancel, son correctos. Tu planilla oficial está generada en la vista previa.\n\n' +
+          '👉 Ahora **Registra la huella digital en Blockchain** usando el botón de abajo. Esto inmutabilizará tu planilla antes de imprimirla.'
         );
       }, 500);
     }
@@ -403,48 +432,109 @@ const PUBForm = () => {
             )}
           </div>
 
-          <div id="pub-preview" style={{ padding: '1rem', background: 'var(--surface)' }}>
-            {/* Membrete oficial */}
-            <div style={{ textAlign: 'center', borderBottom: '2px solid var(--border)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>República Bolivariana de Venezuela</p>
-              <h4 style={{ fontSize: '1rem', margin: '0.3rem 0' }}>Servicio Autónomo de Registros y Notarías</h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '700', letterSpacing: '1px' }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
+          <div id="pub-preview" style={{ padding: '2rem', background: '#ffffff', color: '#000000', fontFamily: '"Arial", sans-serif', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+            {/* Membrete oficial de VENEZUELA */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1a365d', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ flex: 1 }}>
+                <img src="/images/mppre_facade.png" alt="Escudo" style={{ height: '60px', objectFit: 'contain', opacity: 0.1 }} onError={(e) => e.target.style.display='none'} />
+              </div>
+              <div style={{ textAlign: 'center', flex: 3 }}>
+                <p style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, color: '#4a5568' }}>República Bolivariana de Venezuela</p>
+                <p style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, color: '#4a5568' }}>Ministerio del Poder Popular para Relaciones Interiores, Justicia y Paz</p>
+                <h4 style={{ fontSize: '1.1rem', margin: '0.5rem 0', color: '#1a365d', fontWeight: '900' }}>SERVICIO AUTÓNOMO DE REGISTROS Y NOTARÍAS</h4>
+                <p style={{ fontSize: '0.9rem', color: '#2b6cb0', fontWeight: '800', letterSpacing: '1.5px', margin: 0 }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
+              </div>
+              <div style={{ flex: 1, textAlign: 'right' }}>
+                 <div style={{ display: 'inline-block', border: '1px solid #cbd5e0', padding: '0.5rem', textAlign: 'center' }}>
+                   <p style={{ margin: 0, fontSize: '0.5rem', color: '#718096' }}>NRO. PLANILLA</p>
+                   <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 'bold', fontFamily: 'monospace' }}>PUB-{new Date().getFullYear()}-{Math.floor(Math.random()*1000000).toString().padStart(6,'0')}</p>
+                 </div>
+              </div>
             </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', flex: 1 }}>
-            {PUB_FIELDS.map((field, i) => {
-              const value = formData[field.id];
-              const isCurrent = i === currentFieldIndex;
-              const hasError = fieldErrors[field.id];
-              const isFilled = !!value;
+            {/* Datos del Solicitante */}
+            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Solicitante</h5>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>NOMBRES Y APELLIDOS</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.nombre_completo || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CÉDULA DE IDENTIDAD / PASAPORTE</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.cedula || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>TELÉFONO MÓVIL</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.telefono || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CORREO ELECTRÓNICO</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.correo || '----------------------'}</p>
+              </div>
+            </div>
 
-              return (
-                <motion.div
-                  key={field.id}
-                  animate={{
-                    borderColor: hasError ? 'rgba(239,68,68,0.6)' : isCurrent ? 'rgba(14, 165, 233, 0.6)' : isFilled ? 'rgba(16, 185, 129, 0.4)' : 'var(--border)',
-                    background: hasError ? 'rgba(239,68,68,0.05)' : isCurrent ? 'rgba(14, 165, 233, 0.05)' : isFilled ? 'rgba(16, 185, 129, 0.05)' : 'rgba(255,255,255,0.02)',
-                  }}
-                  transition={{ duration: 0.3 }}
-                  style={{ border: '1px solid', borderRadius: '10px', padding: '0.7rem 1rem' }}
-                >
-                  <p style={{ fontSize: '0.7rem', color: isCurrent ? 'var(--primary)' : 'var(--text-muted)', marginBottom: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    {field.label}
-                  </p>
-                  <AnimatePresence mode="wait">
-                    {isFilled ? (
-                      <motion.p key="filled" initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                        {value}
-                      </motion.p>
-                    ) : (
-                      <p key="empty" style={{ color: isCurrent ? 'var(--primary)' : 'var(--text-muted)', fontSize: '0.85rem', opacity: 0.5 }}>
-                        {isCurrent ? '✍️ Escribiendo...' : field.placeholder}
-                      </p>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              );
-            })}
+            {/* Datos del Trámite */}
+            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Trámite e Institución</h5>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>DESCRIPCIÓN DEL ACTO O NEGOCIO JURÍDICO</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600', textTransform: 'uppercase' }}>{formData.tramite || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>INSTITUCIÓN EDUCATIVA DE ORIGEN</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600', textTransform: 'uppercase' }}>{formData.institucion || '----------------------'}</p>
+              </div>
+            </div>
+
+            {/* Liquidación de Aranceles */}
+            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Liquidación de Aranceles y Tasas</h5>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                 <thead style={{ background: '#f7fafc', borderBottom: '1px solid #e2e8f0' }}>
+                   <tr>
+                     <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#4a5568' }}>CANT.</th>
+                     <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#4a5568' }}>CONCEPTO</th>
+                     <th style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.65rem', color: '#4a5568' }}>MONTO (Bs.)</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   <tr>
+                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7' }}>1</td>
+                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7' }}>Procesamiento de {formData.tramite || 'Trámite'}</td>
+                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7', textAlign: 'right', fontWeight: 'bold' }}>{formData.monto || '0.00'}</td>
+                   </tr>
+                 </tbody>
+                 <tfoot>
+                   <tr style={{ background: '#edf2f7' }}>
+                     <td colSpan="2" style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTAL A PAGAR:</td>
+                     <td style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '900', color: '#e53e3e' }}>Bs. {formData.monto || '0.00'}</td>
+                   </tr>
+                 </tfoot>
+               </table>
+            </div>
+
+            {/* Información Bancaria */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ border: '1px solid #cbd5e0', padding: '0.8rem', borderRadius: '4px', background: '#f8fafc' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.4rem 0', fontWeight: 'bold' }}>INFORMACIÓN DE DEPÓSITO / TRANSFERENCIA</p>
+                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: '0 0 0.2rem 0' }}><strong>BANCO:</strong> {formData.banco || '----------------------'}</p>
+                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: '0 0 0.2rem 0' }}><strong>CUENTA:</strong> {formData.nro_cuenta || '----------------------'}</p>
+                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: 0 }}><strong>ESTADO:</strong> {formData.confirmacion_pago ? 'PAGADO' : 'PENDIENTE'}</p>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e0', padding: '0.5rem' }}>
+                 <p style={{ fontSize: '0.5rem', color: '#a0aec0', marginBottom: '0.3rem', textAlign: 'center' }}>Timbre Fiscal Electrónico (Blockchain)</p>
+                 {blockchainHash ? (
+                   <div style={{ background: '#000', width: '60px', height: '60px', display: 'grid', placeItems: 'center' }}>
+                     {/* Simulación visual de QR usando bloques css */}
+                     <div style={{ width: '50px', height: '50px', background: 'repeating-linear-gradient(45deg, #fff 0px, #fff 2px, #000 2px, #000 4px)', border: '2px solid #fff' }}></div>
+                   </div>
+                 ) : (
+                   <div style={{ width: '60px', height: '60px', background: '#edf2f7' }}></div>
+                 )}
+                 {blockchainHash && <p style={{ fontSize: '0.4rem', marginTop: '0.2rem', fontFamily: 'monospace' }}>{blockchainHash.substring(0, 15)}...</p>}
+              </div>
+            </div>
           </div>
 
           {/* Hash Blockchain */}
