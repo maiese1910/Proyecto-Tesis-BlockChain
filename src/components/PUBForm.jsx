@@ -509,7 +509,8 @@ const PUBForm = () => {
             )}
           </div>
 
-          <div id="pub-preview" style={{ padding: '2rem', background: '#ffffff', color: '#000000', fontFamily: '"Arial", sans-serif', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+          <div className="pdf-preview-container">
+            <div id="pub-preview" style={{ padding: '2rem', background: '#ffffff', color: '#000000', fontFamily: '"Arial", sans-serif', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', minWidth: '700px' }}>
             {/* Membrete oficial de VENEZUELA */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1a365d', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ flex: 1 }}>
@@ -629,6 +630,7 @@ const PUBForm = () => {
               </div>
             </div>
           </div>
+        </div>
 
           {/* Hash Blockchain */}
           <AnimatePresence>
