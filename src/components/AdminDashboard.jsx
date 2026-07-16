@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, FileText, CheckSquare, Map, Plus, Trash2, Edit2, Check, X } from 'lucide-react';
-import { authAPI, dynamicDataAPI } from '../services/api';
+import { authAPI, dynamicDataAPI, adminAPI } from '../services/api';
 
 const AdminDashboard = ({ adminData }) => {
   const [activeTab, setActiveTab] = useState('checklist');
@@ -25,9 +25,7 @@ const AdminDashboard = ({ adminData }) => {
       const token = adminData.token;
       
       if (activeTab === 'checklist') {
-        const data = await fetch(import.meta.env.VITE_API_URL + '/admin/checklist', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).then(r => r.json());
+        const data = await dynamicDataAPI.getChecklist();
         if (data.items) setChecklist(data.items);
       } 
       else if (activeTab === 'planillas') {
@@ -52,14 +50,7 @@ const AdminDashboard = ({ adminData }) => {
   const handleAddChecklist = async (e) => {
     e.preventDefault();
     try {
-      await fetch(import.meta.env.VITE_API_URL + '/admin/checklist', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${adminData.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newChecklist)
-      });
+      await adminAPI.createChecklistItem(newChecklist, adminData.token);
       setNewChecklist({ title: '', description: '', icon: 'FileText' });
       fetchData();
     } catch (err) {
@@ -69,10 +60,7 @@ const AdminDashboard = ({ adminData }) => {
 
   const handleDeleteChecklist = async (id) => {
     try {
-      await fetch(import.meta.env.VITE_API_URL + `/admin/checklist/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${adminData.token}` }
-      });
+      await adminAPI.deleteChecklistItem(id, adminData.token);
       fetchData();
     } catch (err) {
       setError('Error al eliminar');
@@ -82,14 +70,7 @@ const AdminDashboard = ({ adminData }) => {
   const handleAddPlanilla = async (e) => {
     e.preventDefault();
     try {
-      await fetch(import.meta.env.VITE_API_URL + '/admin/planillas', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${adminData.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newPlanilla)
-      });
+      await adminAPI.createPlanilla(newPlanilla, adminData.token);
       setNewPlanilla({ nombre: '', url: '' });
       fetchData();
     } catch (err) {
