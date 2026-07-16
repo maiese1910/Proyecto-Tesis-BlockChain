@@ -620,7 +620,7 @@ const PUBForm = () => {
                  <p style={{ fontSize: '0.5rem', color: '#a0aec0', marginBottom: '0.3rem', textAlign: 'center' }}>Timbre Fiscal Electrónico (Blockchain)</p>
                  {blockchainHash ? (
                    <div style={{ width: '60px', height: '60px', display: 'grid', placeItems: 'center' }}>
-                     <QRCodeSVG value={`${window.location.origin}/scanner?hash=${blockchainHash}`} size={60} />
+                     <QRCodeSVG value={`${window.location.origin}/?hash=${blockchainHash}`} size={60} />
                    </div>
                  ) : (
                    <div style={{ width: '60px', height: '60px', background: '#edf2f7' }}></div>

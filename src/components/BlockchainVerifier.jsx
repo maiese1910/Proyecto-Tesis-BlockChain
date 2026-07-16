@@ -13,19 +13,26 @@ const verifyOnChain = async (hash) => {
   }
 };
 
-const BlockchainVerifier = () => {
-  const [hashInput, setHashInput] = useState('');
+const BlockchainVerifier = ({ initialHash }) => {
+  const [hashInput, setHashInput] = useState(initialHash || '');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
-  const handleVerify = async () => {
-    if (!hashInput.trim()) return;
+  const handleVerify = async (hashToVerify = hashInput) => {
+    if (!hashToVerify || !hashToVerify.trim()) return;
     setLoading(true);
     setResult(null);
-    const data = await verifyOnChain(hashInput.trim().toUpperCase());
+    const data = await verifyOnChain(hashToVerify.trim().toUpperCase());
     setResult(data);
     setLoading(false);
   };
+
+  // Si recibimos un hash inicial (ej: escaneo QR), verificamos automáticamente
+  React.useEffect(() => {
+    if (initialHash) {
+      handleVerify(initialHash);
+    }
+  }, [initialHash]);
 
   const formatTimestamp = (ts) => {
     return new Date(ts * 1000).toLocaleString('es-VE', {

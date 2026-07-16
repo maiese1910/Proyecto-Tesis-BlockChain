@@ -74,7 +74,22 @@ function App() {
     setActiveTab('dashboard');
   };
 
-  // Si no hay sesión, mostrar pantalla de login
+  // Si la URL tiene un hash, significa que se escaneó un código QR.
+  // Mostramos directamente el verificador sin pedir login.
+  const searchParams = new URLSearchParams(window.location.search);
+  const verifyHash = searchParams.get('hash');
+
+  if (verifyHash) {
+    return (
+      <div className="app-layout">
+        <div className="main-content" style={{ width: '100%', margin: '0 auto', maxWidth: '800px', padding: '2rem' }}>
+          <BlockchainVerifier initialHash={verifyHash} />
+        </div>
+      </div>
+    );
+  }
+
+  // Si no hay sesión y no se está verificando un QR, mostrar pantalla de login
   if (!user) {
     return <LoginRegister onLogin={handleLogin} />;
   }

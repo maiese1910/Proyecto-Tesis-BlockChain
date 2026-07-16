@@ -694,7 +694,28 @@ async def get_digital_certificate(doc_hash: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Fallback a base de datos local si la blockchain real falla (por ej. Infura key no configurada)
+        if supabase:
+            try:
+                res = supabase.table("records").select("*").eq("hash", doc_hash).execute()
+                if res.data and len(res.data) > 0:
+                    record = res.data[0]
+                    verify_url = f"{FRONTEND_URL}/?hash={doc_hash}"
+                    return {
+                        "title": "CERTIFICADO DE AUTENTICIDAD DIGITAL",
+                        "institution": "Universidad Santa María - Facultad de Ingeniería",
+                        "owner": record.get("owner_name", "Desconocido"),
+                        "id_number": record.get("cedula", "N/A"),
+                        "document_type": record.get("document_type", "Documento PUB"),
+                        "blockchain_status": "VALIDADO (MODO OFFLINE/SIMULADO)",
+                        "network": "Red Local",
+                        "registration_date": str(record.get("created_at", datetime.datetime.now().isoformat())),
+                        "document_hash": doc_hash,
+                        "qr_link": verify_url
+                    }
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail=f"Error en Blockchain y sin respaldo local: {str(e)}")
 
 
 # ─── Hash SHA-256 real ───────────────────────────────────────────────────────
