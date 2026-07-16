@@ -99,7 +99,7 @@ export const hashAPI = {
 // ─── Stats & Dashboard ──────────────────────────────────────────────────────
 export const statsAPI = {
   getStats: () =>
-    apiFetch('/'),
+    apiFetch('/api/stats'),
 };
 
 // ─── Chat ───────────────────────────────────────────────────────────────────

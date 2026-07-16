@@ -397,6 +397,44 @@ async def root():
     return {"status": "online", "stats": stats, "blockchain_connected": blockchain_connected}
 
 
+@app.get("/api/stats")
+async def api_stats():
+    """Endpoint dedicado de stats para Vercel (donde '/' sirve index.html)."""
+    stats = await get_stats()
+    blockchain_connected = w3.is_connected() if w3 else False
+
+    # Contar graduandos activos desde la tabla de profiles en Supabase
+    if supabase:
+        try:
+            profiles_res = supabase.table("profiles").select("cedula", count="exact").execute()
+            stats["graduandos_activos"] = profiles_res.count if profiles_res.count else len(profiles_res.data)
+        except Exception:
+            pass
+
+        # Contar documentos en blockchain desde la tabla de records
+        try:
+            records_res = supabase.table("records").select("hash", count="exact").execute()
+            stats["titulos_blockchain"] = records_res.count if records_res.count else len(records_res.data)
+        except Exception:
+            pass
+
+    # Dirección de la wallet del servidor (para mostrar en el frontend sin MetaMask)
+    wallet_address = None
+    if w3 and WALLET_PRIVATE_KEY and WALLET_PRIVATE_KEY != "0x1234567890123456789012345678901234567890123456789012345678901234":
+        try:
+            account = w3.eth.account.from_key(WALLET_PRIVATE_KEY)
+            wallet_address = account.address
+        except Exception:
+            pass
+
+    return {
+        "status": "online",
+        "stats": stats,
+        "blockchain_connected": blockchain_connected,
+        "wallet_address": wallet_address,
+    }
+
+
 # ─── Autenticación ───────────────────────────────────────────────────────────
 
 @app.post("/admin/login")

@@ -57,8 +57,11 @@ const Dashboard = ({ user }) => {
         if (data.stats) {
           setStats(prev => ({ ...prev, ...data.stats }));
         }
+        // Conectado exitosamente al backend
         setConnected(true);
       } catch (error) {
+        // Solo marcar desconectado si el API no responde
+        console.warn('Stats fetch error:', error);
         setConnected(false);
       }
     };
