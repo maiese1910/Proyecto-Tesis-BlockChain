@@ -398,12 +398,12 @@ async def root():
 
 
 @app.get("/api/stats")
-async def api_stats():
+async def api_stats(session_id: str = None):
     """Endpoint dedicado de stats para Vercel (donde '/' sirve index.html)."""
     stats = await get_stats()
     blockchain_connected = w3.is_connected() if w3 else False
 
-    # Contar graduandos activos desde la tabla de profiles en Supabase
+    # Contar graduandos registrados (para métricas históricas)
     if supabase:
         try:
             profiles_res = supabase.table("profiles").select("cedula", count="exact").execute()
@@ -418,7 +418,38 @@ async def api_stats():
         except Exception:
             pass
 
-    # Dirección de la wallet del servidor (para mostrar en el frontend sin MetaMask)
+    # --- TRACKING DE USUARIOS EN LÍNEA EN TIEMPO REAL ---
+    import time
+    import random
+    current_time = time.time()
+    active_users = 1
+
+    if supabase:
+        try:
+            if session_id:
+                # Actualizar el heartbeat del usuario actual
+                key_name = f"session_{session_id}"
+                res = supabase.table("stats").select("key").eq("key", key_name).execute()
+                if len(res.data) > 0:
+                    supabase.table("stats").update({"value": current_time, "updated_at": datetime.datetime.utcnow().isoformat()}).eq("key", key_name).execute()
+                else:
+                    supabase.table("stats").insert({"key": key_name, "value": current_time}).execute()
+
+            # Limpiar sesiones muertas (hace más de 30 segundos) - Probabilidad del 20% para no saturar DB
+            if random.random() < 0.2:
+                supabase.table("stats").delete().like("key", "session_%").lt("value", current_time - 30).execute()
+
+            # Contar usuarios en línea (activos en los últimos 15 segundos)
+            active_res = supabase.table("stats").select("key", count="exact").like("key", "session_%").gte("value", current_time - 15).execute()
+            active_users = active_res.count if active_res.count else len(active_res.data)
+            # Asegurar mínimo 1 (el propio usuario)
+            active_users = max(1, active_users)
+        except Exception as e:
+            print(f"[WARN] Error tracking online users: {e}")
+
+    stats["usuarios_en_linea"] = active_users
+
+    # Dirección de la wallet del servidor
     wallet_address = None
     if w3 and WALLET_PRIVATE_KEY and WALLET_PRIVATE_KEY != "0x1234567890123456789012345678901234567890123456789012345678901234":
         try:

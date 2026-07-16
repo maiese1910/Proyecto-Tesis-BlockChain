@@ -98,8 +98,8 @@ export const hashAPI = {
 
 // ─── Stats & Dashboard ──────────────────────────────────────────────────────
 export const statsAPI = {
-  getStats: () =>
-    apiFetch('/api/stats'),
+  getStats: (sessionId = null) =>
+    apiFetch(sessionId ? `/api/stats?session_id=${sessionId}` : '/api/stats'),
 };
 
 // ─── Chat ───────────────────────────────────────────────────────────────────

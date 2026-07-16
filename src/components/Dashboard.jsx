@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, FileCheck, Clock, Award } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Users, FileCheck, Clock, Award, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import TrackingTimeline from './TrackingTimeline';
 import { statsAPI } from '../services/api';
 
@@ -41,19 +41,25 @@ const AnimatedNumber = ({ value, suffix = '' }) => {
 
 const Dashboard = ({ user }) => {
   const [stats, setStats] = useState({
-    graduandos_activos: 0,
+    usuarios_en_linea: 1,
     docs_prevalidados: 0,
     tiempo_ahorrado_hrs: 0.0,
     titulos_blockchain: 0,
     audit_log: []
   });
   const [connected, setConnected] = useState(false);
-  const ws = useRef(null);
+  const sessionId = useRef(Math.random().toString(36).substring(2, 10)).current;
+  const logEndRef = useRef(null);
+
+  // Auto-scroll para el audit log
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [stats.audit_log]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await statsAPI.getStats();
+        const data = await statsAPI.getStats(sessionId);
         if (data.stats) {
           setStats(prev => ({ ...prev, ...data.stats }));
         }
@@ -73,12 +79,12 @@ const Dashboard = ({ user }) => {
 
   const statCards = [
     {
-      icon: <Users size={24} color="#38bdf8" />,
-      title: "Graduandos Activos",
-      value: stats.graduandos_activos,
+      icon: <Activity size={24} color="#10b981" />,
+      title: "Usuarios en Línea",
+      value: stats.usuarios_en_linea || 1,
       suffix: '',
-      bg: "rgba(56, 189, 248, 0.1)",
-      glow: "rgba(56, 189, 248, 0.3)",
+      bg: "rgba(16, 185, 129, 0.1)",
+      glow: "rgba(16, 185, 129, 0.3)",
     },
     {
       icon: <FileCheck size={24} color="#10b981" />,
@@ -162,30 +168,46 @@ const Dashboard = ({ user }) => {
           transition={{ delay: 0.4 }}
         >
           <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Award size={20} /> Auditoría en Tiempo Real
+            <Activity size={20} color="var(--primary)" /> Feed de Actividad en Vivo
           </h3>
           <div className="audit-log-container" style={{ 
-            background: 'rgba(0,0,0,0.2)', 
+            background: 'rgba(0,0,0,0.3)', 
+            border: '1px solid rgba(255,255,255,0.05)',
             borderRadius: '12px', 
             padding: '1rem', 
-            height: '250px', 
+            height: '280px', 
             overflowY: 'auto',
             fontFamily: 'monospace',
-            fontSize: '0.9rem'
+            fontSize: '0.85rem'
           }}>
             {stats.audit_log && stats.audit_log.length > 0 ? (
-              stats.audit_log.map((log, i) => (
-                <div key={i} style={{ 
-                  padding: '0.4rem 0', 
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  color: log.includes('ERROR') ? '#f87171' : log.includes('IA') ? '#38bdf8' : '#e2e8f0'
-                }}>
-                  {log}
-                </div>
-              ))
+              <AnimatePresence initial={false}>
+                {stats.audit_log.slice().reverse().map((log, i) => (
+                  <motion.div 
+                    key={log + i}
+                    initial={{ opacity: 0, x: -20, height: 0 }}
+                    animate={{ opacity: 1, x: 0, height: 'auto' }}
+                    style={{ 
+                      padding: '0.6rem 0', 
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      color: log.includes('ERROR') ? '#f87171' : log.includes('IA') ? '#38bdf8' : '#e2e8f0',
+                      display: 'flex',
+                      gap: '0.5rem',
+                      alignItems: 'flex-start'
+                    }}
+                  >
+                    <span style={{ color: 'var(--primary)', opacity: 0.7 }}>❯</span>
+                    <span>{log}</span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             ) : (
-              <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '4rem' }}>Esperando actividad...</p>
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                <Activity size={32} style={{ marginBottom: '1rem' }} />
+                <p style={{ color: 'var(--text-muted)' }}>Esperando actividad en el ecosistema...</p>
+              </div>
             )}
+            <div ref={logEndRef} />
           </div>
         </motion.div>
 
