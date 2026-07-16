@@ -240,20 +240,23 @@ const PUBForm = () => {
       
       // Lógica especial de calculadora de aranceles antes de pedir la confirmación de pago
       if (PUB_FIELDS[nextIndex].id === 'pago_cedula') {
-        // Calcular aranceles al llegar a la sección de pago
+        // Calcular aranceles al llegar a la sección de pago (Valores realistas basados en PTR)
         const tramiteLower = updatedData.tramite.toLowerCase();
         let montoCalculado = 0;
-        let ut = 0;
+        let unidad = '';
         
+        // Tasa referencial ficticia para el sistema (1 PTR = ~60 USD = ~43.647 Bs a tasa BCV 727.45)
+        const valorPetroBs = 43647.00; 
+
         if (tramiteLower.includes('titulo') || tramiteLower.includes('título')) {
-          ut = 5;
-          montoCalculado = 450.00;
+          unidad = '0.5 PTR';
+          montoCalculado = 0.5 * valorPetroBs; // ~ $30 USD
         } else if (tramiteLower.includes('apostilla')) {
-          ut = 10;
-          montoCalculado = 900.00;
+          unidad = '0.4 PTR';
+          montoCalculado = 0.4 * valorPetroBs; // ~ $24 USD
         } else {
-          ut = 3;
-          montoCalculado = 270.00; 
+          unidad = '0.1 PTR';
+          montoCalculado = 0.1 * valorPetroBs; // ~ $6 USD
         }
 
         // Auto-llenar campos de monto para el PDF
@@ -267,9 +270,9 @@ const PUBForm = () => {
         setTimeout(() => {
           addBotMessage(
             `✅ **Institución Educativa** registrada.\n\n` +
-            `🤖 **Calculadora IA de Aranceles:**\n` +
-            `He analizado tu trámite (*${updatedData.tramite}*). El costo estipulado por el SAREN corresponde a **${ut} U.T.**\n\n` +
-            `💰 **Monto Total a Pagar: ${montoCalculado.toFixed(2)} Bs.**\n\n` +
+            `🤖 **Calculadora IA de Aranceles (SAREN):**\n` +
+            `He analizado tu trámite (*${updatedData.tramite}*). El costo estipulado corresponde a **${unidad}** (Tasa Petro oficial).\n\n` +
+            `💰 **Monto Total a Pagar: ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(montoCalculado)} Bs.**\n\n` +
             `Datos de la cuenta destino:\n` +
             `• **Banco:** Banco de Venezuela\n` +
             `• **Cuenta:** 0102-0552-22-0000001234\n` +
