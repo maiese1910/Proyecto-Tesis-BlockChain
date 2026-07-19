@@ -13,6 +13,8 @@ const PUBPreviewModal = ({ record, onClose }) => {
   const containerRef = useRef(null);
   const previewRef = useRef(null);
 
+  const hash = record.hash || '0x0000000000000000000000000000000000000000000000000000000000000000';
+
   const formData = record.formData || {
     nombre_completo: record.owner_name,
     cedula: record.cedula,
@@ -173,11 +175,11 @@ const PUBPreviewModal = ({ record, onClose }) => {
                        <div key={i} style={{ width: `${w}px`, height: '100%', background: i % 2 === 0 ? '#000000' : '#ffffff' }} />
                      ))}
                    </div>
-                   <p style={{ margin: 0, fontSize: '0.45rem', fontFamily: 'monospace', letterSpacing: '0.5px', fontWeight: 'bold' }}>*PUB-{record.hash.substring(2, 14).toUpperCase()}*</p>
+                   <p style={{ margin: 0, fontSize: '0.45rem', fontFamily: 'monospace', letterSpacing: '0.5px', fontWeight: 'bold' }}>*PUB-{hash.substring(2, 14).toUpperCase()}*</p>
                  </div>
                  <div style={{ border: '1px solid #cbd5e0', padding: '0.2rem 0.4rem', textAlign: 'center', background: '#f8fafc', borderRadius: '4px', display: 'inline-block' }}>
                    <p style={{ margin: 0, fontSize: '0.4rem', color: '#718096', fontWeight: 'bold' }}>NRO. TRÁMITE</p>
-                   <p style={{ margin: 0, fontSize: '0.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{record.hash.substring(14, 22).replace(/[^0-9]/g, '9') || '98765432'}</p>
+                   <p style={{ margin: 0, fontSize: '0.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{hash.substring(14, 22).replace(/[^0-9]/g, '9') || '98765432'}</p>
                  </div>
               </div>
             </div>
@@ -284,9 +286,9 @@ const PUBPreviewModal = ({ record, onClose }) => {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e0', padding: '0.4rem', background: '#f8fafc' }}>
                 <p style={{ fontSize: '0.45rem', color: '#a0aec0', marginBottom: '0.2rem', textAlign: 'center', fontWeight: 'bold' }}>Timbre Fiscal Electrónico (Blockchain)</p>
                 <div style={{ width: '50px', height: '50px', display: 'grid', placeItems: 'center' }}>
-                  <QRCodeSVG value={`${window.location.origin}/?hash=${record.hash}`} size={50} />
+                  <QRCodeSVG value={`${window.location.origin}/?hash=${hash}`} size={50} />
                 </div>
-                <p style={{ fontSize: '0.35rem', marginTop: '0.2rem', fontFamily: 'monospace' }}>{record.hash.substring(0, 15)}...</p>
+                <p style={{ fontSize: '0.35rem', marginTop: '0.2rem', fontFamily: 'monospace' }}>{hash.substring(0, 15)}...</p>
               </div>
             </div>
           </div>
@@ -318,9 +320,10 @@ const HistoryPanel = ({ user }) => {
       // 2. Obtener registros del cache local
       const localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
       const filteredLocal = localHistory.filter(r => {
+        if (!r || !r.cedula) return false;
         // Asegurar que el trámite pertenezca al usuario (ignorando puntos y guiones)
-        const uCed = user.cedula.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        const rCed = r.cedula.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const uCed = (user.cedula || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const rCed = (r.cedula || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         return uCed === rCed;
       });
 
@@ -329,6 +332,7 @@ const HistoryPanel = ({ user }) => {
       
       // Agregar primero de DB
       dbRecords.forEach(rec => {
+        if (!rec || !rec.hash) return;
         mergedMap.set(rec.hash.toUpperCase(), {
           hash: rec.hash,
           owner_name: rec.owner_name,
@@ -343,6 +347,7 @@ const HistoryPanel = ({ user }) => {
 
       // Sobrescribir/fusión con local
       filteredLocal.forEach(rec => {
+        if (!rec || !rec.hash) return;
         const hashKey = rec.hash.toUpperCase();
         const existing = mergedMap.get(hashKey) || {};
         mergedMap.set(hashKey, {
@@ -382,10 +387,13 @@ const HistoryPanel = ({ user }) => {
 
   const filteredRecords = records.filter(r => {
     const term = search.toLowerCase();
+    const docType = (r.document_type || '').toLowerCase();
+    const hashVal = (r.hash || '').toLowerCase();
+    const txHashVal = (r.tx_hash || '').toLowerCase();
     return (
-      r.document_type.toLowerCase().includes(term) ||
-      r.hash.toLowerCase().includes(term) ||
-      (r.tx_hash && r.tx_hash.toLowerCase().includes(term))
+      docType.includes(term) ||
+      hashVal.includes(term) ||
+      txHashVal.includes(term)
     );
   });
 
@@ -450,18 +458,18 @@ const HistoryPanel = ({ user }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: '1 1 300px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase', padding: '0.2rem 0.6rem', background: 'rgba(14, 165, 233, 0.1)', color: 'var(--primary)', borderRadius: '6px' }}>
-                      {record.document_type}
+                      {record.document_type || 'Documento'}
                     </span>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <Clock size={14} />
-                      {new Date(record.created_at).toLocaleDateString()} {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {record.created_at ? `${new Date(record.created_at).toLocaleDateString()} ${new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
                     </span>
                   </div>
 
                   <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <strong>Document Hash:</strong>
                     <code style={{ background: 'rgba(255,255,255,0.05)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                      {record.hash.substring(0, 22)}...{record.hash.substring(record.hash.length - 8)}
+                      {record.hash ? `${record.hash.substring(0, 22)}...${record.hash.substring(record.hash.length - 8)}` : 'N/A'}
                     </code>
                     <button
                       onClick={() => handleCopy(record.hash)}
@@ -476,7 +484,7 @@ const HistoryPanel = ({ user }) => {
                     <strong>Estado en Blockchain:</strong>{' '}
                     <span style={{
                       fontWeight: 'bold',
-                      color: record.status.includes('Verificado') ? 'var(--success)' : 'var(--accent)'
+                      color: (record.status || '').includes('Verificado') ? 'var(--success)' : 'var(--accent)'
                     }}>
                       {record.status}
                     </span>
