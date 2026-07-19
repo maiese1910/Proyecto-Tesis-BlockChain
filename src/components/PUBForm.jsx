@@ -587,10 +587,18 @@ const PUBForm = () => {
                 <h4 style={{ fontSize: '1.1rem', margin: '0.5rem 0', color: '#1a365d', fontWeight: '900' }}>SERVICIO AUTÓNOMO DE REGISTROS Y NOTARÍAS</h4>
                 <p style={{ fontSize: '0.9rem', color: '#2b6cb0', fontWeight: '800', letterSpacing: '1.5px', margin: 0 }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
               </div>
-              <div style={{ flex: 1, textAlign: 'right' }}>
-                 <div style={{ display: 'inline-block', border: '1px solid #cbd5e0', padding: '0.5rem', textAlign: 'center' }}>
-                   <p style={{ margin: 0, fontSize: '0.5rem', color: '#718096' }}>NRO. PLANILLA</p>
-                   <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 'bold', fontFamily: 'monospace' }}>PUB-{new Date().getFullYear()}-{Math.floor(Math.random()*1000000).toString().padStart(6,'0')}</p>
+              <div style={{ flex: 1, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
+                   <div style={{ display: 'flex', height: '24px', background: '#ffffff', gap: '1px' }}>
+                     {[2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1].map((w, i) => (
+                       <div key={i} style={{ width: `${w}px`, height: '100%', background: i % 2 === 0 ? '#000000' : '#ffffff' }} />
+                     ))}
+                   </div>
+                   <p style={{ margin: 0, fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 'bold' }}>*PUB-{new Date().getFullYear()}-{Math.floor(Math.random()*1000000).toString().padStart(6,'0')}*</p>
+                 </div>
+                 <div style={{ border: '1px solid #cbd5e0', padding: '0.2rem 0.5rem', textAlign: 'center', background: '#f8fafc', borderRadius: '4px', display: 'inline-block' }}>
+                   <p style={{ margin: 0, fontSize: '0.45rem', color: '#718096', fontWeight: 'bold' }}>NRO. TRÁMITE</p>
+                   <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{Math.floor(Math.random()*10000000).toString()}</p>
                  </div>
               </div>
             </div>
