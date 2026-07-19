@@ -160,6 +160,36 @@ const PUBForm = () => {
   const [isHashing, setIsHashing] = useState(false);
   const [showCert, setShowCert] = useState(false);
   const [activeMobileTab, setActiveMobileTab] = useState('chat'); // 'chat' or 'preview'
+  const [scale, setScale] = useState(1);
+  const [scaledHeight, setScaledHeight] = useState('auto');
+  const containerRef = useRef(null);
+  const previewRef = useRef(null);
+
+  const updateScale = () => {
+    if (containerRef.current && previewRef.current) {
+      const containerWidth = containerRef.current.offsetWidth;
+      // Ancho objetivo de la planilla (700px minWidth + bordes)
+      const targetWidth = 702; 
+      if (containerWidth < targetWidth) {
+        const s = containerWidth / targetWidth;
+        setScale(s);
+        setScaledHeight(`${previewRef.current.offsetHeight * s}px`);
+      } else {
+        setScale(1);
+        setScaledHeight('auto');
+      }
+    }
+  };
+
+  useEffect(() => {
+    updateScale();
+    const timer = setTimeout(updateScale, 100);
+    window.addEventListener('resize', updateScale);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [activeMobileTab, formData]);
 
   const messagesEndRef = useRef(null);
 
@@ -528,8 +558,24 @@ const PUBForm = () => {
             )}
           </div>
 
-          <div className="pdf-preview-container">
-            <div id="pub-preview" style={{ padding: '2rem', background: '#ffffff', color: '#000000', fontFamily: '"Arial", sans-serif', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', minWidth: '700px' }}>
+          <div className="pdf-preview-container" ref={containerRef} style={{ width: '100%', overflow: 'hidden', height: scaledHeight }}>
+            <div 
+              id="pub-preview" 
+              ref={previewRef}
+              style={{ 
+                padding: '2rem', 
+                background: '#ffffff', 
+                color: '#000000', 
+                fontFamily: '"Arial", sans-serif', 
+                border: '1px solid #e5e7eb', 
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                minWidth: '700px',
+                width: '700px',
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                transition: 'transform 0.15s ease-out'
+              }}
+            >
             {/* Membrete oficial de VENEZUELA */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1a365d', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ flex: 1 }}>
