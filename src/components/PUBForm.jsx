@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, FileText, Download, ShieldCheck, Printer } from 'lucide-react';
+import { Send, FileText, Download, ShieldCheck, Printer, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2pdf from 'html2pdf.js';
 import { QRCodeSVG } from 'qrcode.react';
@@ -159,6 +159,7 @@ const PUBForm = () => {
   const [blockchainHash, setBlockchainHash] = useState(null);
   const [isHashing, setIsHashing] = useState(false);
   const [showCert, setShowCert] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState('chat'); // 'chat' or 'preview'
 
   const messagesEndRef = useRef(null);
 
@@ -377,7 +378,25 @@ const PUBForm = () => {
         <p>La IA valida cada campo en tiempo real. Si cometes un error, te lo indica al instante sin perder el progreso. Al terminar, registra la huella digital en Blockchain.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', flex: 1, minHeight: 0 }}>
+      {/* Selector de pestañas móviles */}
+      <div className="mobile-tabs-header">
+        <button 
+          className={`mobile-tab-btn ${activeMobileTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveMobileTab('chat')}
+        >
+          <MessageSquare size={18} />
+          Asistente Chat
+        </button>
+        <button 
+          className={`mobile-tab-btn ${activeMobileTab === 'preview' ? 'active' : ''}`}
+          onClick={() => setActiveMobileTab('preview')}
+        >
+          <FileText size={18} />
+          Vista Previa
+        </button>
+      </div>
+
+      <div className={`pub-form-grid ${activeMobileTab === 'chat' ? 'show-chat' : 'show-preview'}`}>
 
         {/* ── Chatbot Guiador ──────────────────────────────────────────── */}
         <div className="chat-container" style={{ minHeight: '520px' }}>

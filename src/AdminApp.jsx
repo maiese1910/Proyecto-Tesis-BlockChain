@@ -57,10 +57,11 @@ const AdminLogin = ({ onLogin }) => {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', width: '100vw', padding: '2rem',
+      height: '100vh', height: '100dvh', width: '100vw', padding: '1rem',
       background: 'radial-gradient(circle at 50% 50%, rgba(220,38,38,0.1), transparent 60%), #0f172a',
+      overflow: 'auto',
     }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '3rem 2rem', textAlign: 'center', border: '1px solid rgba(220,38,38,0.3)' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem 1.5rem', textAlign: 'center', border: '1px solid rgba(220,38,38,0.3)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'rgba(220,38,38,0.1)', color: '#ef4444', marginBottom: '1.5rem' }}>
           <Shield size={32} />
         </div>
@@ -154,9 +155,9 @@ const AdminApp = () => {
   return (
     <div className="app-layout" style={{ background: '#020617' }}>
       <ToastNotification />
-      <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '1rem 2rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ width: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+        <div className="admin-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
             <Shield size={24} color="#ef4444" />
             <h1 style={{ fontSize: '1.2rem', color: '#f8fafc', margin: 0 }}>Panel de Control — {adminData?.ente || 'Gobierno'}</h1>
             {adminData && (
@@ -165,11 +166,11 @@ const AdminApp = () => {
               </span>
             )}
           </div>
-          <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>
+          <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
             Cerrar Sesión
           </button>
         </div>
-        <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
           {(adminData?.ente === 'USM' || adminData?.ente === 'GTU') ? (
             <AdminDashboard adminData={adminData} />
           ) : (

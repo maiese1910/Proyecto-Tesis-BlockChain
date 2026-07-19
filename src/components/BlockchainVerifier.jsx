@@ -49,10 +49,10 @@ const BlockchainVerifier = ({ initialHash }) => {
       </div>
 
       <motion.div className="glass-panel" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
           <input
             className="chat-input"
-            style={{ flex: 1, fontFamily: 'monospace' }}
+            style={{ flex: '1 1 200px', fontFamily: 'monospace', minWidth: '0' }}
             placeholder="Pega aquí el hash del documento (ej: 0XA1B2C3...)"
             value={hashInput}
             onChange={e => setHashInput(e.target.value)}
@@ -60,7 +60,7 @@ const BlockchainVerifier = ({ initialHash }) => {
           />
           <button
             className="send-btn"
-            style={{ padding: '0 2rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}
+            style={{ padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', whiteSpace: 'nowrap', flexShrink: 0 }}
             onClick={handleVerify}
             disabled={loading || !hashInput.trim()}
           >
@@ -95,7 +95,7 @@ const BlockchainVerifier = ({ initialHash }) => {
                   </div>
 
                   {/* Detalles */}
-                  <div style={{ padding: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                  <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                     {[
                       { label: 'Propietario', value: result.ownerName },
                       { label: 'Cédula de Identidad', value: result.cedula },
@@ -126,7 +126,7 @@ const BlockchainVerifier = ({ initialHash }) => {
                     </div>
                   </div>
 
-                  <div style={{ padding: '1rem 2rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(124,58,237,0.05)' }}>
+                  <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(124,58,237,0.05)', flexWrap: 'wrap' }}>
                     <ShieldCheck size={18} color="#a78bfa" />
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       Registrado en la red <strong style={{ color: '#a78bfa' }}>Ethereum Sepolia Testnet</strong> — inmutable e inalcanzable por cualquier institución.

@@ -27,6 +27,7 @@ const DigitalCertificate = ({ docHash, onClose }) => {
 
   return (
     <motion.div 
+      className="cert-modal-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -41,18 +42,21 @@ const DigitalCertificate = ({ docHash, onClose }) => {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: '2rem'
+        padding: '1.5rem'
       }}
     >
       <motion.div 
+        className="cert-modal-content"
         initial={{ y: 50, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         style={{
           background: 'var(--surface)',
           borderRadius: '16px',
-          padding: '2.5rem',
+          padding: '2rem',
           maxWidth: '800px',
           width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
           border: '1px solid rgba(124, 58, 237, 0.3)',
           position: 'relative'
@@ -106,7 +110,7 @@ const DigitalCertificate = ({ docHash, onClose }) => {
             </div>
 
             {/* Cuerpo del Certificado */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3rem', alignItems: 'center' }}>
+            <div className="cert-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '2rem', alignItems: 'center' }}>
               
               {/* Datos */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -140,7 +144,7 @@ const DigitalCertificate = ({ docHash, onClose }) => {
               </div>
 
               {/* QR Code */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', background: '#ffffff', padding: '1.5rem', borderRadius: '12px' }}>
+              <div className="cert-qr-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', background: '#ffffff', padding: '1.5rem', borderRadius: '12px' }}>
                 <QRCodeSVG 
                   value={certData.qr_link} 
                   size={160}
@@ -155,7 +159,7 @@ const DigitalCertificate = ({ docHash, onClose }) => {
             </div>
 
             {/* Botones de acción */}
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem', justifyContent: 'center' }}>
+            <div className="cert-actions" style={{ display: 'flex', gap: '1rem', marginTop: '2rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => {
                   const element = document.getElementById('printable-certificate');

@@ -73,16 +73,68 @@ const GovernmentPanel = () => {
     r.hash.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Componente de tarjeta mobile para un registro
+  const RecordCard = ({ record }) => {
+    const isVerified = record.status === "Verificado por SAREN/MPPRE";
+    return (
+      <div style={{ 
+        background: 'rgba(0,0,0,0.2)', 
+        border: `1px solid ${isVerified ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+        borderRadius: '12px', 
+        padding: '1.2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.8rem'
+      }}>
+        {/* Nombre y cédula */}
+        <div>
+          <p style={{ fontWeight: '600', fontSize: '1rem', marginBottom: '0.2rem' }}>{record.ownerName}</p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>C.I: {record.cedula}</p>
+        </div>
+        
+        {/* Tipo de trámite */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(124, 58, 237, 0.1)', color: 'var(--primary)', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '600' }}>
+            <FileText size={12} /> {record.documentType}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: isVerified ? 'var(--success)' : 'var(--warning)', fontSize: '0.8rem', fontWeight: '600' }}>
+            {isVerified ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+            {record.status}
+          </span>
+        </div>
+
+        {/* Hash */}
+        <a href={`https://sepolia.etherscan.io/tx/${record.txHash}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontFamily: 'monospace', fontSize: '0.75rem', color: '#a78bfa', textDecoration: 'none', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.6rem', borderRadius: '6px', wordBreak: 'break-all' }}>
+          {record.hash.substring(0, 16)}... <ExternalLink size={11} />
+        </a>
+
+        {/* Acción */}
+        {!isVerified ? (
+          <button 
+            className="send-btn" 
+            onClick={() => handleVerify(record.hash)}
+            disabled={verifying === record.hash}
+            style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', background: 'linear-gradient(to right, #f59e0b, #d97706)', width: '100%' }}
+          >
+            {verifying === record.hash ? 'Auditando...' : 'Auditar y Aprobar'}
+          </button>
+        ) : (
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textAlign: 'center' }}>✅ Completado</span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="view-container">
-      <div className="dashboard-header" style={{ borderLeftColor: '#f59e0b', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
+      <div className="dashboard-header" style={{ borderLeftColor: '#f59e0b', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
           <h2><ShieldCheck size={28} style={{ color: '#f59e0b', marginRight: '10px' }}/> Panel de Auditoría Gubernamental (SAREN / MPPRE)</h2>
           <p>Vista exclusiva para funcionarios. Aquí se listan todos los documentos académicos registrados en la Blockchain por los graduandos. Verifica la autenticidad y aprueba los trámites.</p>
         </div>
         <button 
           onClick={() => setShowAdminModal(true)}
-          style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
+          style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           + Añadir Admin
         </button>
@@ -91,7 +143,7 @@ const GovernmentPanel = () => {
       {showAdminModal && (
         <div className="glass-panel" style={{ marginBottom: '1.5rem', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245,158,11,0.3)' }}>
           <h3 style={{ marginBottom: '1rem', color: '#f59e0b' }}>Crear Nuevo Funcionario</h3>
-          <form onSubmit={handleCreateAdmin} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <form onSubmit={handleCreateAdmin} style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <input 
               type="text" 
               placeholder="Usuario" 
@@ -99,7 +151,7 @@ const GovernmentPanel = () => {
               className="chat-input" 
               value={newAdmin.username}
               onChange={e => setNewAdmin({...newAdmin, username: e.target.value})}
-              style={{ flex: 1 }}
+              style={{ flex: '1 1 120px', minWidth: '120px' }}
             />
             <input 
               type="password" 
@@ -108,7 +160,7 @@ const GovernmentPanel = () => {
               className="chat-input" 
               value={newAdmin.password}
               onChange={e => setNewAdmin({...newAdmin, password: e.target.value})}
-              style={{ flex: 1 }}
+              style={{ flex: '1 1 120px', minWidth: '120px' }}
             />
             <button type="submit" className="send-btn" style={{ padding: '0.7rem 1.5rem', background: '#f59e0b' }}>Crear</button>
             <button type="button" onClick={() => setShowAdminModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>Cancelar</button>
@@ -123,7 +175,7 @@ const GovernmentPanel = () => {
           <input 
             type="text" 
             className="chat-input" 
-            placeholder="Buscar por Nombre, Cédula o Hash Blockchain..." 
+            placeholder="Buscar por Nombre, Cédula o Hash..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '100%', paddingLeft: '2.5rem' }}
@@ -131,7 +183,8 @@ const GovernmentPanel = () => {
         </div>
       </div>
 
-      <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
+      {/* ─── Vista Desktop: Tabla ─── */}
+      <div className="glass-panel gov-table-desktop" style={{ padding: '0', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>Cargando registros blockchain...</div>
         ) : filteredRecords.length === 0 ? (
@@ -191,6 +244,19 @@ const GovernmentPanel = () => {
               })}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* ─── Vista Mobile: Tarjetas ─── */}
+      <div className="gov-cards-mobile" style={{ display: 'none' }}>
+        {loading ? (
+          <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>Cargando registros blockchain...</div>
+        ) : filteredRecords.length === 0 ? (
+          <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No se encontraron registros.</div>
+        ) : (
+          filteredRecords.map((record) => (
+            <RecordCard key={record.hash} record={record} />
+          ))
         )}
       </div>
     </div>

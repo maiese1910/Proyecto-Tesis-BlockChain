@@ -58,7 +58,7 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
         <div
           className="nav-item"
           onClick={onLogout}
-          style={{ color: 'var(--danger)', marginTop: '1rem' }}
+          style={{ color: 'var(--danger)', marginTop: '0', flexShrink: 0 }}
         >
           <LogOut className="icon" />
           <span>Cerrar Sesión</span>

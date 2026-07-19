@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, FileCheck, Clock, Award, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TrackingTimeline from './TrackingTimeline';
-import { statsAPI } from '../services/api';
+import { statsAPI, WS_URL } from '../services/api';
 
 // Componente que anima un número cuando cambia
 const AnimatedNumber = ({ value, suffix = '' }) => {
@@ -48,34 +48,120 @@ const Dashboard = ({ user }) => {
     audit_log: []
   });
   const [connected, setConnected] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const sessionId = useRef(Math.random().toString(36).substring(2, 10)).current;
   const logEndRef = useRef(null);
+  const wsRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const pollingRef = useRef(null);
 
   // Auto-scroll para el audit log
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [stats.audit_log]);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await statsAPI.getStats(sessionId);
-        if (data.stats) {
-          setStats(prev => ({ ...prev, ...data.stats }));
-        }
-        // Conectado exitosamente al backend
+  // ── Fetch HTTP (fallback / initial load) ──────────────────────────────
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await statsAPI.getStats(sessionId);
+      if (data.stats) {
+        setStats(prev => ({ ...prev, ...data.stats }));
+      }
+      setConnected(true);
+    } catch (error) {
+      console.warn('Stats fetch error:', error);
+      setConnected(false);
+    }
+  }, [sessionId]);
+
+  // ── WebSocket connection ──────────────────────────────────────────────
+  const connectWebSocket = useCallback(() => {
+    // Limpiar reconexión pendiente
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
+    // No reconectar si ya hay una conexión activa
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+
+    try {
+      const ws = new WebSocket(`${WS_URL}/ws/stats`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('[WS] Conectado a stats en tiempo real');
+        setWsConnected(true);
         setConnected(true);
-      } catch (error) {
-        // Solo marcar desconectado si el API no responde
-        console.warn('Stats fetch error:', error);
-        setConnected(false);
+
+        // Parar el polling HTTP si el WS está vivo
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setStats(prev => ({ ...prev, ...data }));
+          setConnected(true);
+        } catch (e) {
+          console.warn('[WS] Error parsing message:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[WS] Desconectado, reconectando en 3s...');
+        setWsConnected(false);
+        wsRef.current = null;
+
+        // Iniciar polling como fallback inmediato
+        if (!pollingRef.current) {
+          pollingRef.current = setInterval(fetchStats, 5000);
+        }
+
+        // Reconectar WebSocket en 3 segundos
+        reconnectTimerRef.current = setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.warn('[WS] Error:', err);
+        ws.close();
+      };
+    } catch (e) {
+      console.warn('[WS] No se pudo crear WebSocket:', e);
+      // Fallback a polling si el WebSocket no es soportado
+      if (!pollingRef.current) {
+        pollingRef.current = setInterval(fetchStats, 5000);
+      }
+    }
+  }, [fetchStats]);
+
+  useEffect(() => {
+    // Hacer un fetch inmediato para data inicial
+    fetchStats();
+
+    // Intentar conectar WebSocket
+    connectWebSocket();
+
+    // Iniciar polling como fallback por si el WS tarda
+    pollingRef.current = setInterval(fetchStats, 5000);
+
+    return () => {
+      // Cleanup
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
       }
     };
-
-    fetchStats();
-    const interval = setInterval(fetchStats, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [fetchStats, connectWebSocket]);
 
   const statCards = [
     {
@@ -115,23 +201,24 @@ const Dashboard = ({ user }) => {
   return (
     <div className="view-container">
       <div className="dashboard-header">
-        <motion.div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+        <motion.div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
           <motion.h2 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
             Bienvenido al Portal USM
           </motion.h2>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
             background: connected ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
             border: `1px solid ${connected ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
-            borderRadius: '20px', padding: '0.3rem 0.8rem', fontSize: '0.8rem',
+            borderRadius: '20px', padding: '0.25rem 0.7rem', fontSize: '0.75rem',
+            whiteSpace: 'nowrap',
           }}>
             <div style={{
-              width: 8, height: 8, borderRadius: '50%',
+              width: 7, height: 7, borderRadius: '50%',
               background: connected ? '#10b981' : '#ef4444',
               boxShadow: connected ? '0 0 8px #10b981' : 'none',
               animation: connected ? 'pulseGlow 1.5s infinite alternate' : 'none',
             }} />
-            {connected ? 'En vivo' : 'Desconectado'}
+            {wsConnected ? 'WebSocket en vivo' : connected ? 'En vivo' : 'Desconectado'}
           </div>
         </motion.div>
         <p>Plataforma Descentralizada para la Verificación de Documentos y Ejecución de Procesos Administrativos. Exclusivo para Ingeniería (10mo Semestre).</p>
@@ -160,14 +247,14 @@ const Dashboard = ({ user }) => {
         ))}
       </div>
 
-      <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+      <div className="dashboard-content-grid">
         <motion.div
           className="glass-panel"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Activity size={20} color="var(--primary)" /> Feed de Actividad en Vivo
           </h3>
           <div className="audit-log-container" style={{ 
@@ -193,10 +280,11 @@ const Dashboard = ({ user }) => {
                       color: log.includes('ERROR') ? '#f87171' : log.includes('IA') ? '#38bdf8' : '#e2e8f0',
                       display: 'flex',
                       gap: '0.5rem',
-                      alignItems: 'flex-start'
+                      alignItems: 'flex-start',
+                      wordBreak: 'break-word',
                     }}
                   >
-                    <span style={{ color: 'var(--primary)', opacity: 0.7 }}>❯</span>
+                    <span style={{ color: 'var(--primary)', opacity: 0.7, flexShrink: 0 }}>❯</span>
                     <span>{log}</span>
                   </motion.div>
                 ))}

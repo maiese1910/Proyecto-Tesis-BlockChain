@@ -5,6 +5,12 @@
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:8000');
 
+// WebSocket URL derivada del API_URL
+const WS_URL = (() => {
+  const base = API_URL || window.location.origin;
+  return base.replace(/^http/, 'ws');
+})();
+
 /**
  * Wrapper de fetch con manejo de errores y headers automáticos.
  */
@@ -150,5 +156,5 @@ export const adminAPI = {
     apiFetch(`/admin/planillas/${id}`, { method: 'DELETE', token }),
 };
 
-export { API_URL };
+export { API_URL, WS_URL };
 export default apiFetch;

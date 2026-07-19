@@ -92,8 +92,9 @@ const LoginRegister = ({ onLogin }) => {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', width: '100vw', padding: '2rem',
+      height: '100vh', height: '100dvh', width: '100vw', padding: '1rem',
       background: 'radial-gradient(circle at 20% 50%, rgba(14,165,233,0.12), transparent 40%), radial-gradient(circle at 80% 30%, rgba(124,58,237,0.12), transparent 40%)',
+      overflow: 'auto',
     }}>
       <div style={{ width: '100%', maxWidth: '480px' }}>
         {/* Header */}
