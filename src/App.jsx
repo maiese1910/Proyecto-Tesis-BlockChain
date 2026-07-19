@@ -8,6 +8,7 @@ import SurvivalGuide from './components/SurvivalGuide';
 import ChatBotWidget from './components/ChatBotWidget';
 import PUBForm from './components/PUBForm';
 import BlockchainVerifier from './components/BlockchainVerifier';
+import HistoryPanel from './components/HistoryPanel';
 import ToastNotification from './components/ToastNotification';
 import { dynamicDataAPI } from './services/api';
 
@@ -104,6 +105,8 @@ function App() {
         return <SurvivalGuide />;
       case 'pub':
         return <PUBForm user={user} />;
+      case 'history':
+        return <HistoryPanel user={user} />;
       case 'blockchain':
         return <BlockchainVerifier />;
       case 'chat':

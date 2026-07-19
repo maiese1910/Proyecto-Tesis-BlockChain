@@ -356,6 +356,25 @@ const PUBForm = () => {
     }
   };
 
+  const saveToLocalHistory = (hash) => {
+    try {
+      const localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+      if (!localHistory.some(r => r.hash === hash)) {
+        localHistory.unshift({
+          hash: hash,
+          owner_name: formData.nombre_completo,
+          cedula: formData.cedula,
+          document_type: formData.tramite,
+          created_at: new Date().toISOString(),
+          formData: formData
+        });
+        localStorage.setItem('usm_pub_history', JSON.stringify(localHistory));
+      }
+    } catch (e) {
+      console.error("Error saving to local history:", e);
+    }
+  };
+
   const handleBlockchain = async () => {
     setIsHashing(true);
     addBotMessage('⛓️ **Registrando huella digital en Blockchain (Sepolia)...**\n\nGenerando hash SHA-256 y registrando en la red descentralizada...');
@@ -373,6 +392,7 @@ const PUBForm = () => {
 
         if (data.success) {
           setBlockchainHash(hash);
+          saveToLocalHistory(hash);
           addBotMessage(
             `🔐 **¡Registro exitoso en Blockchain!**\n\n` +
             `**Hash del documento (SHA-256 real):**\n\`${hash}\`\n\n` +
@@ -387,6 +407,7 @@ const PUBForm = () => {
 
       // Fallback: registrar hash localmente sin transacción Ethereum real
       setBlockchainHash(hash);
+      saveToLocalHistory(hash);
       addBotMessage(
         `🔐 **¡Huella digital registrada exitosamente!**\n\n` +
         `**Hash del documento (SHA-256):**\n\`${hash}\`\n\n` +

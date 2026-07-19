@@ -664,8 +664,40 @@ async def get_all_records():
 async def get_records_by_cedula(cedula: str):
     """Obtiene los registros de un estudiante específico (para el Timeline)."""
     if supabase:
-        res = supabase.table("records").select("*").eq("cedula", cedula).order("created_at", desc=True).execute()
-        return {"success": True, "records": [map_record(r) for r in res.data]}
+        # Generar variaciones de cédula (con puntos, sin puntos, con guion, etc.)
+        cedula_clean = cedula.replace(".", "").replace("-", "").replace(" ", "").upper()
+        
+        # Variación básica: ej. V28315101 o 28315101
+        variations = [cedula, cedula_clean]
+        
+        # Si empieza con V, añadir V-28315101 y extraer num_part
+        if cedula_clean.startswith("V"):
+            variations.append(f"V-{cedula_clean[1:]}")
+            num_part = cedula_clean[1:]
+        else:
+            variations.append(f"V-{cedula_clean}")
+            num_part = cedula_clean
+            
+        # Formatear con puntos: ej. V-28.315.101
+        if len(num_part) == 8:
+            dotted_v = f"V-{num_part[:2]}.{num_part[2:5]}.{num_part[5:]}"
+            dotted_no_v = f"{num_part[:2]}.{num_part[2:5]}.{num_part[5:]}"
+            variations.extend([dotted_v, dotted_no_v])
+        elif len(num_part) == 7:
+            dotted_v = f"V-{num_part[:1]}.{num_part[1:4]}.{num_part[4:]}"
+            dotted_no_v = f"{num_part[:1]}.{num_part[1:4]}.{num_part[4:]}"
+            variations.extend([dotted_v, dotted_no_v])
+            
+        # Eliminar duplicados y valores vacíos
+        variations = list(set([v for v in variations if v]))
+        
+        try:
+            res = supabase.table("records").select("*").in_("cedula", variations).order("created_at", desc=True).execute()
+            return {"success": True, "records": [map_record(r) for r in res.data]}
+        except Exception as e:
+            print(f"[ERROR] Failed to query user records with variations {variations}: {e}")
+            return {"success": False, "error": str(e)}
+            
     return {"success": False, "error": "Supabase no configurado"}
 
 

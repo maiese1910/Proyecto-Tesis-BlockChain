@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, MessageSquare, ShieldCheck, Map, FileText, ClipboardList, Link, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, ShieldCheck, Map, FileText, ClipboardList, Link, LogOut, User, History } from 'lucide-react';
 import WalletConnect from './WalletConnect';
 
 const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
@@ -7,9 +7,10 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
     { id: 'dashboard', label: 'Panel Principal', icon: <LayoutDashboard className="icon" /> },
     { id: 'chat', label: 'Asistente IA', icon: <MessageSquare className="icon" /> },
     { id: 'prevalidation', label: 'Pre-validación', icon: <ShieldCheck className="icon" /> },
-    { id: 'survival', label: 'Guía de Supervivencia', icon: <Map className="icon" /> },
     { id: 'pub', label: 'Llenar Planilla PUB', icon: <ClipboardList className="icon" /> },
+    { id: 'history', label: 'Historial de Trámites', icon: <History className="icon" /> },
     { id: 'blockchain', label: 'Verificar Blockchain', icon: <Link className="icon" /> },
+    { id: 'survival', label: 'Guía de Supervivencia', icon: <Map className="icon" /> },
     { id: 'forms', label: 'Planillas Oficiales', icon: <FileText className="icon" /> },
   ];
 
