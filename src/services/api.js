@@ -112,6 +112,9 @@ export const statsAPI = {
       method: 'POST', 
       body: { filename, session_id: sessionId } 
     }),
+
+  heartbeat: () =>
+    apiFetch('/stats/heartbeat', { method: 'POST' }),
 };
 
 // ─── Chat ───────────────────────────────────────────────────────────────────

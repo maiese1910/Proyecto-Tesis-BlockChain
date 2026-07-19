@@ -41,12 +41,15 @@ const TrackingTimeline = ({ user }) => {
 
   // Tomamos el último registro como el trámite activo
   const latestRecord = records[0];
-  const isVerified = latestRecord.status === "Verificado por SAREN/MPPRE";
+  const isVerified = latestRecord?.status === "Verificado por SAREN/MPPRE";
+  const hashDisplay = latestRecord?.hash ? latestRecord.hash.substring(0, 10) : 'N/A';
+  const docTypeDisplay = latestRecord?.documentType || 'Documento';
+  const timestampDisplay = latestRecord?.timestamp ? new Date(latestRecord.timestamp).toLocaleString() : 'N/A';
 
   const steps = [
     { title: "Prevalidación Documental", desc: "Verificación IA de requisitos", status: "completed", icon: <CheckCircle size={20} /> },
     { title: "Planilla PUB", desc: "Pago de aranceles procesado", status: "completed", icon: <CheckCircle size={20} /> },
-    { title: "Registro Blockchain", desc: `Hash: ${latestRecord.hash.substring(0, 10)}...`, status: "completed", icon: <ShieldCheck size={20} /> },
+    { title: "Registro Blockchain", desc: `Hash: ${hashDisplay}...`, status: "completed", icon: <ShieldCheck size={20} /> },
     { title: "Auditoría Gubernamental", desc: "Verificación por ente jurídico", status: isVerified ? "completed" : "current", icon: isVerified ? <CheckCircle size={20} /> : <Clock size={20} /> },
     { title: "Listo para Apostilla", desc: "Documento liberado internacionalmente", status: isVerified ? "current" : "upcoming", icon: <MapPin size={20} /> }
   ];
@@ -58,8 +61,8 @@ const TrackingTimeline = ({ user }) => {
       </h3>
       
       <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-        <p style={{ fontWeight: '600', marginBottom: '0.3rem' }}>Trámite: {latestRecord.documentType}</p>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Actualizado: {new Date(latestRecord.timestamp).toLocaleString()}</p>
+        <p style={{ fontWeight: '600', marginBottom: '0.3rem' }}>Trámite: {docTypeDisplay}</p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Actualizado: {timestampDisplay}</p>
       </div>
 
       <div className="timeline" style={{ marginLeft: '1rem', marginTop: '1.5rem' }}>

@@ -479,6 +479,13 @@ async def report_prevalidation(req: PrevalidateReportReq):
     return {"success": True}
 
 
+@app.post("/stats/heartbeat")
+async def stats_heartbeat():
+    """Incrementa el tiempo ahorrado por el uso continuo de la plataforma."""
+    await increment_stat("tiempo_ahorrado_hrs", 0.1)
+    return {"success": True}
+
+
 # ─── Autenticación ───────────────────────────────────────────────────────────
 
 @app.post("/admin/login")

@@ -10,7 +10,7 @@ import PUBForm from './components/PUBForm';
 import BlockchainVerifier from './components/BlockchainVerifier';
 import HistoryPanel from './components/HistoryPanel';
 import ToastNotification from './components/ToastNotification';
-import { dynamicDataAPI } from './services/api';
+import { dynamicDataAPI, statsAPI } from './services/api';
 
 // Componente de planillas con datos dinámicos desde Supabase
 const FormsPanel = () => {
@@ -64,6 +64,24 @@ function App() {
       try { setUser(JSON.parse(stored)); } catch (_) {}
     }
   }, []);
+
+  // Latido periódico para incrementar el tiempo ahorrado por uso activo
+  useEffect(() => {
+    if (!user) return;
+    
+    // Ejecutar un heartbeat inicial
+    statsAPI.heartbeat().catch(() => {});
+    
+    const interval = setInterval(async () => {
+      try {
+        await statsAPI.heartbeat();
+      } catch (err) {
+        console.warn('Heartbeat error:', err);
+      }
+    }, 20000); // Cada 20 segundos
+    
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLogin = (userData) => {
     setUser(userData);

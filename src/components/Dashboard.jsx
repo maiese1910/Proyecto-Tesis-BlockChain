@@ -49,7 +49,14 @@ const Dashboard = ({ user }) => {
   });
   const [connected, setConnected] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
-  const sessionId = useRef(Math.random().toString(36).substring(2, 10)).current;
+  const sessionId = useRef(
+    sessionStorage.getItem('usm_session_id') || 
+    (() => {
+      const id = Math.random().toString(36).substring(2, 10);
+      sessionStorage.setItem('usm_session_id', id);
+      return id;
+    })()
+  ).current;
   const logEndRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);
