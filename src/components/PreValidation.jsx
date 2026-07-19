@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UploadCloud, CheckCircle, XCircle, Search, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { statsAPI } from '../services/api';
 
 const PreValidation = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -22,7 +23,7 @@ const PreValidation = () => {
     // Resetear a pending
     setChecklist(prev => prev.map(item => ({ ...item, status: "pending" })));
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsUploading(false);
       setHasValidated(true);
       // Simular que algunos pasan y otros no (ej. faltan las firmas y el GTU, pero sí tiene PUB y DPI)
@@ -33,6 +34,12 @@ const PreValidation = () => {
         { id: 4, label: "Nitidez de escaneo superior a 300 DPI", status: "success", missingText: "" },
         { id: 5, label: "Timbres Fiscales Regionales", status: "error", missingText: "Timbre de 0.5 UT no detectado" }
       ]);
+
+      try {
+        await statsAPI.reportPrevalidation('expediente_usm_2026.pdf');
+      } catch (err) {
+        console.warn('Error al reportar pre-validación:', err);
+      }
     }, 2500);
   };
 

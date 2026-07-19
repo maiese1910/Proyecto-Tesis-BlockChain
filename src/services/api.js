@@ -106,6 +106,12 @@ export const hashAPI = {
 export const statsAPI = {
   getStats: (sessionId = null) =>
     apiFetch(sessionId ? `/api/stats?session_id=${sessionId}` : '/api/stats'),
+
+  reportPrevalidation: (filename, sessionId = null) =>
+    apiFetch('/prevalidation/report', { 
+      method: 'POST', 
+      body: { filename, session_id: sessionId } 
+    }),
 };
 
 // ─── Chat ───────────────────────────────────────────────────────────────────

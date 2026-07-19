@@ -162,6 +162,7 @@ const PUBForm = () => {
   const [activeMobileTab, setActiveMobileTab] = useState('chat'); // 'chat' or 'preview'
   const [scale, setScale] = useState(1);
   const [scaledHeight, setScaledHeight] = useState('auto');
+  const [copiedHash, setCopiedHash] = useState(false);
   const containerRef = useRef(null);
   const previewRef = useRef(null);
 
@@ -183,10 +184,22 @@ const PUBForm = () => {
 
   useEffect(() => {
     updateScale();
-    const timer = setTimeout(updateScale, 100);
+    
+    if (!containerRef.current || !previewRef.current) return;
+    
+    const resizeObserver = new ResizeObserver(() => {
+      updateScale();
+    });
+    
+    resizeObserver.observe(previewRef.current);
+    resizeObserver.observe(containerRef.current);
+    
     window.addEventListener('resize', updateScale);
+    const timer = setTimeout(updateScale, 150);
+    
     return () => {
       clearTimeout(timer);
+      resizeObserver.disconnect();
       window.removeEventListener('resize', updateScale);
     };
   }, [activeMobileTab, formData]);
@@ -530,7 +543,7 @@ const PUBForm = () => {
           className="glass-panel"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}
+          style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -713,9 +726,30 @@ const PUBForm = () => {
                 animate={{ opacity: 1, y: 0 }}
                 style={{ marginTop: '1.5rem', padding: '1.2rem', background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.1))', border: '1px solid rgba(124,58,237,0.4)', borderRadius: '12px' }}
               >
-                <p style={{ color: '#a78bfa', fontWeight: '700', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <ShieldCheck size={18} /> Huella Digital Blockchain Registrada
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <p style={{ color: '#a78bfa', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ShieldCheck size={18} /> Huella Digital Blockchain Registrada
+                  </p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(blockchainHash);
+                      setCopiedHash(true);
+                      setTimeout(() => setCopiedHash(false), 2000);
+                    }}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '0.2rem 0.5rem',
+                      color: 'white',
+                      fontSize: '0.7rem',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {copiedHash ? '¡Copiado!' : 'Copiar'}
+                  </button>
+                </div>
                 <p style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-muted)', wordBreak: 'break-all', lineHeight: '1.6' }}>
                   {blockchainHash}
                 </p>

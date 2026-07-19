@@ -9,6 +9,15 @@ const DigitalCertificate = ({ docHash, onClose }) => {
   const [certData, setCertData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (certData && certData.document_hash) {
+      navigator.clipboard.writeText(certData.document_hash);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   useEffect(() => {
     const fetchCertificate = async () => {
@@ -50,7 +59,7 @@ const DigitalCertificate = ({ docHash, onClose }) => {
         initial={{ y: 50, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         style={{
-          background: 'var(--surface)',
+          background: '#09090b',
           borderRadius: '16px',
           padding: '2rem',
           maxWidth: '800px',
@@ -136,7 +145,15 @@ const DigitalCertificate = ({ docHash, onClose }) => {
                 </div>
                 
                 <div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Hash Criptográfico (SHA-256)</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', margin: 0 }}>Hash Criptográfico (SHA-256)</p>
+                    <button 
+                      onClick={handleCopy}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                    >
+                      {copied ? '¡Copiado!' : 'Copiar'}
+                    </button>
+                  </div>
                   <p style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--primary)', wordBreak: 'break-all', background: 'rgba(124, 58, 237, 0.1)', padding: '0.5rem', borderRadius: '6px' }}>
                     {certData.document_hash}
                   </p>

@@ -387,6 +387,10 @@ class PlanillaReq(BaseModel):
     categoria: str = ""
     orden: int = 0
 
+class PrevalidateReportReq(BaseModel):
+    filename: str
+    session_id: Optional[str] = "default"
+
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
@@ -464,6 +468,15 @@ async def api_stats(session_id: str = None):
         "blockchain_connected": blockchain_connected,
         "wallet_address": wallet_address,
     }
+
+
+@app.post("/prevalidation/report")
+async def report_prevalidation(req: PrevalidateReportReq):
+    """Registra y reporta una pre-validación de expediente de graduando en tiempo real."""
+    log_msg = f"IA VISION: Analizando '{req.filename}'... Validando sellos y nitidez."
+    await increment_stat("docs_prevalidados", 1, log_entry=log_msg)
+    await increment_stat("tiempo_ahorrado_hrs", 0.5)
+    return {"success": True}
 
 
 # ─── Autenticación ───────────────────────────────────────────────────────────
@@ -567,11 +580,12 @@ async def get_profile(cedula: str):
 async def verify_blockchain_document(doc_hash: str):
     """Consulta la blockchain para verificar un hash de documento."""
     contract = get_contract()
+    doc_hash_upper = doc_hash.upper()
     
     # 1. Intentar consultar en la Blockchain real si el contrato está configurado
     if contract:
         try:
-            result = contract.functions.verifyDocument(doc_hash).call()
+            result = contract.functions.verifyDocument(doc_hash_upper).call()
             exists, owner_name, cedula, doc_type, timestamp = result
 
             if exists:
@@ -579,7 +593,7 @@ async def verify_blockchain_document(doc_hash: str):
                 tx_hash = "N/A"
                 if supabase:
                     try:
-                        res = supabase.table("records").select("tx_hash").eq("hash", doc_hash).execute()
+                        res = supabase.table("records").select("tx_hash").eq("hash", doc_hash_upper).execute()
                         if res.data and len(res.data) > 0:
                             tx_hash = res.data[0].get("tx_hash", "N/A")
                     except Exception:
@@ -598,7 +612,7 @@ async def verify_blockchain_document(doc_hash: str):
     # 2. Fallback a base de datos Supabase si no está en blockchain o falló la blockchain
     if supabase:
         try:
-            res = supabase.table("records").select("*").eq("hash", doc_hash).execute()
+            res = supabase.table("records").select("*").eq("hash", doc_hash_upper).execute()
             if res.data and len(res.data) > 0:
                 record = res.data[0]
                 # Convertir created_at (string iso) a timestamp unix integer

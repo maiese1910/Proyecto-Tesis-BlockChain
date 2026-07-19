@@ -48,7 +48,7 @@ const QRScanner = () => {
         cleanHash = hash.split('hash=')[1].split('&')[0];
       }
 
-      const res = await blockchainAPI.verify(cleanHash);
+      const res = await blockchainAPI.verify(cleanHash.trim().toUpperCase());
       if (res.exists) {
         setVerificationData(res);
       } else {
