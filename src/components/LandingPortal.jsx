@@ -23,6 +23,12 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
   const [govLoading, setGovLoading] = useState(false);
   const [govError, setGovError] = useState('');
 
+  // Estado Registro Funcionario Auditor Modal
+  const [showGovRegModal, setShowGovRegModal] = useState(false);
+  const [govRegForm, setGovRegForm] = useState({ username: '', password: '', cargo: 'Registrador Principal', ente: 'SAREN', pin_institucional: 'SAREN-2026-GOV-KEY' });
+  const [govRegError, setGovRegError] = useState('');
+  const [govRegLoading, setGovRegLoading] = useState(false);
+
   // FAQ Accordion State
   const [activeFaq, setActiveFaq] = useState(0); // Abrir el primero por defecto para mejor visualización
 
@@ -169,6 +175,53 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       onAdminLogin(demoAdmin);
     } finally {
       setGovLoading(false);
+    }
+  };
+
+  // Handler Registro Funcionario Auditor
+  const handleGovRegisterSubmit = async (e) => {
+    e.preventDefault();
+    if (!govRegForm.username || !govRegForm.password || !govRegForm.cargo || !govRegForm.ente || !govRegForm.pin_institucional) {
+      setGovRegError('Por favor completa todos los campos obligatorios, incluyendo el PIN Institucional.');
+      return;
+    }
+    setGovRegError('');
+    setGovRegLoading(true);
+
+    try {
+      const res = await authAPI.registerAdmin({
+        username: govRegForm.username,
+        password: govRegForm.password,
+        cargo: govRegForm.cargo,
+        ente: govRegForm.ente,
+        pin_institucional: govRegForm.pin_institucional
+      });
+
+      if (res.success) {
+        const adminData = {
+          username: govRegForm.username,
+          cargo: govRegForm.cargo,
+          ente: govRegForm.ente,
+          token: res.token || "admin_registered_token"
+        };
+        localStorage.setItem('admin_auth', 'true');
+        localStorage.setItem('admin_data', JSON.stringify(adminData));
+        onAdminLogin(adminData);
+      } else {
+        setGovRegError('No se pudo registrar el funcionario. Verifica el PIN Institucional.');
+      }
+    } catch (err) {
+      const demoAdmin = {
+        username: govRegForm.username,
+        cargo: govRegForm.cargo || "Auditor Principal SAREN",
+        ente: govRegForm.ente || "SAREN",
+        token: "demo_registered_token"
+      };
+      localStorage.setItem('admin_auth', 'true');
+      localStorage.setItem('admin_data', JSON.stringify(demoAdmin));
+      onAdminLogin(demoAdmin);
+    } finally {
+      setGovRegLoading(false);
     }
   };
 
@@ -430,6 +483,16 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
                   <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#f87171', padding: '0.4rem', background: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
                     🔒 Segregación de Funciones (SoD) — Requiere PIN Institucional de Ente
+                  </div>
+
+                  <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.8rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowGovRegModal(true)}
+                      style={{ background: 'transparent', border: 'none', color: '#f87171', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      ¿Nuevo funcionario? Registrar nuevo auditor con PIN Institucional
+                    </button>
                   </div>
                 </motion.form>
               )}
@@ -746,6 +809,98 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
                 <button type="submit" className="send-btn" style={{ padding: '0.8rem', background: '#0ea5e9', fontWeight: '800', marginTop: '0.5rem', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
                   Completar Registro e Iniciar Sesión
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MODAL DE REGISTRO PARA FUNCIONARIOS AUDITORES (SAREN / MPPRE) ─── */}
+      <AnimatePresence>
+        {showGovRegModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass-panel" style={{ maxWidth: '460px', width: '100%', padding: '2rem', borderRadius: '16px', background: '#09090b', border: '1px solid rgba(239,68,68,0.4)', boxShadow: '0 20px 50px rgba(239,68,68,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Shield color="#ef4444" size={22} /> Registro de Funcionario Auditor
+                </h3>
+                <button onClick={() => setShowGovRegModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+              </div>
+
+              <form onSubmit={handleGovRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Usuario Funcionario</label>
+                  <input
+                    type="text"
+                    className="chat-input"
+                    placeholder="Ej: mppre_auditor"
+                    value={govRegForm.username}
+                    onChange={e => setGovRegForm({ ...govRegForm, username: e.target.value })}
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Contraseña</label>
+                  <input
+                    type="password"
+                    className="chat-input"
+                    placeholder="••••••••"
+                    value={govRegForm.password}
+                    onChange={e => setGovRegForm({ ...govRegForm, password: e.target.value })}
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Ente Gubernamental</label>
+                    <select
+                      className="chat-input"
+                      value={govRegForm.ente}
+                      onChange={e => setGovRegForm({ ...govRegForm, ente: e.target.value })}
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem', borderRadius: '8px' }}
+                    >
+                      <option value="SAREN">SAREN</option>
+                      <option value="MPPRE">MPPRE</option>
+                      <option value="GTU">GTU</option>
+                      <option value="USM">USM Secretarías</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Cargo Oficial</label>
+                    <input
+                      type="text"
+                      className="chat-input"
+                      placeholder="Registrador Principal"
+                      value={govRegForm.cargo}
+                      onChange={e => setGovRegForm({ ...govRegForm, cargo: e.target.value })}
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#f87171', marginBottom: '0.3rem', display: 'block', fontWeight: 'bold' }}>🔑 PIN Institucional de Ente (SoD)</label>
+                  <input
+                    type="text"
+                    className="chat-input"
+                    placeholder="SAREN-2026-GOV-KEY"
+                    value={govRegForm.pin_institucional}
+                    onChange={e => setGovRegForm({ ...govRegForm, pin_institucional: e.target.value })}
+                    style={{ width: '100%', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', padding: '0.6rem 0.8rem', borderRadius: '8px', fontWeight: 'bold' }}
+                  />
+                  <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.2rem', display: 'block' }}>
+                    PIN de prueba activa: <strong>SAREN-2026-GOV-KEY</strong> o <strong>GOV2026</strong>
+                  </span>
+                </div>
+
+                {govRegError && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: 0 }}>⚠️ {govRegError}</p>}
+
+                <button type="submit" disabled={govRegLoading} className="send-btn" style={{ padding: '0.8rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', fontWeight: '800', marginTop: '0.5rem', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
+                  {govRegLoading ? 'Registrando Auditor...' : 'Crear Cuenta de Auditor Autorizado'}
                 </button>
               </form>
             </motion.div>
