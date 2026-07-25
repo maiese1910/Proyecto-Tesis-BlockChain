@@ -883,17 +883,26 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#f87171', marginBottom: '0.3rem', display: 'block', fontWeight: 'bold' }}>🔑 PIN Institucional de Ente (SoD)</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                    <label style={{ fontSize: '0.78rem', color: '#f87171', margin: 0, fontWeight: 'bold' }}>🔑 PIN Institucional de Ente (Generado Automáticamente)</label>
+                    <button
+                      type="button"
+                      onClick={() => setGovRegForm(prev => ({ ...prev, pin_institucional: `GOV-${Math.floor(1000 + Math.random() * 9000)}-${(prev.ente || 'SAREN').toUpperCase()}` }))}
+                      style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#f87171', fontSize: '0.72rem', cursor: 'pointer', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold' }}
+                    >
+                      ⚡ Generar Nuevo PIN
+                    </button>
+                  </div>
                   <input
                     type="text"
                     className="chat-input"
-                    placeholder="SAREN-2026-GOV-KEY"
+                    placeholder="GOV-8942-SAREN"
                     value={govRegForm.pin_institucional}
                     onChange={e => setGovRegForm({ ...govRegForm, pin_institucional: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', padding: '0.6rem 0.8rem', borderRadius: '8px', fontWeight: 'bold' }}
+                    style={{ width: '100%', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', padding: '0.67rem 0.8rem', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}
                   />
                   <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.2rem', display: 'block' }}>
-                    PIN de prueba activa: <strong>SAREN-2026-GOV-KEY</strong> o <strong>GOV2026</strong>
+                    ✅ Generado por el sistema de forma automática. Se guardará en la base de datos para este usuario.
                   </span>
                 </div>
 

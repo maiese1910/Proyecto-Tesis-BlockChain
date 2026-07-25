@@ -547,6 +547,12 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
                   >
                     <ShieldCheck size={16} /> Ver Certificado
                   </button>
+                  <button
+                    onClick={() => setActivePUBRecord(record)}
+                    style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34d399', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Download size={16} /> Expediente Digital (PDF)
+                  </button>
                   {onVerifyHash && (
                     <button
                       onClick={() => onVerifyHash(record.hash)}
