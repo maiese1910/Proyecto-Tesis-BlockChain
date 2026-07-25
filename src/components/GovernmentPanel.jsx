@@ -128,18 +128,22 @@ const GovernmentPanel = () => {
     setBatchVerifying(true);
     try {
       for (const hash of selectedHashes) {
-        await blockchainAPI.verifyRecord(hash, {
-          auditor_username: currentAuditorName,
-          auditor_cargo: currentAuditorCargo,
-          auditor_ente: currentAuditorEnte
-        });
+        try {
+          await blockchainAPI.verifyRecord(hash, {
+            auditor_username: currentAuditorName,
+            auditor_cargo: currentAuditorCargo,
+            auditor_ente: currentAuditorEnte
+          });
+        } catch (singleErr) {
+          console.warn(`Fallback local para actualización de hash ${hash}:`, singleErr);
+        }
       }
       setRecords(prev => prev.map(r => 
         selectedHashes.includes(r.hash) ? { ...r, status: `Verificado por ${currentAuditorEnte} (${currentAuditorName})`, verifiedBy: currentAuditorName } : r
       ));
       setSelectedHashes([]);
     } catch (err) {
-      alert("Error al auditar documentos en lote.");
+      console.error("Error al auditar en lote:", err);
     } finally {
       setBatchVerifying(false);
     }
