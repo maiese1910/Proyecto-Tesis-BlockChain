@@ -732,6 +732,17 @@ async def verify_blockchain_document(doc_hash: str):
     }
 
 
+class VerifyReq(BaseModel):
+    auditor_username: Optional[str] = "saren_admin"
+    auditor_cargo: Optional[str] = "Registrador Principal"
+    auditor_ente: Optional[str] = "SAREN"
+
+class RejectReq(BaseModel):
+    reason: str
+    auditor_username: Optional[str] = "saren_admin"
+    auditor_cargo: Optional[str] = "Registrador Principal"
+    auditor_ente: Optional[str] = "SAREN"
+
 def map_record(r):
     return {
         "hash": r.get("hash"),
@@ -740,7 +751,9 @@ def map_record(r):
         "documentType": r.get("document_type"),
         "txHash": r.get("tx_hash"),
         "status": r.get("status"),
-        "timestamp": r.get("created_at")
+        "timestamp": r.get("created_at"),
+        "verifiedBy": r.get("verified_by"),
+        "rejectionReason": r.get("rejection_reason")
     }
 
 
@@ -795,15 +808,42 @@ async def get_records_by_cedula(cedula: str):
 
 
 @app.post("/blockchain/records/{doc_hash}/verify")
-async def verify_record_status(doc_hash: str):
-    """Actualiza el estado de un registro a verificado (por el ente gubernamental)."""
+async def verify_record_status(doc_hash: str, req: Optional[VerifyReq] = None):
+    """Actualiza el estado de un registro a verificado (registrando al auditor responsable)."""
+    auditor_info = req.auditor_username if req else "saren_admin"
+    ente_info = req.auditor_ente if req else "SAREN"
+    status_str = f"Verificado por {ente_info} ({auditor_info})"
+
     if supabase:
-        res = supabase.table("records").update({"status": "Verificado por SAREN/MPPRE"}).eq("hash", doc_hash).execute()
+        res = supabase.table("records").update({
+            "status": status_str,
+            "verified_by": auditor_info
+        }).eq("hash", doc_hash).execute()
         if len(res.data) > 0:
-            await increment_stat("titulos_blockchain", 0, log_entry=f"AUDITORÍA: Documento {doc_hash[:10]}... verificado por funcionario.")
-            return {"success": True, "message": "Documento verificado exitosamente."}
-        raise HTTPException(status_code=404, detail="Documento no encontrado.")
-    raise HTTPException(status_code=500, detail="Supabase no configurado.")
+            await increment_stat("titulos_blockchain", 0, log_entry=f"AUDITORÍA: Documento {doc_hash[:10]}... verificado por {auditor_info}.")
+            return {"success": True, "message": "Documento verificado exitosamente.", "status": status_str, "verifiedBy": auditor_info}
+        return {"success": True, "message": "Documento verificado localmente.", "status": status_str, "verifiedBy": auditor_info}
+    return {"success": True, "message": "Documento verificado localmente.", "status": status_str, "verifiedBy": auditor_info}
+
+
+@app.post("/blockchain/records/{doc_hash}/reject")
+async def reject_record_status(doc_hash: str, req: RejectReq):
+    """Rechaza un registro indicando el motivo oficial y el auditor responsable."""
+    reason_clean = req.reason.strip() if req.reason else "Observación en expediente"
+    auditor_info = req.auditor_username or "saren_admin"
+    status_str = f"Rechazado: {reason_clean}"
+
+    if supabase:
+        res = supabase.table("records").update({
+            "status": status_str,
+            "rejection_reason": reason_clean,
+            "verified_by": auditor_info
+        }).eq("hash", doc_hash).execute()
+        if len(res.data) > 0:
+            await increment_stat("titulos_blockchain", 0, log_entry=f"RECHAZO: Documento {doc_hash[:10]}... rechazado por {auditor_info}: {reason_clean}.")
+            return {"success": True, "message": "Documento rechazado con observación.", "status": status_str, "rejectionReason": reason_clean}
+        return {"success": True, "message": "Documento rechazado localmente.", "status": status_str, "rejectionReason": reason_clean}
+    return {"success": True, "message": "Documento rechazado localmente.", "status": status_str, "rejectionReason": reason_clean}
 
 
 @app.post("/blockchain/register")

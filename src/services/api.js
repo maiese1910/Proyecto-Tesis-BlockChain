@@ -69,8 +69,11 @@ export const blockchainAPI = {
   getRecordsByCedula: (cedula) =>
     apiFetch(`/blockchain/records/cedula/${cedula}`),
 
-  verifyRecord: (hash) =>
-    apiFetch(`/blockchain/records/${hash}/verify`, { method: 'POST' }),
+  verifyRecord: (hash, auditorData = {}) =>
+    apiFetch(`/blockchain/records/${hash}/verify`, { method: 'POST', body: auditorData }),
+
+  rejectRecord: (hash, reason, auditorData = {}) =>
+    apiFetch(`/blockchain/records/${hash}/reject`, { method: 'POST', body: { reason, ...auditorData } }),
 
   register: (data) =>
     apiFetch('/blockchain/register', { method: 'POST', body: data }),
