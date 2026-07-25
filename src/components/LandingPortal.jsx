@@ -327,14 +327,31 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
 
       {/* ─── HERO SECTION CON ANIMACIONES Y PORTAL DE ACCESO CENTRADO ─── */}
-      <section style={{ padding: '3rem 1.5rem 2rem 1.5rem', maxWidth: '1280px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-        <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <section style={{ padding: '3.5rem 1.5rem 2.5rem 1.5rem', maxWidth: '1280px', margin: '0 auto', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        
+        {/* Esferas de luz ambient flotantes animadas en el fondo */}
+        <motion.div
+          animate={{ scale: [1, 1.25, 1], opacity: [0.2, 0.4, 0.2], x: [0, 30, 0], y: [0, -20, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ position: 'absolute', top: '0', left: '15%', width: '380px', height: '380px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(14,165,233,0.35) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none', filter: 'blur(50px)', zIndex: 0 }}
+        />
+        <motion.div
+          animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.35, 0.15], x: [0, -40, 0], y: [0, 30, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ position: 'absolute', top: '100px', right: '12%', width: '420px', height: '420px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none', filter: 'blur(60px)', zIndex: 0 }}
+        />
+
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" style={{ position: 'relative', zIndex: 1 }}>
           
-          <motion.div variants={itemVariants} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(14,165,233,0.12)', color: '#38bdf8', padding: '0.5rem 1.4rem', borderRadius: '30px', border: '1px solid rgba(14,165,233,0.3)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '1.5rem' }}>
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ scale: 1.04 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(14,165,233,0.12)', color: '#38bdf8', padding: '0.5rem 1.4rem', borderRadius: '30px', border: '1px solid rgba(14,165,233,0.3)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '1.5rem', backdropFilter: 'blur(8px)', cursor: 'default' }}
+          >
             <Sparkles size={16} /> Proyecto de Grado — Plataforma de Validación con IA & Web3 Blockchain
           </motion.div>
 
-          <motion.h1 variants={itemVariants} style={{ fontSize: '2.8rem', fontWeight: '900', lineHeight: '1.15', maxWidth: '950px', margin: '0 auto 1.2rem auto', background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.5px' }}>
+          <motion.h1 variants={itemVariants} style={{ fontSize: '2.9rem', fontWeight: '900', lineHeight: '1.15', maxWidth: '950px', margin: '0 auto 1.2rem auto', background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.5px' }}>
             Plataforma Descentralizada para la Emisión y Verificación de Títulos Universitarios
           </motion.h1>
 
@@ -348,7 +365,12 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             variants={itemVariants}
             style={{ maxWidth: '640px', margin: '0 auto 3.5rem auto', textAlign: 'left' }}
           >
-            <div className="glass-panel" style={{ padding: '2rem', borderRadius: '20px', background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
+            <motion.div
+              whileHover={{ borderColor: roleTab === 'student' ? 'rgba(14,165,233,0.4)' : 'rgba(239,68,68,0.4)' }}
+              transition={{ duration: 0.3 }}
+              className="glass-panel"
+              style={{ padding: '2rem', borderRadius: '20px', background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden', backdropFilter: 'blur(20px)' }}
+            >
               
               {/* Decoración Superior Glow */}
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: roleTab === 'student' ? 'linear-gradient(to right, #0ea5e9, #7c3aed)' : 'linear-gradient(to right, #ef4444, #b91c1c)' }} />
@@ -499,7 +521,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                 </motion.form>
               )}
 
-            </div>
+            </motion.div>
           </motion.div>
 
         </motion.div>
