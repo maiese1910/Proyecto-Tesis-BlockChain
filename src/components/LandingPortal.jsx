@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Shield, User, CreditCard, Lock, ArrowRight, CheckCircle, FileText, Globe, Sparkles, BookOpen, Clock, AlertTriangle, KeyRound, Cpu, Layers, QrCode, ChevronDown, HelpCircle, ShieldCheck, Database, Server, Check } from 'lucide-react';
+import { GraduationCap, Shield, User, Lock, ArrowRight, CheckCircle, FileText, Globe, Sparkles, BookOpen, Clock, KeyRound, Cpu, Layers, QrCode, ChevronDown, HelpCircle, ShieldCheck, Database, Server } from 'lucide-react';
 import { profilesAPI, authAPI, statsAPI, dynamicDataAPI } from '../services/api';
 
 const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
@@ -24,7 +24,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
   const [govError, setGovError] = useState('');
 
   // FAQ Accordion State
-  const [activeFaq, setActiveFaq] = useState(null);
+  const [activeFaq, setActiveFaq] = useState(0); // Abrir el primero por defecto para mejor visualización
 
   // Stats en tiempo real
   const [stats, setStats] = useState({ graduandos_activos: 1240, docs_prevalidados: 3890, titulos_blockchain: 1250 });
@@ -43,6 +43,11 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
     return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
+  const scrollToLogin = () => {
+    const el = document.getElementById('login-portal-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   // Pre-llenado rápido para pruebas de evaluación
   const fillStudentDemo = () => {
     setRoleTab('student');
@@ -59,7 +64,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
   const handleStudentSubmit = async (e) => {
     e && e.preventDefault();
     if (!studentCedula || studentCedula.length < 5) {
-      setStudentError('Por favor ingresa tu número de Cédula de Identidad.');
+      setStudentError('Por favor ingresa tu Cédula de Identidad.');
       return;
     }
     setStudentError('');
@@ -170,7 +175,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
   const faqItems = [
     {
       q: "¿Cómo garantiza la Blockchain que un título universitario no sea falsificado?",
-      a: "El sistema genera una huella criptográfica inmutable (Hash SHA-256) calculada a partir de los metadatos y firma del título. Ese hash se inscribe en la red pública Ethereum (Sepolia). Cualquier alteración en una letra o fecha del documento generará un hash completamente diferente, lo que alertará de inmediato al funcionario auditor."
+      a: "El sistema calcula la huella criptográfica inmutable (Hash SHA-256) a partir de los metadatos y firma digital del título. Ese hash se inscribe en la red pública Ethereum (Sepolia). Cualquier alteración de una sola letra o fecha en el documento generará un hash totalmente distinto, alertando de inmediato al auditor."
     },
     {
       q: "¿Qué función cumple el módulo de Inteligencia Artificial (OCR)?",
@@ -186,10 +191,23 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
     }
   ];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.12 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+  };
+
   return (
     <div style={{ background: '#070a12', color: '#f8fafc', minHeight: '100vh', width: '100vw', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'Inter, system-ui, sans-serif' }}>
       
-      {/* ─── HEADER INSTITUCIONAL CON ACCESO DUAL ─── */}
+      {/* ─── HEADER INSTITUCIONAL ULTRA LIMPIO Y ELEGANTE ─── */}
       <header style={{
         background: 'rgba(11, 15, 25, 0.95)', backdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'sticky', top: 0, zIndex: 500
@@ -201,14 +219,17 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             <span style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '1.2rem' }}>Facultad de Ingeniería y Arquitectura</span>
           </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span>🟢 Red Ethereum Sepolia: <strong style={{ color: '#10b981' }}>Activa y Verificada</strong></span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }}></span>
+              Red Ethereum Sepolia: <strong style={{ color: '#10b981' }}>Activa</strong>
+            </span>
           </div>
         </div>
 
-        {/* Navbar Principal */}
+        {/* Navbar Principal Con Botones Directos */}
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap' }}>
           
-          {/* Logo y Nombre del Proyecto */}
+          {/* Logo e Identidad */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'linear-gradient(135deg, #0ea5e9, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
               <GraduationCap size={26} />
@@ -221,211 +242,218 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             </div>
           </div>
 
-          {/* Selector y Login Rápido en Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', padding: '0.4rem 0.6rem', borderRadius: '14px', flexWrap: 'wrap' }}>
-            
-            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', padding: '0.2rem', borderRadius: '10px' }}>
-              <button
-                onClick={() => { setRoleTab('student'); setStudentError(''); setGovError(''); }}
-                style={{
-                  padding: '0.45rem 0.85rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                  fontWeight: '700', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s',
-                  background: roleTab === 'student' ? 'linear-gradient(135deg, #0ea5e9, #2563eb)' : 'transparent',
-                  color: roleTab === 'student' ? '#fff' : '#94a3b8'
-                }}
-              >
-                <User size={14} /> Graduando USM
-              </button>
+          {/* Accesos Directos Elegantes */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <button
+              onClick={() => { setRoleTab('student'); scrollToLogin(); }}
+              style={{
+                padding: '0.55rem 1.1rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: '#fff', boxShadow: '0 4px 14px rgba(14,165,233,0.3)'
+              }}
+            >
+              <User size={15} /> Graduando USM
+            </button>
 
-              <button
-                onClick={() => { setRoleTab('gov'); setStudentError(''); setGovError(''); }}
-                style={{
-                  padding: '0.45rem 0.85rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                  fontWeight: '700', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s',
-                  background: roleTab === 'gov' ? 'linear-gradient(135deg, #ef4444, #b91c1c)' : 'transparent',
-                  color: roleTab === 'gov' ? '#fff' : '#94a3b8'
-                }}
-              >
-                <Shield size={14} /> Ente Auditor (SAREN/MPPRE)
-              </button>
-            </div>
-
-            {/* Login de Estudiante en Header */}
-            {roleTab === 'student' ? (
-              <form onSubmit={handleStudentSubmit} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  placeholder="Cédula (ej: V-28.315.101)"
-                  value={studentCedula}
-                  onChange={e => setStudentCedula(e.target.value)}
-                  style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', width: '165px' }}
-                />
-                <button
-                  type="submit"
-                  disabled={studentLoading}
-                  className="send-btn"
-                  style={{ padding: '0.45rem 1rem', fontSize: '0.8rem', background: '#0ea5e9', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                >
-                  {studentLoading ? '...' : 'Entrar'}
-                </button>
-                <button
-                  type="button"
-                  onClick={fillStudentDemo}
-                  style={{ background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.3)', color: '#38bdf8', padding: '0.45rem 0.6rem', borderRadius: '8px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '600' }}
-                >
-                  ⚡ Demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowRegModal(true)}
-                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.78rem', cursor: 'pointer', fontWeight: '600' }}
-                >
-                  Registrarse
-                </button>
-              </form>
-            ) : (
-              /* Login Funcionario en Header */
-              <form onSubmit={handleGovSubmit} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  placeholder="Usuario"
-                  value={govUsername}
-                  onChange={e => setGovUsername(e.target.value)}
-                  style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '0.45rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', width: '120px' }}
-                />
-                <input
-                  type="password"
-                  placeholder="Contraseña"
-                  value={govPassword}
-                  onChange={e => setGovPassword(e.target.value)}
-                  style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '0.45rem 0.6rem', borderRadius: '8px', fontSize: '0.8rem', width: '110px' }}
-                />
-                <button
-                  type="submit"
-                  disabled={govLoading}
-                  className="send-btn"
-                  style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', background: '#ef4444', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                >
-                  <Lock size={12} /> {govLoading ? '...' : 'Acceder'}
-                </button>
-                <button
-                  type="button"
-                  onClick={fillGovDemo}
-                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '0.45rem 0.6rem', borderRadius: '8px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '600' }}
-                >
-                  ⚡ Demo
-                </button>
-              </form>
-            )}
-
+            <button
+              onClick={() => { setRoleTab('gov'); scrollToLogin(); }}
+              style={{
+                padding: '0.55rem 1.1rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer',
+                fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'rgba(239,68,68,0.12)', color: '#f87171'
+              }}
+            >
+              <Shield size={15} /> Ente Auditor (SAREN)
+            </button>
           </div>
+
         </div>
-
-        {/* Mensaje de aviso/error */}
-        {(studentError || govError) && (
-          <div style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', padding: '0.35rem 1.5rem', textAlign: 'center', fontSize: '0.78rem', borderTop: '1px solid rgba(239,68,68,0.3)' }}>
-            ⚠️ {studentError || govError}
-          </div>
-        )}
       </header>
 
 
-      {/* ─── HERO SECTION PRINCIPAL ─── */}
-      <section style={{ padding: '3.5rem 1.5rem 2rem 1.5rem', maxWidth: '1280px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      {/* ─── HERO SECTION CON ANIMACIONES Y PORTAL DE ACCESO CENTRADO ─── */}
+      <section style={{ padding: '3rem 1.5rem 2rem 1.5rem', maxWidth: '1280px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+        <motion.div variants={containerVariants} initial="hidden" animate="visible">
           
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(14,165,233,0.12)', color: '#38bdf8', padding: '0.5rem 1.4rem', borderRadius: '30px', border: '1px solid rgba(14,165,233,0.3)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '1.5rem' }}>
+          <motion.div variants={itemVariants} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(14,165,233,0.12)', color: '#38bdf8', padding: '0.5rem 1.4rem', borderRadius: '30px', border: '1px solid rgba(14,165,233,0.3)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '1.5rem' }}>
             <Sparkles size={16} /> Proyecto de Tesis — Formando el Futuro con IA & Web3 Blockchain
-          </div>
+          </motion.div>
 
-          <h1 style={{ fontSize: '2.8rem', fontWeight: '900', lineHeight: '1.15', maxWidth: '950px', margin: '0 auto 1.2rem auto', background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.5px' }}>
+          <motion.h1 variants={itemVariants} style={{ fontSize: '2.8rem', fontWeight: '900', lineHeight: '1.15', maxWidth: '950px', margin: '0 auto 1.2rem auto', background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.5px' }}>
             Plataforma Descentralizada para la Emisión y Verificación de Títulos Universitarios
-          </h1>
+          </motion.h1>
 
-          <p style={{ fontSize: '1.1rem', color: '#94a3b8', maxWidth: '820px', margin: '0 auto 2.5rem auto', lineHeight: '1.6' }}>
+          <motion.p variants={itemVariants} style={{ fontSize: '1.08rem', color: '#94a3b8', maxWidth: '820px', margin: '0 auto 2.5rem auto', lineHeight: '1.6' }}>
             Sistema integral para la <strong>Universidad Santa María</strong>: Pre-validación mediante Visión por Computador (OCR AI), generación automatizada de Planilla PUB SAREN e inmutabilidad criptográfica en la <strong>Blockchain de Ethereum</strong> para auditoría estatal ante SAREN y MPPRE.
-          </p>
+          </motion.p>
 
-          {/* ─── CENTRO DE INICIO DE SESIÓN DESTACADO (TARJETAS DE ACCESO DIRECTO) ─── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', maxWidth: '900px', margin: '0 auto 3rem auto', textAlign: 'left' }}>
-            
-            {/* Tarjeta Acceso Graduando */}
-            <div className="glass-panel" style={{ padding: '1.8rem', borderRadius: '16px', border: roleTab === 'student' ? '2px solid #0ea5e9' : '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,23,42,0.85)', boxShadow: roleTab === 'student' ? '0 0 30px rgba(14,165,233,0.25)' : 'none', transition: 'all 0.3s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '12px', background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
-                  <User size={26} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ fontSize: '1.15rem', color: '#fff', margin: 0, fontWeight: '800' }}>Acceso Graduando USM</h3>
-                  <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Estudiantes y Egresados USM</p>
-                </div>
-              </div>
-              <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '1.2rem', lineHeight: '1.5' }}>
-                Genera tu Planilla PUB, realiza la pre-validación con Inteligencia Artificial e inmutabiliza tu título en Blockchain.
-              </p>
+          {/* ─── PORTAL DE ACCESO UNIFICADO Y CENTRADO (HERO CARD) ─── */}
+          <motion.div
+            id="login-portal-section"
+            variants={itemVariants}
+            style={{ maxWidth: '640px', margin: '0 auto 3.5rem auto', textAlign: 'left' }}
+          >
+            <div className="glass-panel" style={{ padding: '2rem', borderRadius: '20px', background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
               
-              <button
-                onClick={() => { setRoleTab('student'); fillStudentDemo(); handleStudentSubmit(); }}
-                className="send-btn"
-                style={{ width: '100%', padding: '0.85rem', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}
-              >
-                ⚡ Probar Demo Graduando (V-28.315.101)
-              </button>
+              {/* Decoración Superior Glow */}
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: roleTab === 'student' ? 'linear-gradient(to right, #0ea5e9, #7c3aed)' : 'linear-gradient(to right, #ef4444, #b91c1c)' }} />
 
-              <button
-                onClick={() => setShowRegModal(true)}
-                style={{ width: '100%', padding: '0.6rem', background: 'transparent', border: '1px dashed rgba(255,255,255,0.2)', color: '#94a3b8', borderRadius: '8px', fontSize: '0.78rem', cursor: 'pointer' }}
-              >
-                ¿No estás registrado? Crear Cuenta Estudiantil
-              </button>
-            </div>
+              {/* Selector de Pestañas Interactivo */}
+              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', padding: '0.3rem', borderRadius: '12px', marginBottom: '1.8rem', gap: '0.4rem' }}>
+                <button
+                  onClick={() => { setRoleTab('student'); setStudentError(''); setGovError(''); }}
+                  style={{
+                    flex: 1, padding: '0.7rem 1rem', borderRadius: '9px', border: 'none', cursor: 'pointer',
+                    fontWeight: '800', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.3s',
+                    background: roleTab === 'student' ? 'linear-gradient(135deg, #0ea5e9, #2563eb)' : 'transparent',
+                    color: roleTab === 'student' ? '#fff' : '#94a3b8',
+                    boxShadow: roleTab === 'student' ? '0 4px 15px rgba(14,165,233,0.3)' : 'none'
+                  }}
+                >
+                  <User size={16} /> 🎓 Graduando USM
+                </button>
 
-            {/* Tarjeta Acceso Funcionario Auditor */}
-            <div className="glass-panel" style={{ padding: '1.8rem', borderRadius: '16px', border: roleTab === 'gov' ? '2px solid #ef4444' : '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,23,42,0.85)', boxShadow: roleTab === 'gov' ? '0 0 30px rgba(239,68,68,0.25)' : 'none', transition: 'all 0.3s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '12px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
-                  <Shield size={26} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', color: '#fff', margin: 0, fontWeight: '800' }}>Ente Auditor (SAREN/MPPRE)</h3>
-                  <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Funcionarios e Inspectores de Ley</p>
-                </div>
+                <button
+                  onClick={() => { setRoleTab('gov'); setStudentError(''); setGovError(''); }}
+                  style={{
+                    flex: 1, padding: '0.7rem 1rem', borderRadius: '9px', border: 'none', cursor: 'pointer',
+                    fontWeight: '800', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.3s',
+                    background: roleTab === 'gov' ? 'linear-gradient(135deg, #ef4444, #b91c1c)' : 'transparent',
+                    color: roleTab === 'gov' ? '#fff' : '#94a3b8',
+                    boxShadow: roleTab === 'gov' ? '0 4px 15px rgba(239,68,68,0.3)' : 'none'
+                  }}
+                >
+                  <Shield size={16} /> 🏛️ Ente Auditor (SAREN)
+                </button>
               </div>
-              <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '1.2rem', lineHeight: '1.5' }}>
-                Panel restringido con Segregación de Funciones (SoD). Audita la autenticidad de títulos firmados mediante firma electrónica.
-              </p>
-              
-              <button
-                onClick={() => { setRoleTab('gov'); fillGovDemo(); handleGovSubmit(); }}
-                style={{ width: '100%', padding: '0.85rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}
-              >
-                ⚡ Probar Demo Auditor (saren_admin)
-              </button>
 
-              <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#f87171', padding: '0.4rem', background: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
-                🔒 Requiere PIN Institucional de Ente (SoD)
-              </div>
+              {/* Formulario Estudiante */}
+              {roleTab === 'student' ? (
+                <motion.form key="student-form" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} onSubmit={handleStudentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Cédula de Identidad del Graduando</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.6rem 1rem' }}>
+                      <User size={18} color="#0ea5e9" />
+                      <input
+                        type="text"
+                        placeholder="Ej: V-28.315.101"
+                        value={studentCedula}
+                        onChange={e => setStudentCedula(e.target.value)}
+                        style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: '0.95rem', width: '100%', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+
+                  {studentError && <p style={{ color: '#ef4444', fontSize: '0.82rem', margin: 0 }}>⚠️ {studentError}</p>}
+
+                  <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="submit"
+                      disabled={studentLoading}
+                      className="send-btn"
+                      style={{ flex: 2, padding: '0.85rem', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: '#fff', fontWeight: '800', fontSize: '0.9rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    >
+                      {studentLoading ? 'Validando...' : 'Ingresar a la Plataforma ➔'}
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => { fillStudentDemo(); handleStudentSubmit(); }}
+                      style={{ flex: 1, padding: '0.85rem', background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.3)', color: '#38bdf8', fontWeight: '700', fontSize: '0.85rem', borderRadius: '10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ⚡ Demo 1-Tap
+                    </button>
+                  </div>
+
+                  <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.8rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowRegModal(true)}
+                      style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      ¿No estás registrado en la base de datos? Haz clic aquí
+                    </button>
+                  </div>
+                </motion.form>
+              ) : (
+                /* Formulario Funcionario Auditor */
+                <motion.form key="gov-form" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} onSubmit={handleGovSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Usuario Funcionario</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.6rem 0.8rem' }}>
+                        <User size={16} color="#ef4444" />
+                        <input
+                          type="text"
+                          placeholder="saren_admin"
+                          value={govUsername}
+                          onChange={e => setGovUsername(e.target.value)}
+                          style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: '0.88rem', width: '100%', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Contraseña</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.6rem 0.8rem' }}>
+                        <Lock size={16} color="#ef4444" />
+                        <input
+                          type="password"
+                          placeholder="••••••••"
+                          value={govPassword}
+                          onChange={e => setGovPassword(e.target.value)}
+                          style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: '0.88rem', width: '100%', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {govError && <p style={{ color: '#ef4444', fontSize: '0.82rem', margin: 0 }}>⚠️ {govError}</p>}
+
+                  <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="submit"
+                      disabled={govLoading}
+                      style={{ flex: 2, padding: '0.85rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', fontWeight: '800', fontSize: '0.9rem', borderRadius: '10px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    >
+                      <Lock size={16} /> {govLoading ? 'Autenticando...' : 'Acceso Seguro Auditoría ➔'}
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => { fillGovDemo(); handleGovSubmit(); }}
+                      style={{ flex: 1, padding: '0.85rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontWeight: '700', fontSize: '0.85rem', borderRadius: '10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ⚡ Demo 1-Tap
+                    </button>
+                  </div>
+
+                  <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#f87171', padding: '0.4rem', background: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
+                    🔒 Segregación de Funciones (SoD) — Requiere PIN Institucional de Ente
+                  </div>
+                </motion.form>
+              )}
+
             </div>
-
-          </div>
+          </motion.div>
 
         </motion.div>
 
         {/* Tarjetas de Métricas en Tiempo Real */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1.2rem', maxWidth: '1050px', margin: '0 auto' }}>
+        <motion.div variants={containerVariants} initial="hidden" whileInView="visible" viewport={{ once: true }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1.2rem', maxWidth: '1050px', margin: '0 auto' }}>
           {[
             { label: 'Graduandos Registrados', val: `${stats.graduandos_activos}+`, icon: User, color: '#38bdf8' },
             { label: 'Documentos Pre-validados', val: `${stats.docs_prevalidados}+`, icon: CheckCircle, color: '#10b981' },
             { label: 'Títulos en Blockchain', val: `${stats.titulos_blockchain}+`, icon: ShieldCheck, color: '#a855f7' },
             { label: 'Horas Ahorradas', val: '2.450+ hrs', icon: Clock, color: '#f59e0b' },
           ].map((item, idx) => (
-            <div key={idx} className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', borderTop: `3px solid ${item.color}`, background: 'rgba(15,23,42,0.6)' }}>
+            <motion.div key={idx} variants={itemVariants} whileHover={{ y: -5 }} className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', borderTop: `3px solid ${item.color}`, background: 'rgba(15,23,42,0.6)' }}>
               <item.icon size={26} color={item.color} style={{ margin: '0 auto 0.5rem auto' }} />
               <h3 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 0.2rem 0', color: '#ffffff' }}>{item.val}</h3>
               <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>{item.label}</p>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
 
@@ -448,14 +476,14 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               { num: '03', title: 'Hash en Blockchain', desc: 'Genera la huella criptográfica SHA-256 registrada en la red Ethereum Sepolia.', icon: Layers, color: '#10b981' },
               { num: '04', title: 'Auditoría con QR', desc: 'Funcionarios de SAREN y MPPRE escanean el QR para verificar autenticidad.', icon: QrCode, color: '#ef4444' },
             ].map((step) => (
-              <div key={step.num} className="glass-panel" style={{ padding: '1.8rem', borderLeft: `4px solid ${step.color}`, position: 'relative' }}>
+              <motion.div key={step.num} whileHover={{ y: -6, scale: 1.02 }} className="glass-panel" style={{ padding: '1.8rem', borderLeft: `4px solid ${step.color}`, position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <span style={{ fontSize: '1.4rem', fontWeight: '900', color: step.color }}>{step.num}</span>
                   <step.icon size={24} color={step.color} />
                 </div>
                 <h3 style={{ fontSize: '1.1rem', margin: '0 0 0.5rem 0', color: '#ffffff' }}>{step.title}</h3>
                 <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0, lineHeight: '1.5' }}>{step.desc}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -483,14 +511,14 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             { title: 'Backend Asíncrono', badge: 'Python FastAPI', desc: 'Motor de reconocimiento de entidades nombradas (NER) y cálculo de aranceles bancarios.', color: '#0ea5e9', icon: Server },
             { title: 'Almacenamiento Seguro', badge: 'Supabase PostgreSQL', desc: 'Base de datos encriptada para perfiles universitarios e historial de comprobantes.', color: '#f59e0b', icon: Database },
           ].map((item, idx) => (
-            <div key={idx} className="glass-panel" style={{ padding: '1.6rem', borderTop: `3px solid ${item.color}` }}>
+            <motion.div key={idx} whileHover={{ y: -5 }} className="glass-panel" style={{ padding: '1.6rem', borderTop: `3px solid ${item.color}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
                 <item.icon size={22} color={item.color} />
                 <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.06)', padding: '0.2rem 0.6rem', borderRadius: '12px', color: item.color, fontWeight: '700' }}>{item.badge}</span>
               </div>
               <h3 style={{ fontSize: '1.05rem', color: '#fff', marginBottom: '0.5rem' }}>{item.title}</h3>
               <p style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: '1.5', margin: 0 }}>{item.desc}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
@@ -551,34 +579,81 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       </section>
 
 
-      {/* ─── SECCIÓN PREGUNTAS FRECUENTES (FAQ ACCORDION) ─── */}
-      <section style={{ padding: '4rem 1.5rem', maxWidth: '900px', margin: '0 auto' }}>
+      {/* ─── SECCIÓN PREGUNTAS FRECUENTES (FAQ ACCORDION ULTRA PULIDO Y ANIMADO) ─── */}
+      <section style={{ padding: '4rem 1.5rem', maxWidth: '860px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#fff', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-            <HelpCircle color="#0ea5e9" size={24} /> Preguntas Frecuentes de la Evaluación
+            <HelpCircle color="#0ea5e9" size={26} /> Preguntas Frecuentes de la Evaluación
           </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.92rem' }}>
-            Aclaraciones clave preparadas para la defensa del Proyecto de Tesis USM.
+            Respuestas clave estructuradas para la defensa del Proyecto de Tesis USM.
           </p>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {faqItems.map((item, idx) => (
-            <div key={idx} className="glass-panel" style={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-              <button
-                onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                style={{ width: '100%', padding: '1.2rem 1.5rem', background: 'transparent', border: 'none', color: '#fff', fontWeight: '700', fontSize: '0.95rem', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+          {faqItems.map((item, idx) => {
+            const isOpen = activeFaq === idx;
+            return (
+              <motion.div
+                key={idx}
+                initial={false}
+                animate={{
+                  backgroundColor: isOpen ? 'rgba(14,165,233,0.06)' : 'rgba(15,23,42,0.6)',
+                  borderColor: isOpen ? 'rgba(14,165,233,0.4)' : 'rgba(255,255,255,0.08)'
+                }}
+                style={{
+                  borderRadius: '14px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  overflow: 'hidden',
+                  transition: 'background-color 0.3s, border-color 0.3s'
+                }}
               >
-                <span>{item.q}</span>
-                <ChevronDown size={18} color="#0ea5e9" style={{ transform: activeFaq === idx ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
-              </button>
-              {activeFaq === idx && (
-                <div style={{ padding: '0 1.5rem 1.2rem 1.5rem', color: '#94a3b8', fontSize: '0.88rem', lineHeight: '1.6', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  {item.a}
-                </div>
-              )}
-            </div>
-          ))}
+                <button
+                  onClick={() => setActiveFaq(isOpen ? null : idx)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    background: 'transparent',
+                    border: 'none',
+                    color: isOpen ? '#38bdf8' : '#ffffff',
+                    fontWeight: '700',
+                    fontSize: '1rem',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justify: 'space-between',
+                    alignItems: 'center',
+                    gap: '1rem'
+                  }}
+                >
+                  <span style={{ lineHeight: '1.4' }}>{item.q}</span>
+                  <motion.div
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.3 }}
+                    style={{ flexShrink: 0 }}
+                  >
+                    <ChevronDown size={20} color={isOpen ? '#38bdf8' : '#94a3b8'} />
+                  </motion.div>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <div style={{ padding: '0 1.5rem 1.4rem 1.5rem', color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.65', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        {item.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
