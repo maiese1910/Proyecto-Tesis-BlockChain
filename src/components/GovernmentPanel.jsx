@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw, Bell } from 'lucide-react';
 import { blockchainAPI, authAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import html2pdf from 'html2pdf.js';
@@ -242,6 +242,61 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
   return (
     <div className="view-container" style={{ maxWidth: '1280px', margin: '0 auto' }}>
       
+      {/* ─── BANDEROLA NOTIFICACIÓN DE TRÁMITES PENDIENTES POR AUDITAR ─── */}
+      {pendingCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(217,119,6,0.25))',
+            border: '1px solid rgba(245,158,11,0.5)',
+            padding: '0.9rem 1.4rem',
+            borderRadius: '14px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            boxShadow: '0 8px 25px rgba(245,158,11,0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f59e0b', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+              <Bell size={20} />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '0.98rem', color: '#ffffff' }}>
+                Atención Funcionario: Tienes <strong>{pendingCount} expediente{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''}</strong> por auditar y revisar.
+              </h4>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: '#fef3c7' }}>
+                Los graduandos de la USM aguardan por la firma digital y verificación en la Blockchain.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setFilterStatus('PENDING')}
+            style={{
+              background: '#f59e0b',
+              color: '#000',
+              border: 'none',
+              padding: '0.55rem 1.1rem',
+              borderRadius: '8px',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              boxShadow: '0 4px 12px rgba(245,158,11,0.4)'
+            }}
+          >
+            <Clock size={15} /> Ver Pendientes Solamente ➔
+          </button>
+        </motion.div>
+      )}
+
       {/* ─── ENCABEZADO CON MÉTRICAS Y ASISTENTE IA DE AUDITORÍA ─── */}
       <div className="dashboard-header" style={{ borderLeftColor: '#ef4444', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.2rem', background: 'rgba(15,23,42,0.8)', padding: '1.8rem', borderRadius: '16px', border: '1px solid rgba(239,68,68,0.3)', marginBottom: '1.8rem' }}>
         <div style={{ flex: 1, minWidth: '280px' }}>
