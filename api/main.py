@@ -1130,14 +1130,15 @@ async def get_carreras():
 # ─── OCR: Extracción Inteligente de Documentos Académicos ────────────────────
 
 class OCRRequest(BaseModel):
-    image_base64: str
+    raw_text: Optional[str] = None
+    image_base64: Optional[str] = None
 
 def extract_entities_ner(raw_text: str) -> dict:
     """
     Capa de Reconocimiento de Entidades Nombradas (NER) sobre texto crudo del OCR.
     Aplica heurísticas semánticas orientadas a documentos académicos venezolanos.
     """
-    text = raw_text
+    text = raw_text or ""
     fields = {}
 
     # ── Cédula de Identidad (V-XXXXXXXX / E-XXXXXXXX) ──
@@ -1171,7 +1172,6 @@ def extract_entities_ner(raw_text: str) -> dict:
         if kw.lower() in text.lower():
             institucion_found = kw
             break
-    # Si no coincide con keywords conocidos, buscar patrón "Universidad de ..."
     if not institucion_found:
         uni_match = re.search(r'(Universidad\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ ]{3,50})', text)
         if uni_match:
@@ -1191,7 +1191,6 @@ def extract_entities_ner(raw_text: str) -> dict:
             carrera_found = kw
             break
     if not carrera_found:
-        # Buscar patrón "Mención: ..." o "Título de ..."
         carrera_match = re.search(
             r'(?:menci[oó]n|t[ií]tulo de|egresado en|licenciado en|ingeniero en)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ ]{3,50})',
             text, re.IGNORECASE
@@ -1200,15 +1199,13 @@ def extract_entities_ner(raw_text: str) -> dict:
             carrera_found = carrera_match.group(1).strip()
     fields['carrera'] = {'value': carrera_found, 'confidence': 0.80 if carrera_found else 0.0}
 
-    # ── Nombre Completo (heurística: línea con 2-5 palabras en mayúsculas) ──
+    # ── Nombre Completo (heurística: línea con 2-6 palabras en mayúsculas) ──
     nombre_found = None
     lines = [l.strip() for l in text.split('\n') if l.strip()]
     for line in lines:
-        # Excluir líneas con números, fechas, o palabras clave institucionales
         words = line.split()
-        if 2 <= len(words) <= 6 and all(re.match(r'^[A-ZÁÉÍÓÚÑ]+$', w) for w in words):
-            # Excluir encabezados institucionales comunes
-            skip = any(kw.upper() in line.upper() for kw in ['REPÚBLICA', 'MINISTERIO', 'UNIVERSIDAD', 'FACULTAD', 'ESCUELA', 'DEPARTAMENTO'])
+        if 2 <= len(words) <= 6 and all(re.match(r'^[A-ZÁÉÍÓÚÑa-záéíóúñ]+$', w) for w in words):
+            skip = any(kw.upper() in line.upper() for kw in ['REPÚBLICA', 'MINISTERIO', 'UNIVERSIDAD', 'FACULTAD', 'ESCUELA', 'DEPARTAMENTO', 'CEDULA', 'TITULO'])
             if not skip:
                 nombre_found = line.strip()
                 break
@@ -1221,57 +1218,59 @@ def extract_entities_ner(raw_text: str) -> dict:
 async def ocr_extract_document(req: OCRRequest):
     """
     Motor de Extracción Inteligente de Documentos Académicos.
-
-    Arquitectura:
-    - CRAFT (Character Region Awareness for Text detection): detección de regiones
-    - CRNN (Convolutional Recurrent Neural Network): reconocimiento de caracteres  
-    - NER (Named Entity Recognition): extracción semántica de entidades del dominio
-
-    Implementado mediante EasyOCR con modelos de Deep Learning pre-entrenados.
+    Soporta extracción basada en texto (Tesseract.js / WebAssembly) y procesado de imágenes.
     """
-    if not HAS_OCR:
-        raise HTTPException(
-            status_code=503,
-            detail="Módulo OCR no disponible. Instala easyocr y Pillow: pip install easyocr Pillow"
-        )
-
     try:
-        # 1. Decodificar imagen desde base64
-        image_bytes = base64.b64decode(req.image_base64)
-        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+        # Caso 1: Se envía texto crudo directamente desde el cliente (Tesseract.js WASM)
+        if req.raw_text:
+            fields = extract_entities_ner(req.raw_text)
+            return {
+                "success": True,
+                "fields": fields,
+                "overall_confidence": 0.85,
+                "raw_text_preview": req.raw_text[:500] + ("..." if len(req.raw_text) > 500 else ""),
+                "source": "Client OCR (Tesseract.js WASM) + Server NER"
+            }
 
-        # Redimensionar si es muy grande (mantener calidad para OCR)
-        max_dim = 2000
-        w, h = image.size
-        if max(w, h) > max_dim:
-            scale = max_dim / max(w, h)
-            image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        # Caso 2: Se envía imagen base64 y el entorno servidor cuenta con EasyOCR
+        if req.image_base64 and HAS_OCR:
+            image_bytes = base64.b64decode(req.image_base64)
+            image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
 
-        img_array = np.array(image)
+            max_dim = 2000
+            w, h = image.size
+            if max(w, h) > max_dim:
+                scale = max_dim / max(w, h)
+                image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
-        # 2. Cargar el reader (carga el modelo de deep learning la primera vez)
-        reader = get_ocr_reader()
-        if not reader:
-            raise HTTPException(status_code=503, detail="No se pudo cargar el modelo OCR")
+            img_array = np.array(image)
+            reader = get_ocr_reader()
+            if not reader:
+                raise HTTPException(status_code=503, detail="No se pudo cargar el modelo OCR")
 
-        # 3. Ejecutar OCR con CRAFT + CRNN
-        ocr_results = reader.readtext(img_array, detail=1, paragraph=False)
+            ocr_results = reader.readtext(img_array, detail=1, paragraph=False)
+            raw_text = '\n'.join([t for (_, t, _) in ocr_results])
+            confidences = [conf for (_, _, conf) in ocr_results if conf > 0]
+            overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
 
-        # 4. Construir texto crudo y calcular confianza media
-        raw_text = '\n'.join([text for (_, text, _) in ocr_results])
-        confidences = [conf for (_, _, conf) in ocr_results if conf > 0]
-        overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+            fields = extract_entities_ner(raw_text)
+            return {
+                "success": True,
+                "fields": fields,
+                "overall_confidence": round(overall_confidence, 3),
+                "raw_text_preview": raw_text[:500] + ("..." if len(raw_text) > 500 else ""),
+                "total_text_blocks": len(ocr_results),
+                "source": "Server OCR (EasyOCR)"
+            }
 
-        # 5. Aplicar capa NER para extraer entidades semánticas
-        fields = extract_entities_ner(raw_text)
+        # Fallback si se envía sólo base64 pero en servidor no hay easyocr
+        if req.image_base64:
+            raise HTTPException(
+                status_code=400,
+                detail="Envío directo de texto recomendado en producción Vercel"
+            )
 
-        return {
-            "success": True,
-            "fields": fields,
-            "overall_confidence": round(overall_confidence, 3),
-            "raw_text_preview": raw_text[:500] + ("..." if len(raw_text) > 500 else ""),
-            "total_text_blocks": len(ocr_results),
-        }
+        raise HTTPException(status_code=400, detail="Debe proporcionar raw_text o image_base64")
 
     except HTTPException:
         raise

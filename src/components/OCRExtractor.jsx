@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check } from "lucide-react";
 import { ocrAPI } from "../services/api";
@@ -99,17 +99,32 @@ const OCRExtractor = ({ user, onDataExtracted }) => {
   const handleDrop = (e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); };
 
   const handleProcess = async () => {
-    if (!imageBase64) return;
+    if (!imagePreview) return;
     setProcessing(true); setResult(null); setError(null);
-    for (let i = 0; i < PROCESS_STEPS.length; i++) {
-      setCurrentStep(i);
-      await new Promise(r => setTimeout(r, i === 3 ? 1800 : 700));
-    }
     try {
-      const data = await ocrAPI.extractDocument(imageBase64);
+      setCurrentStep(0);
+      await new Promise(r => setTimeout(r, 300));
+      setCurrentStep(1);
+      await new Promise(r => setTimeout(r, 300));
+
+      setCurrentStep(2);
+      let recognizedText = "";
+      try {
+        const { createWorker } = await import('tesseract.js');
+        const worker = await createWorker('spa');
+        setCurrentStep(3);
+        const ret = await worker.recognize(imagePreview);
+        recognizedText = ret.data.text;
+        await worker.terminate();
+      } catch (tessErr) {
+        console.warn("Client OCR fallback:", tessErr);
+      }
+
+      setCurrentStep(4);
+      const data = await ocrAPI.extractDocument(imageBase64, recognizedText || null);
       setResult(data);
     } catch (err) {
-      setError(err.message || "Error al procesar. Verifica que el servidor esté corriendo.");
+      setError(err.message || "Error al procesar el documento.");
     } finally {
       setProcessing(false); setCurrentStep(-1);
     }
