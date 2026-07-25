@@ -1,10 +1,11 @@
 import React from 'react';
-import { LayoutDashboard, MessageSquare, ShieldCheck, Map, FileText, ClipboardList, Link, LogOut, User, History } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, ShieldCheck, Map, FileText, ClipboardList, Link, LogOut, User, History, Brain } from 'lucide-react';
 import WalletConnect from './WalletConnect';
 
 const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Panel Principal', icon: <LayoutDashboard className="icon" /> },
+    { id: 'ocr', label: 'Motor OCR (IA)', icon: <Brain className="icon" /> },
     { id: 'chat', label: 'Asistente IA', icon: <MessageSquare className="icon" /> },
     { id: 'prevalidation', label: 'Pre-validación', icon: <ShieldCheck className="icon" /> },
     { id: 'pub', label: 'Llenar Planilla PUB', icon: <ClipboardList className="icon" /> },

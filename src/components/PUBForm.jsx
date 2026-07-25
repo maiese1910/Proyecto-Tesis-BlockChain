@@ -149,10 +149,16 @@ const generateHash = async (data) => {
   return await hashAPI.generateClientHash(data);
 };
 
-const PUBForm = () => {
+const PUBForm = ({ user, initialData }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState('');
-  const [formData, setFormData] = useState({});
+  const [formData, setFormData] = useState(initialData || {});
+
+  useEffect(() => {
+    if (initialData && Object.keys(initialData).length > 0) {
+      setFormData(prev => ({ ...prev, ...initialData }));
+    }
+  }, [initialData]);
   const [fieldErrors, setFieldErrors] = useState({});
   const [currentFieldIndex, setCurrentFieldIndex] = useState(-1);
   const [isComplete, setIsComplete] = useState(false);
@@ -165,6 +171,10 @@ const PUBForm = () => {
   const [copiedHash, setCopiedHash] = useState(false);
   const containerRef = useRef(null);
   const previewRef = useRef(null);
+
+  // Números estables para la planilla (no cambian entre renders)
+  const stablePubCode = useRef(`PUB-${new Date().getFullYear()}-${Math.floor(Math.random()*1000000).toString().padStart(6,'0')}`);
+  const stableTramiteNum = useRef(Math.floor(Math.random()*10000000).toString());
 
   const updateScale = () => {
     if (containerRef.current && previewRef.current) {
@@ -358,12 +368,14 @@ const PUBForm = () => {
 
   const saveToLocalHistory = (hash) => {
     try {
+      // Usar la cédula del perfil del usuario (consistente con HistoryPanel)
+      const cedulaToSave = user?.cedula || formData.cedula;
       const localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
       if (!localHistory.some(r => r.hash === hash)) {
         localHistory.unshift({
           hash: hash,
           owner_name: formData.nombre_completo,
-          cedula: formData.cedula,
+          cedula: cedulaToSave,
           document_type: formData.tramite,
           created_at: new Date().toISOString(),
           formData: formData
@@ -383,10 +395,11 @@ const PUBForm = () => {
       const hash = await generateHash(formData);
       
       try {
+        const cedulaForBlockchain = user?.cedula || formData.cedula;
         const data = await blockchainAPI.register({
           hash: hash,
           ownerName: formData.nombre_completo,
-          cedula: formData.cedula,
+          cedula: cedulaForBlockchain,
           documentType: formData.tramite
         });
 
@@ -592,7 +605,7 @@ const PUBForm = () => {
             )}
           </div>
 
-          <div className="pdf-preview-container" ref={containerRef} style={{ width: '100%', overflow: 'hidden', height: scaledHeight }}>
+          <div className="pdf-preview-container" ref={containerRef} style={{ width: '100%', overflow: 'auto', maxHeight: '70vh' }}>
             <div 
               id="pub-preview" 
               ref={previewRef}
@@ -628,11 +641,11 @@ const PUBForm = () => {
                        <div key={i} style={{ width: `${w}px`, height: '100%', background: i % 2 === 0 ? '#000000' : '#ffffff' }} />
                      ))}
                    </div>
-                   <p style={{ margin: 0, fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 'bold' }}>*PUB-{new Date().getFullYear()}-{Math.floor(Math.random()*1000000).toString().padStart(6,'0')}*</p>
+                   <p style={{ margin: 0, fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 'bold' }}>*{stablePubCode.current}*</p>
                  </div>
                  <div style={{ border: '1px solid #cbd5e0', padding: '0.2rem 0.5rem', textAlign: 'center', background: '#f8fafc', borderRadius: '4px', display: 'inline-block' }}>
                    <p style={{ margin: 0, fontSize: '0.45rem', color: '#718096', fontWeight: 'bold' }}>NRO. TRÁMITE</p>
-                   <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{Math.floor(Math.random()*10000000).toString()}</p>
+                   <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{stableTramiteNum.current}</p>
                  </div>
               </div>
             </div>

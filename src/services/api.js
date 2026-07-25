@@ -126,6 +126,17 @@ export const chatAPI = {
     }),
 };
 
+// ─── OCR ─────────────────────────────────────────────────────────────────────
+export const ocrAPI = {
+  /**
+   * Envía una imagen en base64 al motor OCR (EasyOCR: CRAFT + CRNN + NER)
+   * y recibe los campos del documento académico extraídos automáticamente.
+   * @param {string} imageBase64 - Imagen en base64 puro (sin el prefijo data:...)
+   */
+  extractDocument: (imageBase64) =>
+    apiFetch('/ocr/extract', { method: 'POST', body: { image_base64: imageBase64 } }),
+};
+
 // ─── Datos Dinámicos ────────────────────────────────────────────────────────
 export const dynamicDataAPI = {
   getCarreras: () =>

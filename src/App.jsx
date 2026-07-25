@@ -9,6 +9,7 @@ import ChatBotWidget from './components/ChatBotWidget';
 import PUBForm from './components/PUBForm';
 import BlockchainVerifier from './components/BlockchainVerifier';
 import HistoryPanel from './components/HistoryPanel';
+import OCRExtractor from './components/OCRExtractor';
 import ToastNotification from './components/ToastNotification';
 import { dynamicDataAPI, statsAPI } from './services/api';
 
@@ -56,6 +57,7 @@ const FormsPanel = () => {
 function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [pubInitialData, setPubInitialData] = useState(null);
 
   // Intentar recuperar sesión guardada al cargar
   useEffect(() => {
@@ -93,6 +95,16 @@ function App() {
     setActiveTab('dashboard');
   };
 
+  const handleOcrDataExtracted = (extractedFields) => {
+    const mapped = {};
+    if (extractedFields.nombre_completo?.value) mapped.nombre_completo = extractedFields.nombre_completo.value;
+    if (extractedFields.cedula?.value) mapped.cedula = extractedFields.cedula.value;
+    if (extractedFields.institucion?.value) mapped.institucion = extractedFields.institucion.value;
+    if (extractedFields.carrera?.value) mapped.tramite = `Registro de Título en ${extractedFields.carrera.value}`;
+    setPubInitialData(mapped);
+    setActiveTab('pub');
+  };
+
   // Si la URL tiene un hash, significa que se escaneó un código QR.
   // Mostramos directamente el verificador sin pedir login.
   const searchParams = new URLSearchParams(window.location.search);
@@ -117,12 +129,14 @@ function App() {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard user={user} />;
+      case 'ocr':
+        return <OCRExtractor user={user} onDataExtracted={handleOcrDataExtracted} />;
       case 'prevalidation':
         return <PreValidation />;
       case 'survival':
         return <SurvivalGuide />;
       case 'pub':
-        return <PUBForm user={user} />;
+        return <PUBForm user={user} initialData={pubInitialData} />;
       case 'history':
         return <HistoryPanel user={user} />;
       case 'blockchain':

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ClipboardList, ShieldCheck, Download, X, Copy, Check, Clock, AlertCircle } from 'lucide-react';
+import { Search, ClipboardList, ShieldCheck, Download, X, Copy, Check, Clock, AlertCircle, FileText } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import html2pdf from 'html2pdf.js';
 import { blockchainAPI } from '../services/api';
@@ -137,8 +137,8 @@ const PUBPreviewModal = ({ record, onClose }) => {
           ref={containerRef} 
           style={{ 
             width: '100%', 
-            overflow: 'hidden', 
-            height: scaledHeight,
+            overflow: 'auto', 
+            maxHeight: '70vh',
             borderRadius: '8px',
             border: '1px solid var(--border)' 
           }}
@@ -307,9 +307,20 @@ const HistoryPanel = ({ user }) => {
   const [activePUBRecord, setActivePUBRecord] = useState(null);
   const [copiedHash, setCopiedHash] = useState(null);
 
+  // Normaliza cualquier formato de cédula a solo letras+números en mayúsculas
+  // Ej: "V-28.315.101" → "V28315101", "v28315101" → "V28315101"
+  const normalizeCedula = (ced) => {
+    return (ced || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  };
+
   const fetchRecords = async () => {
-    if (!user?.cedula) return;
+    if (!user?.cedula) {
+      setLoading(false);
+      return;
+    }
     try {
+      const userCedulaNorm = normalizeCedula(user.cedula);
+
       // 1. Obtener registros de la base de datos (con normalización del backend)
       const res = await blockchainAPI.getRecordsByCedula(user.cedula);
       let dbRecords = [];
@@ -321,10 +332,8 @@ const HistoryPanel = ({ user }) => {
       const localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
       const filteredLocal = localHistory.filter(r => {
         if (!r || !r.cedula) return false;
-        // Asegurar que el trámite pertenezca al usuario (ignorando puntos y guiones)
-        const uCed = (user.cedula || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        const rCed = (r.cedula || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        return uCed === rCed;
+        // Comparar cédulas normalizadas (sin puntos, guiones, espacios)
+        return normalizeCedula(r.cedula) === userCedulaNorm;
       });
 
       // 3. Fusionar datos (dar prioridad a localStorage por tener el formData completo)
@@ -335,10 +344,10 @@ const HistoryPanel = ({ user }) => {
         if (!rec || !rec.hash) return;
         mergedMap.set(rec.hash.toUpperCase(), {
           hash: rec.hash,
-          owner_name: rec.owner_name,
+          owner_name: rec.owner_name || rec.ownerName,
           cedula: rec.cedula,
-          document_type: rec.document_type,
-          tx_hash: rec.tx_hash,
+          document_type: rec.document_type || rec.documentType,
+          tx_hash: rec.tx_hash || rec.txHash,
           status: rec.status,
           created_at: rec.timestamp,
           formData: null
@@ -352,10 +361,10 @@ const HistoryPanel = ({ user }) => {
         const existing = mergedMap.get(hashKey) || {};
         mergedMap.set(hashKey, {
           hash: rec.hash,
-          owner_name: rec.owner_name,
+          owner_name: rec.owner_name || existing.owner_name,
           cedula: rec.cedula,
-          document_type: rec.document_type,
-          tx_hash: existing.tx_hash || '0x' + Math.random().toString(16).substring(2, 10) + '...',
+          document_type: rec.document_type || existing.document_type,
+          tx_hash: existing.tx_hash || 'Pendiente',
           status: existing.status || 'Registrado en Blockchain (Local)',
           created_at: rec.created_at || existing.created_at,
           formData: rec.formData

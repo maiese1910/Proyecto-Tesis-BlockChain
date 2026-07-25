@@ -1,5 +1,8 @@
 import os
+import re
+import io
 import json
+import base64
 import hashlib
 import datetime
 import secrets
@@ -36,6 +39,24 @@ try:
     HAS_SUPABASE = True
 except ImportError:
     HAS_SUPABASE = False
+
+try:
+    import easyocr
+    import numpy as np
+    from PIL import Image
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
+
+# EasyOCR reader cargado de forma perezosa (lazy) para no ralentizar el inicio
+_ocr_reader = None
+
+def get_ocr_reader():
+    """Carga EasyOCR la primera vez que se llama (tarda ~5-10s al cargar el modelo)."""
+    global _ocr_reader
+    if _ocr_reader is None and HAS_OCR:
+        _ocr_reader = easyocr.Reader(['es', 'en'], gpu=False)
+    return _ocr_reader
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -1104,6 +1125,158 @@ async def get_carreras():
         "Ingeniería en Sistemas", "Ingeniería Civil", "Ingeniería Industrial",
         "Ingeniería Eléctrica", "Ingeniería Mecánica", "Arquitectura"
     ]}
+
+
+# ─── OCR: Extracción Inteligente de Documentos Académicos ────────────────────
+
+class OCRRequest(BaseModel):
+    image_base64: str
+
+def extract_entities_ner(raw_text: str) -> dict:
+    """
+    Capa de Reconocimiento de Entidades Nombradas (NER) sobre texto crudo del OCR.
+    Aplica heurísticas semánticas orientadas a documentos académicos venezolanos.
+    """
+    text = raw_text
+    fields = {}
+
+    # ── Cédula de Identidad (V-XXXXXXXX / E-XXXXXXXX) ──
+    ced_match = re.search(r'\b([VEve]-?\s*\d{6,9})\b', text)
+    if ced_match:
+        cedula_raw = ced_match.group(1).replace(' ', '').upper()
+        fields['cedula'] = {'value': cedula_raw, 'confidence': 0.92}
+    else:
+        fields['cedula'] = {'value': None, 'confidence': 0.0}
+
+    # ── Fecha de Emisión ──
+    fecha_match = re.search(
+        r'(\d{1,2}\s+(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?\d{4})',
+        text, re.IGNORECASE
+    )
+    if not fecha_match:
+        fecha_match = re.search(r'(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})', text)
+    if fecha_match:
+        fields['fecha'] = {'value': fecha_match.group(1).strip(), 'confidence': 0.88}
+    else:
+        fields['fecha'] = {'value': None, 'confidence': 0.0}
+
+    # ── Institución Educativa ──
+    inst_keywords = [
+        'Universidad Santa María', 'Universidad Central', 'Universidad Simón Bolívar',
+        'Universidad de Carabobo', 'Universidad de los Andes', 'IUTIRLA', 'UNEXPO',
+        'Universidad Metropolitana', 'Universidad Católica', 'USB', 'UCV', 'USM', 'UCAB'
+    ]
+    institucion_found = None
+    for kw in inst_keywords:
+        if kw.lower() in text.lower():
+            institucion_found = kw
+            break
+    # Si no coincide con keywords conocidos, buscar patrón "Universidad de ..."
+    if not institucion_found:
+        uni_match = re.search(r'(Universidad\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ ]{3,50})', text)
+        if uni_match:
+            institucion_found = uni_match.group(1).strip()
+    fields['institucion'] = {'value': institucion_found, 'confidence': 0.85 if institucion_found else 0.0}
+
+    # ── Mención / Carrera ──
+    carrera_keywords = [
+        'Ingeniería en Sistemas', 'Ingeniería Civil', 'Ingeniería Industrial',
+        'Ingeniería Eléctrica', 'Ingeniería Mecánica', 'Ingeniería Electrónica',
+        'Arquitectura', 'Derecho', 'Medicina', 'Administración', 'Contaduría',
+        'Computación', 'Informática', 'Telecomunicaciones'
+    ]
+    carrera_found = None
+    for kw in carrera_keywords:
+        if kw.lower() in text.lower():
+            carrera_found = kw
+            break
+    if not carrera_found:
+        # Buscar patrón "Mención: ..." o "Título de ..."
+        carrera_match = re.search(
+            r'(?:menci[oó]n|t[ií]tulo de|egresado en|licenciado en|ingeniero en)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ ]{3,50})',
+            text, re.IGNORECASE
+        )
+        if carrera_match:
+            carrera_found = carrera_match.group(1).strip()
+    fields['carrera'] = {'value': carrera_found, 'confidence': 0.80 if carrera_found else 0.0}
+
+    # ── Nombre Completo (heurística: línea con 2-5 palabras en mayúsculas) ──
+    nombre_found = None
+    lines = [l.strip() for l in text.split('\n') if l.strip()]
+    for line in lines:
+        # Excluir líneas con números, fechas, o palabras clave institucionales
+        words = line.split()
+        if 2 <= len(words) <= 6 and all(re.match(r'^[A-ZÁÉÍÓÚÑ]+$', w) for w in words):
+            # Excluir encabezados institucionales comunes
+            skip = any(kw.upper() in line.upper() for kw in ['REPÚBLICA', 'MINISTERIO', 'UNIVERSIDAD', 'FACULTAD', 'ESCUELA', 'DEPARTAMENTO'])
+            if not skip:
+                nombre_found = line.strip()
+                break
+    fields['nombre_completo'] = {'value': nombre_found, 'confidence': 0.78 if nombre_found else 0.0}
+
+    return fields
+
+
+@app.post("/ocr/extract")
+async def ocr_extract_document(req: OCRRequest):
+    """
+    Motor de Extracción Inteligente de Documentos Académicos.
+
+    Arquitectura:
+    - CRAFT (Character Region Awareness for Text detection): detección de regiones
+    - CRNN (Convolutional Recurrent Neural Network): reconocimiento de caracteres  
+    - NER (Named Entity Recognition): extracción semántica de entidades del dominio
+
+    Implementado mediante EasyOCR con modelos de Deep Learning pre-entrenados.
+    """
+    if not HAS_OCR:
+        raise HTTPException(
+            status_code=503,
+            detail="Módulo OCR no disponible. Instala easyocr y Pillow: pip install easyocr Pillow"
+        )
+
+    try:
+        # 1. Decodificar imagen desde base64
+        image_bytes = base64.b64decode(req.image_base64)
+        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+
+        # Redimensionar si es muy grande (mantener calidad para OCR)
+        max_dim = 2000
+        w, h = image.size
+        if max(w, h) > max_dim:
+            scale = max_dim / max(w, h)
+            image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+        img_array = np.array(image)
+
+        # 2. Cargar el reader (carga el modelo de deep learning la primera vez)
+        reader = get_ocr_reader()
+        if not reader:
+            raise HTTPException(status_code=503, detail="No se pudo cargar el modelo OCR")
+
+        # 3. Ejecutar OCR con CRAFT + CRNN
+        ocr_results = reader.readtext(img_array, detail=1, paragraph=False)
+
+        # 4. Construir texto crudo y calcular confianza media
+        raw_text = '\n'.join([text for (_, text, _) in ocr_results])
+        confidences = [conf for (_, _, conf) in ocr_results if conf > 0]
+        overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+
+        # 5. Aplicar capa NER para extraer entidades semánticas
+        fields = extract_entities_ner(raw_text)
+
+        return {
+            "success": True,
+            "fields": fields,
+            "overall_confidence": round(overall_confidence, 3),
+            "raw_text_preview": raw_text[:500] + ("..." if len(raw_text) > 500 else ""),
+            "total_text_blocks": len(ocr_results),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en el motor OCR: {str(e)}")
 
 
 # --- Campos PUB dinámicos ---
