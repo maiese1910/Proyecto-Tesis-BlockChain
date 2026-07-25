@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Shield, User, Lock, ArrowRight, CheckCircle, FileText, Globe, Sparkles, BookOpen, Clock, KeyRound, Cpu, Layers, QrCode, ChevronDown, HelpCircle, ShieldCheck, Database, Server } from 'lucide-react';
+import { GraduationCap, Shield, User, Lock, ArrowRight, CheckCircle, FileText, Globe, Sparkles, BookOpen, Clock, KeyRound, Cpu, Layers, QrCode, ChevronDown, HelpCircle, ShieldCheck, Database, Server, Award, Building2, Zap, AlertCircle } from 'lucide-react';
 import { profilesAPI, authAPI, statsAPI, dynamicDataAPI } from '../services/api';
 
 const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
@@ -25,7 +25,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
   // Estado Registro Funcionario Auditor Modal
   const [showGovRegModal, setShowGovRegModal] = useState(false);
-  const [govRegForm, setGovRegForm] = useState({ username: '', password: '', cargo: 'Registrador Principal', ente: 'SAREN', pin_institucional: 'SAREN-2026-GOV-KEY' });
+  const [govRegForm, setGovRegForm] = useState({ username: '', password: '', cargo: 'Registrador Principal', ente: 'SAREN', pin_institucional: 'GOV-8942-SAREN' });
   const [govRegError, setGovRegError] = useState('');
   const [govRegLoading, setGovRegLoading] = useState(false);
 
@@ -161,7 +161,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         localStorage.setItem('admin_data', JSON.stringify(res));
         onAdminLogin(res);
       } else {
-        setGovError('Credenciales no autorizadas. Usa el botón Demo o saren_admin / admin123.');
+        setGovError('Credenciales no autorizadas. Usa el botón de Acceso Rápido o saren_admin / admin123.');
       }
     } catch (err) {
       const demoAdmin = {
@@ -268,7 +268,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         {/* Superior Institucional */}
         <div style={{ background: '#030712', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '0.35rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: '#94a3b8' }}>
           <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>🏛️ UNIVERSIDAD SANTA MARÍA</span>
+            <span style={{ color: '#38bdf8', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Building2 size={14} /> UNIVERSIDAD SANTA MARÍA
+            </span>
             <span style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '1.2rem' }}>Facultad de Ingeniería y Arquitectura</span>
           </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -282,16 +284,16 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         {/* Navbar Principal Con Botones Directos */}
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap' }}>
           
-          {/* Logo e Identidad */}
+          {/* Logo e Identidad Profesional */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'linear-gradient(135deg, #0ea5e9, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
-              <GraduationCap size={26} />
+            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'linear-gradient(135deg, #1e3a8a, #0ea5e9)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
+              <Award size={26} />
             </div>
             <div>
               <h1 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, background: 'linear-gradient(to right, #38bdf8, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                USM ApostillaBot
+                Plataforma de Validación USM
               </h1>
-              <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>Validación Criptográfica de Títulos Universitarios</p>
+              <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>Sistema Institucional de Verificación Criptográfica</p>
             </div>
           </div>
 
@@ -329,7 +331,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
           
           <motion.div variants={itemVariants} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(14,165,233,0.12)', color: '#38bdf8', padding: '0.5rem 1.4rem', borderRadius: '30px', border: '1px solid rgba(14,165,233,0.3)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '1.5rem' }}>
-            <Sparkles size={16} /> Proyecto de Tesis — Formando el Futuro con IA & Web3 Blockchain
+            <Sparkles size={16} /> Proyecto de Grado — Plataforma de Validación con IA & Web3 Blockchain
           </motion.div>
 
           <motion.h1 variants={itemVariants} style={{ fontSize: '2.8rem', fontWeight: '900', lineHeight: '1.15', maxWidth: '950px', margin: '0 auto 1.2rem auto', background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.5px' }}>
@@ -363,7 +365,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     boxShadow: roleTab === 'student' ? '0 4px 15px rgba(14,165,233,0.3)' : 'none'
                   }}
                 >
-                  <User size={16} /> 🎓 Graduando USM
+                  <User size={16} /> Graduando USM
                 </button>
 
                 <button
@@ -376,7 +378,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     boxShadow: roleTab === 'gov' ? '0 4px 15px rgba(239,68,68,0.3)' : 'none'
                   }}
                 >
-                  <Shield size={16} /> 🏛️ Ente Auditor (SAREN)
+                  <Shield size={16} /> Auditor SAREN / MPPRE
                 </button>
               </div>
 
@@ -397,7 +399,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     </div>
                   </div>
 
-                  {studentError && <p style={{ color: '#ef4444', fontSize: '0.82rem', margin: 0 }}>⚠️ {studentError}</p>}
+                  {studentError && <p style={{ color: '#ef4444', fontSize: '0.82rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}><AlertCircle size={14} /> {studentError}</p>}
 
                   <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                     <button
@@ -414,7 +416,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                       onClick={() => { fillStudentDemo(); handleStudentSubmit(); }}
                       style={{ flex: 1, padding: '0.85rem', background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.3)', color: '#38bdf8', fontWeight: '700', fontSize: '0.85rem', borderRadius: '10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
-                      ⚡ Demo 1-Tap
+                      Acceso Rápido
                     </button>
                   </div>
 
@@ -461,7 +463,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     </div>
                   </div>
 
-                  {govError && <p style={{ color: '#ef4444', fontSize: '0.82rem', margin: 0 }}>⚠️ {govError}</p>}
+                  {govError && <p style={{ color: '#ef4444', fontSize: '0.82rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}><AlertCircle size={14} /> {govError}</p>}
 
                   <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                     <button
@@ -477,12 +479,12 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                       onClick={() => { fillGovDemo(); handleGovSubmit(); }}
                       style={{ flex: 1, padding: '0.85rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontWeight: '700', fontSize: '0.85rem', borderRadius: '10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
-                      ⚡ Demo 1-Tap
+                      Acceso Rápido
                     </button>
                   </div>
 
-                  <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#f87171', padding: '0.4rem', background: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
-                    🔒 Segregación de Funciones (SoD) — Requiere PIN Institucional de Ente
+                  <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#f87171', padding: '0.4rem', background: 'rgba(239,68,68,0.1)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                    <Lock size={12} /> Segregación de Funciones (SoD) — Requiere PIN Institucional de Ente
                   </div>
 
                   <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.8rem' }}>
