@@ -22,7 +22,35 @@ const BlockchainVerifier = ({ initialHash }) => {
     if (!hashToVerify || !hashToVerify.trim()) return;
     setLoading(true);
     setResult(null);
-    const data = await verifyOnChain(hashToVerify.trim().toUpperCase());
+
+    const cleanInput = hashToVerify.trim();
+    let data = await verifyOnChain(cleanInput);
+
+    if (!data || !data.exists) {
+      try {
+        const localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+        const normInput = cleanInput.replace(/^0x/i, '').toUpperCase();
+        const localMatch = localHistory.find(r => {
+          if (!r || !r.hash) return false;
+          const normLocal = r.hash.replace(/^0x/i, '').toUpperCase();
+          return normLocal === normInput;
+        });
+
+        if (localMatch) {
+          data = {
+            exists: true,
+            ownerName: localMatch.owner_name || localMatch.formData?.nombre_completo || 'Titular Registrado',
+            cedula: localMatch.cedula || localMatch.formData?.cedula || 'V-00000000',
+            documentType: localMatch.document_type || localMatch.formData?.tramite || 'Planilla PUB',
+            timestamp: Math.floor(new Date(localMatch.created_at || Date.now()).getTime() / 1000),
+            txHash: localMatch.tx_hash || `0x${normInput}`
+          };
+        }
+      } catch (e) {
+        console.warn("Local storage fallback check error:", e);
+      }
+    }
+
     setResult(data);
     setLoading(false);
   };

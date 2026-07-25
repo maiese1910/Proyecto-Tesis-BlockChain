@@ -606,44 +606,56 @@ async def get_profile(cedula: str):
 
 @app.get("/blockchain/verify/{doc_hash}")
 async def verify_blockchain_document(doc_hash: str):
-    """Consulta la blockchain para verificar un hash de documento."""
+    """Consulta la blockchain y base de datos para verificar un hash de documento."""
+    raw_hash = doc_hash.strip()
+    clean_hash = raw_hash[2:] if raw_hash.lower().startswith('0x') else raw_hash
+
+    hash_variations = list(set([
+        raw_hash,
+        raw_hash.upper(),
+        raw_hash.lower(),
+        f"0x{clean_hash.lower()}",
+        f"0x{clean_hash.upper()}",
+        f"0X{clean_hash.upper()}",
+        clean_hash.upper(),
+        clean_hash.lower()
+    ]))
+
     contract = get_contract()
-    doc_hash_upper = doc_hash.upper()
     
     # 1. Intentar consultar en la Blockchain real si el contrato está configurado
     if contract:
-        try:
-            result = contract.functions.verifyDocument(doc_hash_upper).call()
-            exists, owner_name, cedula, doc_type, timestamp = result
+        for h in hash_variations:
+            try:
+                result = contract.functions.verifyDocument(h).call()
+                exists, owner_name, cedula, doc_type, timestamp = result
 
-            if exists:
-                # Buscar txHash en Supabase para mostrarlo en el frontend
-                tx_hash = "N/A"
-                if supabase:
-                    try:
-                        res = supabase.table("records").select("tx_hash").eq("hash", doc_hash_upper).execute()
-                        if res.data and len(res.data) > 0:
-                            tx_hash = res.data[0].get("tx_hash", "N/A")
-                    except Exception:
-                        pass
-                return {
-                    "exists": True,
-                    "ownerName": owner_name,
-                    "cedula": cedula,
-                    "documentType": doc_type,
-                    "timestamp": int(timestamp),
-                    "txHash": tx_hash
-                }
-        except Exception as e:
-            print(f"[WARN] Error consultando blockchain, intentando fallback en base de datos: {e}")
+                if exists:
+                    tx_hash = "N/A"
+                    if supabase:
+                        try:
+                            res = supabase.table("records").select("tx_hash").in_("hash", hash_variations).execute()
+                            if res.data and len(res.data) > 0:
+                                tx_hash = res.data[0].get("tx_hash", "N/A")
+                        except Exception:
+                            pass
+                    return {
+                        "exists": True,
+                        "ownerName": owner_name,
+                        "cedula": cedula,
+                        "documentType": doc_type,
+                        "timestamp": int(timestamp),
+                        "txHash": tx_hash
+                    }
+            except Exception:
+                pass
 
-    # 2. Fallback a base de datos Supabase si no está en blockchain o falló la blockchain
+    # 2. Fallback a base de datos Supabase
     if supabase:
         try:
-            res = supabase.table("records").select("*").eq("hash", doc_hash_upper).execute()
+            res = supabase.table("records").select("*").in_("hash", hash_variations).execute()
             if res.data and len(res.data) > 0:
                 record = res.data[0]
-                # Convertir created_at (string iso) a timestamp unix integer
                 try:
                     dt = datetime.datetime.fromisoformat(record.get("created_at").replace('Z', '+00:00'))
                     timestamp = int(dt.timestamp())
@@ -659,7 +671,7 @@ async def verify_blockchain_document(doc_hash: str):
                     "txHash": record.get("tx_hash", "N/A")
                 }
         except Exception as e:
-            print(f"[ERROR] Fallback database query failed: {e}")
+            print(f"[ERROR] Database verification fallback error: {e}")
 
     return {
         "exists": False,

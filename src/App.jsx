@@ -10,49 +10,9 @@ import PUBForm from './components/PUBForm';
 import BlockchainVerifier from './components/BlockchainVerifier';
 import HistoryPanel from './components/HistoryPanel';
 import OCRExtractor from './components/OCRExtractor';
+import OfficialFormsPanel from './components/OfficialFormsPanel';
 import ToastNotification from './components/ToastNotification';
 import { dynamicDataAPI, statsAPI } from './services/api';
-
-// Componente de planillas con datos dinámicos desde Supabase
-const FormsPanel = () => {
-  const [planillas, setPlanillas] = useState([
-    { nombre: 'Planilla de Solicitud de Grado.pdf', url: '#' },
-    { nombre: 'Formato Fondo Negro.pdf', url: '#' },
-    { nombre: 'Planilla Solvencia de Biblioteca.pdf', url: '#' },
-    { nombre: 'Planilla Única Bancaria (PUB).pdf', url: '#' },
-  ]);
-
-  useEffect(() => {
-    dynamicDataAPI.getPlanillas()
-      .then(data => { if (data.planillas) setPlanillas(data.planillas); })
-      .catch(() => {});
-  }, []);
-
-  return (
-    <div className="view-container">
-      <div className="dashboard-header">
-        <h2>Planillas y Formularios</h2>
-        <p>Descarga directa de los formatos exactos requeridos por la Facultad de Ingeniería.</p>
-      </div>
-      <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {planillas.map((doc, i) => (
-          <a
-            key={i}
-            href={doc.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="result-item"
-            style={{ borderLeftColor: 'var(--primary)', cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}
-          >
-            <span>📄</span>
-            <span>{doc.nombre}</span>
-            <span style={{ marginLeft: 'auto', color: 'var(--primary)' }}>Descargar</span>
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 function App() {
   const [user, setUser] = useState(null);
@@ -148,7 +108,7 @@ function App() {
           </div>
         );
       case 'forms':
-        return <FormsPanel />;
+        return <OfficialFormsPanel user={user} />;
       default:
         return <Dashboard user={user} />;
     }
