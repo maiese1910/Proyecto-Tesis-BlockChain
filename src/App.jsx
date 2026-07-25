@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
-import LoginRegister from './components/LoginRegister';
+import { Shield } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import PreValidation from './components/PreValidation';
@@ -11,48 +11,52 @@ import BlockchainVerifier from './components/BlockchainVerifier';
 import HistoryPanel from './components/HistoryPanel';
 import OCRExtractor from './components/OCRExtractor';
 import OfficialFormsPanel from './components/OfficialFormsPanel';
+import LandingPortal from './components/LandingPortal';
+import GovernmentPanel from './components/GovernmentPanel';
+import AdminDashboard from './components/AdminDashboard';
 import ToastNotification from './components/ToastNotification';
 import { dynamicDataAPI, statsAPI } from './services/api';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [adminUser, setAdminUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pubInitialData, setPubInitialData] = useState(null);
 
-  // Intentar recuperar sesión guardada al cargar
+  // Intentar recuperar sesión guardada al cargar (estudiante o admin)
   useEffect(() => {
-    const stored = localStorage.getItem('usm_user');
-    if (stored) {
-      try { setUser(JSON.parse(stored)); } catch (_) {}
+    const storedUser = localStorage.getItem('usm_user');
+    if (storedUser) {
+      try { setUser(JSON.parse(storedUser)); } catch (_) {}
+    }
+
+    const isAdminAuth = localStorage.getItem('admin_auth') === 'true';
+    const storedAdmin = localStorage.getItem('admin_data');
+    if (isAdminAuth && storedAdmin) {
+      try { setAdminUser(JSON.parse(storedAdmin)); } catch (_) {}
     }
   }, []);
 
   // Latido periódico para incrementar el tiempo ahorrado por uso activo
   useEffect(() => {
     if (!user) return;
-    
-    // Ejecutar un heartbeat inicial
     statsAPI.heartbeat().catch(() => {});
-    
     const interval = setInterval(async () => {
-      try {
-        await statsAPI.heartbeat();
-      } catch (err) {
-        console.warn('Heartbeat error:', err);
-      }
-    }, 20000); // Cada 20 segundos
-    
+      try { await statsAPI.heartbeat(); } catch (err) {}
+    }, 20000);
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
+  const handleStudentLogout = () => {
     localStorage.removeItem('usm_user');
     setUser(null);
     setActiveTab('dashboard');
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('admin_auth');
+    localStorage.removeItem('admin_data');
+    setAdminUser(null);
   };
 
   const handleOcrDataExtracted = (extractedFields) => {
@@ -65,8 +69,7 @@ function App() {
     setActiveTab('pub');
   };
 
-  // Si la URL tiene un hash, significa que se escaneó un código QR.
-  // Mostramos directamente el verificador sin pedir login.
+  // Si la URL tiene un hash, se escaneó un QR.
   const searchParams = new URLSearchParams(window.location.search);
   const verifyHash = searchParams.get('hash');
 
@@ -80,11 +83,49 @@ function App() {
     );
   }
 
-  // Si no hay sesión y no se está verificando un QR, mostrar pantalla de login
-  if (!user) {
-    return <LoginRegister onLogin={handleLogin} />;
+  // 1. SI ES FUNCIONARIO GUBERNAMENTAL LOGUEADO -> MOSTRAR PANEL GUBERNAMENTAL / AUDITORÍA
+  if (adminUser) {
+    return (
+      <div className="app-layout" style={{ background: '#020617' }}>
+        <ToastNotification />
+        <div style={{ width: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+          <div className="admin-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <Shield size={24} color="#ef4444" />
+              <h1 style={{ fontSize: '1.2rem', color: '#f8fafc', margin: 0 }}>Panel de Auditoría Gubernamental — {adminUser?.ente || 'Gobierno'}</h1>
+              {adminUser && (
+                <span style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600' }}>
+                  {adminUser.cargo || 'Funcionario'} ({adminUser.username})
+                </span>
+              )}
+            </div>
+            <button onClick={handleAdminLogout} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              Cerrar Sesión Auditoría
+            </button>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
+            {(adminUser?.ente === 'USM' || adminUser?.ente === 'GTU') ? (
+              <AdminDashboard adminData={adminUser} />
+            ) : (
+              <GovernmentPanel />
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
+  // 2. SI NO HAY SESIÓN (NI ESTUDIANTE NI ADMIN) -> MOSTRAR LANDING PORTAL UNIFICADO
+  if (!user && !adminUser) {
+    return (
+      <LandingPortal
+        onStudentLogin={(userData) => setUser(userData)}
+        onAdminLogin={(adminData) => setAdminUser(adminData)}
+      />
+    );
+  }
+
+  // 3. SI ES ESTUDIANTE LOGUEADO -> MOSTRAR PLATAFORMA DE GRADUANDO USM
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -117,7 +158,7 @@ function App() {
   return (
     <div className="app-layout">
       <ToastNotification />
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleLogout} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleStudentLogout} />
       <div className="main-content">
         {renderContent()}
       </div>
