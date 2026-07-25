@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, FileText, Printer, CheckCircle, Shield, ExternalLink, X, Eye } from "lucide-react";
 import html2pdf from "html2pdf.js";
@@ -368,13 +368,14 @@ const OfficialFormsPanel = ({ user }) => {
       <AnimatePresence>
         {selectedDoc && (
           <motion.div
+            className="cert-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{
               position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-              background: "rgba(0,0,0,0.8)", zIndex: 1000,
-              display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem"
+              background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center",
+              justifyContent: "center", zIndex: 1200, padding: "1rem"
             }}
           >
             <motion.div
@@ -383,40 +384,40 @@ const OfficialFormsPanel = ({ user }) => {
               exit={{ scale: 0.9, y: 20 }}
               style={{
                 background: "#09090b", borderRadius: "16px", border: "1px solid var(--border)",
-                maxWidth: "750px", width: "100%", maxHeight: "90vh", overflow: "hidden",
+                maxWidth: "750px", width: "100%", maxHeight: "92vh", overflow: "hidden",
                 display: "flex", flexDirection: "column"
               }}
             >
-              <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 10, background: "#0c0e17" }}>
+                <h3 style={{ margin: 0, fontSize: "1.05rem", display: "flex", alignItems: "center", gap: "0.5rem", color: "#fff" }}>
                   <FileText size={20} color={selectedDoc.color} /> {selectedDoc.title}
                 </h3>
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.3rem" }}
+                  style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", cursor: "pointer", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
 
               <div style={{ padding: "1.5rem", overflowY: "auto", flex: 1, background: "#18181b" }}>
                 <div
                   dangerouslySetInnerHTML={{ __html: selectedDoc.content(user) }}
-                  style={{ background: "#ffffff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}
+                  style={{ background: "#ffffff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)", overflowX: "auto" }}
                 />
               </div>
 
-              <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
+              <div style={{ padding: "0.8rem 1.5rem", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: "1rem", background: "#0c0e17", flexWrap: "wrap" }}>
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  style={{ background: "none", border: "1px solid var(--border)", color: "var(--text-muted)", padding: "0.6rem 1.2rem", borderRadius: "8px", cursor: "pointer", fontWeight: "600" }}
+                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid var(--border)", color: "#fff", padding: "0.6rem 1.2rem", borderRadius: "8px", cursor: "pointer", fontWeight: "600", flex: 1 }}
                 >
-                  Cerrar
+                  Cerrar Ventana ✕
                 </button>
                 <button
                   onClick={() => { handleDownloadPDF(selectedDoc); setSelectedDoc(null); }}
                   className="send-btn"
-                  style={{ padding: "0.6rem 1.4rem", background: `linear-gradient(135deg, ${selectedDoc.color}, #3b82f6)`, display: "flex", alignItems: "center", gap: "0.5rem" }}
+                  style={{ padding: "0.6rem 1.4rem", background: `linear-gradient(135deg, ${selectedDoc.color}, #3b82f6)`, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", flex: 1 }}
                 >
                   <Printer size={16} /> Descargar PDF Oficial
                 </button>

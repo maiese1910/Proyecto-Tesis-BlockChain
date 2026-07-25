@@ -7,7 +7,7 @@ import { blockchainAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 
 // Modal de previsualización de la Planilla PUB con escala responsiva
-const PUBPreviewModal = ({ record, onClose }) => {
+const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
   const [scale, setScale] = useState(1);
   const [scaledHeight, setScaledHeight] = useState('auto');
   const containerRef = useRef(null);
@@ -78,31 +78,44 @@ const PUBPreviewModal = ({ record, onClose }) => {
   };
 
   return (
-    <div className="cert-modal-overlay" style={{ zIndex: 1100 }}>
+    <div className="cert-modal-overlay" style={{ zIndex: 1100, padding: '1rem', backgroundColor: 'rgba(0,0,0,0.85)' }}>
       <motion.div
         initial={{ y: 50, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         style={{
           background: '#09090b',
           borderRadius: '16px',
-          padding: '1.5rem',
-          maxWidth: '820px',
+          padding: '0',
+          maxWidth: '840px',
           width: '100%',
-          maxHeight: '95vh',
-          overflowY: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          border: '1px solid rgba(14, 165, 233, 0.3)',
+          maxHeight: '92vh',
+          overflow: 'hidden',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+          border: '1px solid rgba(14, 165, 233, 0.4)',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
-            <ClipboardList color="var(--primary)" size={20} />
+        {/* Cabecera Sticky Fija */}
+        <div style={{
+          padding: '0.8rem 1.2rem',
+          background: '#0c0e17',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          justify: 'space-between',
+          alignItems: 'center',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          flexWrap: 'wrap',
+          gap: '0.5rem'
+        }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', color: '#fff' }}>
+            <ClipboardList color="var(--primary)" size={18} />
             Previsualización Oficial — Planilla PUB
           </h3>
-          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', marginRight: '2.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
             <button
               onClick={handleExportPDF}
               className="send-btn"
@@ -110,27 +123,24 @@ const PUBPreviewModal = ({ record, onClose }) => {
             >
               <Download size={14} /> Descargar PDF
             </button>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#fff'
+              }}
+            >
+              <X size={18} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: 'var(--text-muted)'
-            }}
-          >
-            <X size={18} />
-          </button>
         </div>
 
         <div 
@@ -293,13 +303,34 @@ const PUBPreviewModal = ({ record, onClose }) => {
             </div>
           </div>
         </div>
+
+        {/* Footer del Modal con Cierre Táctil en Móvil */}
+        <div style={{ padding: '0.8rem 1.2rem', background: '#0c0e17', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem' }}>
+          {onVerifyHash && (
+            <button
+              onClick={() => {
+                onVerifyHash(hash);
+                onClose && onClose();
+              }}
+              style={{ background: 'linear-gradient(to right, #0284c7, #2563eb)', border: 'none', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
+            >
+              Verificar Hash en la misma Pestaña ➔
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', flex: 1 }}
+          >
+            Cerrar Ventana ✕
+          </button>
+        </div>
       </motion.div>
     </div>
   );
 };
 
 // Componente principal de Historial de Trámites
-const HistoryPanel = ({ user }) => {
+const HistoryPanel = ({ user, onVerifyHash }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -516,6 +547,14 @@ const HistoryPanel = ({ user }) => {
                   >
                     <ShieldCheck size={16} /> Ver Certificado
                   </button>
+                  {onVerifyHash && (
+                    <button
+                      onClick={() => onVerifyHash(record.hash)}
+                      style={{ background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.4)', color: '#38bdf8', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      Verificar Hash ➔
+                    </button>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -528,6 +567,7 @@ const HistoryPanel = ({ user }) => {
         <DigitalCertificate
           docHash={activeCertHash}
           onClose={() => setActiveCertHash(null)}
+          onVerifyHash={onVerifyHash}
         />
       )}
 
@@ -536,6 +576,7 @@ const HistoryPanel = ({ user }) => {
         <PUBPreviewModal
           record={activePUBRecord}
           onClose={() => setActivePUBRecord(null)}
+          onVerifyHash={onVerifyHash}
         />
       )}
     </div>

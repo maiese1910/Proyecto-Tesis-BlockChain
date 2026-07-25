@@ -22,6 +22,7 @@ function App() {
   const [adminUser, setAdminUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pubInitialData, setPubInitialData] = useState(null);
+  const [verifyHashInput, setVerifyHashInput] = useState('');
 
   // Intentar recuperar sesión guardada al cargar (estudiante o admin)
   useEffect(() => {
@@ -67,6 +68,12 @@ function App() {
     if (extractedFields.carrera?.value) mapped.tramite = `Registro de Título en ${extractedFields.carrera.value}`;
     setPubInitialData(mapped);
     setActiveTab('pub');
+  };
+
+  const handleVerifyHashInApp = (hashToVerify) => {
+    if (!hashToVerify) return;
+    setVerifyHashInput(hashToVerify);
+    setActiveTab('blockchain');
   };
 
   // Si la URL tiene un hash, se escaneó un QR.
@@ -137,11 +144,11 @@ function App() {
       case 'survival':
         return <SurvivalGuide />;
       case 'pub':
-        return <PUBForm user={user} initialData={pubInitialData} />;
+        return <PUBForm user={user} initialData={pubInitialData} onVerifyHash={handleVerifyHashInApp} />;
       case 'history':
-        return <HistoryPanel user={user} />;
+        return <HistoryPanel user={user} onVerifyHash={handleVerifyHashInApp} />;
       case 'blockchain':
-        return <BlockchainVerifier />;
+        return <BlockchainVerifier initialHash={verifyHashInput} />;
       case 'chat':
         return (
           <div className="view-container" style={{ padding: '2rem 0' }}>

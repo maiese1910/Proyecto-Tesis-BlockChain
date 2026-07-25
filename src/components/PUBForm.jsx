@@ -149,7 +149,7 @@ const generateHash = async (data) => {
   return await hashAPI.generateClientHash(data);
 };
 
-const PUBForm = ({ user, initialData }) => {
+const PUBForm = ({ user, initialData, onVerifyHash }) => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState('');
   const [formData, setFormData] = useState(initialData || {});
@@ -815,7 +815,7 @@ const PUBForm = ({ user, initialData }) => {
       
       <AnimatePresence>
         {showCert && blockchainHash && (
-          <DigitalCertificate docHash={blockchainHash} onClose={() => setShowCert(false)} />
+          <DigitalCertificate docHash={blockchainHash} onClose={() => setShowCert(false)} onVerifyHash={onVerifyHash} />
         )}
       </AnimatePresence>
     </div>
