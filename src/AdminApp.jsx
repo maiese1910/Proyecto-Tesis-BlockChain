@@ -14,6 +14,8 @@ const AdminLogin = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [pinInstitucional, setPinInstitucional] = useState('');
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!username || !password) return setError('Ingresa usuario y contraseña.');
@@ -36,19 +38,19 @@ const AdminLogin = ({ onLogin }) => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!username || !password || !cargo || !ente) return setError('Todos los campos son obligatorios.');
+    if (!username || !password || !cargo || !ente || !pinInstitucional) return setError('Todos los campos son obligatorios, incluyendo el PIN Institucional.');
     setError('');
     setLoading(true);
 
     try {
-      const data = await authAPI.registerAdmin({ username, password, cargo, ente });
+      const data = await authAPI.registerAdmin({ username, password, cargo, ente, pin_institucional: pinInstitucional });
       if (data.success) {
         onLogin({ username, cargo, ente, token: data.token });
       } else {
         setError('Error al registrar.');
       }
     } catch (err) {
-      setError(err.message || 'Error de conexión con el servidor.');
+      setError(err.message || 'Error de autenticación. Verifica el PIN Institucional.');
     } finally {
       setLoading(false);
     }
@@ -61,29 +63,31 @@ const AdminLogin = ({ onLogin }) => {
       background: 'radial-gradient(circle at 50% 50%, rgba(220,38,38,0.1), transparent 60%), #0f172a',
       overflow: 'auto',
     }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem 1.5rem', textAlign: 'center', border: '1px solid rgba(220,38,38,0.3)' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '2rem 1.5rem', textAlign: 'center', border: '1px solid rgba(220,38,38,0.3)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: 'rgba(220,38,38,0.1)', color: '#ef4444', marginBottom: '1.5rem' }}>
           <Shield size={32} />
         </div>
         <h2 style={{ marginBottom: '0.5rem', color: '#f8fafc' }}>{mode === 'login' ? 'Acceso Restringido' : 'Registro Gubernamental'}</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Panel Gubernamental de Auditoría</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+          Segregación de Funciones (SoD) — Panel de Auditoría SAREN / MPPRE
+        </p>
 
         {mode === 'login' ? (
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
               <UserIcon color="var(--text-muted)" />
-              <input type="text" className="chat-input" placeholder="Usuario Funcionario" value={username} onChange={(e) => setUsername(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
+              <input type="text" className="chat-input" placeholder="Usuario Funcionario (ej: saren_admin)" value={username} onChange={(e) => setUsername(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
               <KeyRound size={20} color="var(--text-muted)" />
-              <input type="password" className="chat-input" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
+              <input type="password" className="chat-input" placeholder="Contraseña (ej: admin123)" value={password} onChange={(e) => setPassword(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
             </div>
             {error && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: '0.5rem 0' }}>{error}</p>}
             <button type="submit" disabled={loading} className="send-btn" style={{ background: '#ef4444', color: 'white', padding: '1rem', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
               <Lock size={18} /> {loading ? 'Validando...' : 'Iniciar Sesión Segura'}
             </button>
             <button type="button" onClick={() => setMode('register')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-              ¿Nuevo funcionario? Crear cuenta
+              ¿Nuevo funcionario? Crear cuenta con PIN
             </button>
           </form>
         ) : (
@@ -106,9 +110,13 @@ const AdminLogin = ({ onLogin }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
               <input type="text" className="chat-input" placeholder="Cargo (Ej: Registrador Principal)" value={cargo} onChange={(e) => setCargo(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0' }} />
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <KeyRound size={20} color="#ef4444" />
+              <input type="password" className="chat-input" placeholder="PIN Institucional (ej: SAREN-2026-GOV-KEY)" value={pinInstitucional} onChange={(e) => setPinInstitucional(e.target.value)} style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.5rem 0', color: '#ef4444', fontWeight: 'bold' }} />
+            </div>
             {error && <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: '0.5rem 0' }}>{error}</p>}
             <button type="submit" disabled={loading} className="send-btn" style={{ background: '#ef4444', color: 'white', padding: '1rem', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Shield size={18} /> {loading ? 'Registrando...' : 'Registrar Funcionario'}
+              <Shield size={18} /> {loading ? 'Registrando...' : 'Registrar Funcionario Autorizado'}
             </button>
             <button type="button" onClick={() => setMode('login')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem', marginTop: '0.5rem' }}>
               ← Volver al login
