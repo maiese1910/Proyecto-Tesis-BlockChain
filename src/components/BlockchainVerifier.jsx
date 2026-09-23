@@ -117,7 +117,7 @@ const BlockchainVerifier = ({ initialHash }) => {
                   <div style={{ background: 'rgba(16,185,129,0.15)', padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <CheckCircle size={32} color="var(--success)" />
                     <div>
-                      <h3 style={{ color: 'var(--success)', marginBottom: '0.2rem' }}>✅ Documento Auténtico y Verificado</h3>
+                      <h3 style={{ color: 'var(--success)', marginBottom: '0.2rem' }}>Documento Auténtico y Verificado</h3>
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Este documento existe de forma inmutable en la Blockchain de Ethereum.</p>
                     </div>
                   </div>
@@ -139,14 +139,14 @@ const BlockchainVerifier = ({ initialHash }) => {
                     <div style={{ gridColumn: '1 / -1' }}>
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Transaction Hash (Blockchain)</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.3)', padding: '0.8rem 1rem', borderRadius: '8px' }}>
-                        <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--primary)', wordBreak: 'break-all' }}>
+                        <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.8rem', color: '#fbbf24', wordBreak: 'break-all' }}>
                           {result.txHash}
                         </code>
                         <a
                           href={`https://sepolia.etherscan.io/tx/${result.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                          style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
                         >
                           Ver en Etherscan <ExternalLink size={14} />
                         </a>
@@ -154,10 +154,10 @@ const BlockchainVerifier = ({ initialHash }) => {
                     </div>
                   </div>
 
-                  <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(124,58,237,0.05)', flexWrap: 'wrap' }}>
-                    <ShieldCheck size={18} color="#a78bfa" />
+                  <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(30,58,138,0.15)', flexWrap: 'wrap' }}>
+                    <ShieldCheck size={18} color="#d97706" />
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      Registrado en la red <strong style={{ color: '#a78bfa' }}>Ethereum Sepolia Testnet</strong> — inmutable e inalcanzable por cualquier institución.
+                      Registrado en la red <strong style={{ color: '#d97706' }}>Ethereum Sepolia Testnet</strong> — inmutable e inalcanzable por cualquier institución.
                     </p>
                   </div>
                 </div>
@@ -165,7 +165,7 @@ const BlockchainVerifier = ({ initialHash }) => {
                 <div style={{ border: '1px solid rgba(239,68,68,0.4)', borderRadius: '16px', padding: '2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', background: 'rgba(239,68,68,0.05)' }}>
                   <XCircle size={40} color="var(--danger)" />
                   <div>
-                    <h3 style={{ color: 'var(--danger)', marginBottom: '0.5rem' }}>❌ Documento No Encontrado</h3>
+                    <h3 style={{ color: 'var(--danger)', marginBottom: '0.5rem' }}>Documento No Encontrado</h3>
                     <p style={{ color: 'var(--text-muted)' }}>
                       Este hash no existe en el registro de la Blockchain. Puede ser que el documento no haya sido registrado, o que el hash sea incorrecto.
                     </p>

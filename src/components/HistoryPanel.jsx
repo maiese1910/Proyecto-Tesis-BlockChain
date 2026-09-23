@@ -312,16 +312,16 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
                 onVerifyHash(hash);
                 onClose && onClose();
               }}
-              style={{ background: 'linear-gradient(to right, #0284c7, #2563eb)', border: 'none', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
+              style={{ background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', border: 'none', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
             >
-              Verificar Hash en la misma Pestaña ➔
+              Verificar Hash Criptográfico
             </button>
           )}
           <button
             onClick={onClose}
             style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', flex: 1 }}
           >
-            Cerrar Ventana ✕
+            Cerrar Ventana
           </button>
         </div>
       </motion.div>
@@ -556,9 +556,9 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
                   {onVerifyHash && (
                     <button
                       onClick={() => onVerifyHash(record.hash)}
-                      style={{ background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.4)', color: '#38bdf8', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                      style={{ background: 'rgba(30,58,138,0.2)', border: '1px solid rgba(217,119,6,0.3)', color: '#fbbf24', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                     >
-                      Verificar Hash ➔
+                      Verificar Hash
                     </button>
                   )}
                 </div>

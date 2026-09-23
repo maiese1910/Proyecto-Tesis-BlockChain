@@ -47,7 +47,7 @@ const TrackingTimeline = ({ user }) => {
   const timestampDisplay = latestRecord?.timestamp ? new Date(latestRecord.timestamp).toLocaleString() : 'N/A';
 
   const steps = [
-    { title: "Prevalidación Documental", desc: "Verificación IA de requisitos", status: "completed", icon: <CheckCircle size={20} /> },
+    { title: "Prevalidación Documental", desc: "Verificación documental de requisitos", status: "completed", icon: <CheckCircle size={20} /> },
     { title: "Planilla PUB", desc: "Pago de aranceles procesado", status: "completed", icon: <CheckCircle size={20} /> },
     { title: "Registro Blockchain", desc: `Hash: ${hashDisplay}...`, status: "completed", icon: <ShieldCheck size={20} /> },
     { title: "Auditoría Gubernamental", desc: "Verificación por ente jurídico", status: isVerified ? "completed" : "current", icon: isVerified ? <CheckCircle size={20} /> : <Clock size={20} /> },

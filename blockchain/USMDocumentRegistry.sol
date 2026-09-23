@@ -3,28 +3,29 @@ pragma solidity ^0.8.20;
 
 /**
  * @title USMDocumentRegistry
- * @notice Registro inmutable de documentos validados de la Universidad Santa María.
- *         Desplegado en la red Sepolia Testnet (Ethereum).
+ * @notice Registro inmutable y certificable de documentos validados de la Universidad Santa María.
+ *         Implementa control de acceso basado en roles (onlyAdmin), anclado IPFS y revocación de credenciales.
  */
 contract USMDocumentRegistry {
 
+    address public institutionAdmin;
+    uint256 public totalDocumentsCount;
+
     struct Document {
-        string  documentHash;    // Hash SHA256 del documento
-        string  ownerName;       // Nombre del graduando
-        string  cedula;          // Cédula de identidad
-        string  documentType;    // Tipo de documento (PUB, Título, etc.)
-        address registeredBy;    // Wallet que registró
+        string documentHash;     // CID de IPFS o Hash SHA-256 del documento
+        string ownerName;        // Nombre del graduando
+        string cedula;           // Cédula de identidad
+        string documentType;     // Tipo de documento (PUB, Título, etc.)
+        address registeredBy;    // Wallet de la autoridad que registró
         uint256 timestamp;       // Unix timestamp del registro
-        bool    exists;
+        bool exists;             // Bandera de existencia
+        bool isRevoked;          // Bandera de validez/revocación
     }
 
-    // Hash → Documento
+    // Hash/CID -> Documento
     mapping(string => Document) private documents;
 
-    // Índice de hashes para auditoría
-    string[] public allHashes;
-
-    // Evento emitido cada vez que se registra un documento
+    // Eventos para el registro de auditoría en la Blockchain
     event DocumentRegistered(
         string indexed documentHash,
         string ownerName,
@@ -33,17 +34,36 @@ contract USMDocumentRegistry {
         uint256 timestamp
     );
 
+    event DocumentRevoked(
+        string indexed documentHash,
+        uint256 timestamp
+    );
+
+    // Modificador para restringir la escritura solo a la autoridad institucional
+    modifier onlyAdmin() {
+        require(msg.sender == institutionAdmin, "Acceso denegado: Solo la autoridad institucional puede ejecutar esta accion");
+        _;
+    }
+
     /**
-     * @notice Registra un nuevo documento. El hash debe ser único.
+     * @notice Asigna la wallet que despliega el contrato como la autoridad administradora.
+     */
+    constructor() {
+        institutionAdmin = msg.sender;
+        totalDocumentsCount = 0;
+    }
+
+    /**
+     * @notice Registra un nuevo documento o CID IPFS. Protegido por onlyAdmin.
      */
     function registerDocument(
         string calldata _hash,
         string calldata _ownerName,
         string calldata _cedula,
         string calldata _documentType
-    ) external {
-        require(!documents[_hash].exists, "Documento ya registrado");
-        require(bytes(_hash).length > 0, "Hash invalido");
+    ) external onlyAdmin {
+        require(!documents[_hash].exists, "El documento ya se encuentra registrado");
+        require(bytes(_hash).length > 0, "El hash no puede estar vacio");
 
         documents[_hash] = Document({
             documentHash: _hash,
@@ -52,27 +72,37 @@ contract USMDocumentRegistry {
             documentType: _documentType,
             registeredBy: msg.sender,
             timestamp: block.timestamp,
-            exists: true
+            exists: true,
+            isRevoked: false
         });
 
-        allHashes.push(_hash);
+        totalDocumentsCount++;
 
         emit DocumentRegistered(_hash, _ownerName, _cedula, _documentType, block.timestamp);
     }
 
     /**
-     * @notice Verifica si un documento existe en el registro.
-     * @return exists      ¿Existe el documento?
-     * @return ownerName   Nombre del dueño
-     * @return cedula      Cédula
-     * @return documentType Tipo de documento
-     * @return timestamp   Fecha/hora de registro (Unix)
+     * @notice Revoca un documento previamente emitido (ej. por fraude o anulacion). Protegido por onlyAdmin.
+     */
+    function revokeDocument(string calldata _hash) external onlyAdmin {
+        require(documents[_hash].exists, "El documento no existe");
+        require(!documents[_hash].isRevoked, "El documento ya ha sido revocado");
+
+        documents[_hash].isRevoked = true;
+
+        emit DocumentRevoked(_hash, block.timestamp);
+    }
+
+    /**
+     * @notice Verifica la existencia y estado de un documento en el registro.
+     *         Cualquier usuario o ente gubernamental puede llamar a esta funcion sin costo de Gas.
      */
     function verifyDocument(string calldata _hash)
         external
         view
         returns (
             bool exists,
+            bool isRevoked,
             string memory ownerName,
             string memory cedula,
             string memory documentType,
@@ -80,13 +110,6 @@ contract USMDocumentRegistry {
         )
     {
         Document memory doc = documents[_hash];
-        return (doc.exists, doc.ownerName, doc.cedula, doc.documentType, doc.timestamp);
-    }
-
-    /**
-     * @notice Retorna el total de documentos registrados.
-     */
-    function totalDocuments() external view returns (uint256) {
-        return allHashes.length;
+        return (doc.exists, doc.isRevoked, doc.ownerName, doc.cedula, doc.documentType, doc.timestamp);
     }
 }

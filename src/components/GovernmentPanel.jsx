@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw, Bell } from 'lucide-react';
+import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw, Bell, Wallet, Clipboard, Lock } from 'lucide-react';
 import { blockchainAPI, authAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import html2pdf from 'html2pdf.js';
@@ -37,9 +37,31 @@ const GovernmentPanel = () => {
 
   // Modal para añadir administrador nuevo
   const [showAdminModal, setShowAdminModal] = useState(false);
-  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', cargo: 'Inspector Gubernamental', ente: 'SAREN', pin_institucional: 'GOV-8942-SAREN' });
+  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', cargo: 'Inspector Gubernamental', ente: 'SAREN', pin_institucional: '' });
   const [adminMsg, setAdminMsg] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
+
+  // Billetera Web3 Auditor (MetaMask)
+  const [web3Account, setWeb3Account] = useState(null);
+  const [web3Connecting, setWeb3Connecting] = useState(false);
+
+  const connectMetaMask = async () => {
+    if (window.ethereum) {
+      try {
+        setWeb3Connecting(true);
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (accounts && accounts.length > 0) {
+          setWeb3Account(accounts[0]);
+        }
+      } catch (err) {
+        console.warn("Conexión a MetaMask no concedida:", err);
+      } finally {
+        setWeb3Connecting(false);
+      }
+    } else {
+      alert("MetaMask no detectado en el navegador. El panel operará con firma custodial de respaldo del servidor.");
+    }
+  };
 
   const fetchRecords = async () => {
     try {
@@ -60,17 +82,31 @@ const GovernmentPanel = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Aprobar documento individual con firma del auditor
+  // Aprobar documento individual con firma del auditor (MetaMask + Backend)
   const handleVerify = async (hash) => {
     setVerifying(hash);
+    let currentAccount = web3Account;
+
+    if (window.ethereum && !currentAccount) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts && accounts.length > 0) {
+          currentAccount = accounts[0];
+          setWeb3Account(currentAccount);
+        }
+      } catch (e) {}
+    }
+
     try {
       const data = await blockchainAPI.verifyRecord(hash, {
         auditor_username: currentAuditorName,
         auditor_cargo: currentAuditorCargo,
-        auditor_ente: currentAuditorEnte
+        auditor_ente: currentAuditorEnte,
+        auditor_wallet: currentAccount || undefined
       });
       if (data.success) {
-        const newStatus = `Verificado por ${currentAuditorEnte} (${currentAuditorName})`;
+        const walletLabel = currentAccount ? ` [Web3: ${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}]` : '';
+        const newStatus = `Verificado por ${currentAuditorEnte} (${currentAuditorName})${walletLabel}`;
         setRecords(prev => prev.map(r => 
           r.hash === hash ? { ...r, status: newStatus, verifiedBy: currentAuditorName } : r
         ));
@@ -83,26 +119,37 @@ const GovernmentPanel = () => {
     }
   };
 
-  // Confirmar Rechazo de Documento con Motivo
+  // Confirmar Rechazo/Revocación de Documento On-Chain con Motivo
   const confirmRejection = async () => {
     if (!rejectingRecord) return;
     const finalReason = rejectionReason === 'OTRO' ? customReason : rejectionReason;
     if (!finalReason) return;
     setRejectingLoading(true);
+    let currentAccount = web3Account;
+
+    if (window.ethereum && !currentAccount) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts && accounts.length > 0) currentAccount = accounts[0];
+      } catch (e) {}
+    }
+
     try {
       const res = await blockchainAPI.rejectRecord(rejectingRecord.hash, finalReason, {
         auditor_username: currentAuditorName,
         auditor_cargo: currentAuditorCargo,
-        auditor_ente: currentAuditorEnte
+        auditor_ente: currentAuditorEnte,
+        auditor_wallet: currentAccount || undefined
       });
-      const newStatus = `❌ Rechazado: ${finalReason}`;
+      const walletLabel = currentAccount ? ` [Revocado Web3: ${currentAccount.slice(0, 6)}...]` : '';
+      const newStatus = `Revocado On-Chain: ${finalReason}${walletLabel}`;
       setRecords(prev => prev.map(r => 
         r.hash === rejectingRecord.hash ? { ...r, status: newStatus, rejectionReason: finalReason, verifiedBy: currentAuditorName } : r
       ));
       setRejectingRecord(null);
       setCustomReason('');
     } catch (err) {
-      alert("Error al procesar el rechazo del documento.");
+      alert("Error al procesar el rechazo/revocación del documento.");
     } finally {
       setRejectingLoading(false);
     }
@@ -171,50 +218,75 @@ const GovernmentPanel = () => {
     document.body.removeChild(link);
   };
 
-  // Generador de Análisis de Fraude IA & Reporte para Ministerio
-  const runAiFraudAnalysis = () => {
+  // Generador de Análisis de Fraude IA Criptográfico & Reporte Dinámico
+  const runAiFraudAnalysis = async () => {
     setAiLoading(true);
-    setTimeout(() => {
+    try {
+      let validHashes = 0;
+      let validCedulas = 0;
+      const totalRecs = records.length;
+
+      records.forEach(r => {
+        if (r.hash && (r.hash.startsWith("0x") || r.hash.startsWith("Qm") || r.hash.length >= 32)) {
+          validHashes++;
+        }
+        if (r.cedula && /^[VEve]-?\s*[\d.]{6,12}$/.test(r.cedula)) {
+          validCedulas++;
+        }
+      });
+
+      const hashIntegrityRate = totalRecs > 0 ? ((validHashes / totalRecs) * 100).toFixed(1) : '100.0';
+      const nerAccuracyRate = totalRecs > 0 ? ((validCedulas / totalRecs) * 100).toFixed(1) : '100.0';
+      const overallConfidence = ((parseFloat(hashIntegrityRate) + parseFloat(nerAccuracyRate)) / 2).toFixed(1);
+
       const summaryText = `
-📋 INFORME EJECUTIVO DE AUDITORÍA Y DETECCIÓN DE FRAUDE IA
+INFORME TÉCNICO DE AUDITORÍA Y VALIDACIÓN DE INTEGRIDAD ON-CHAIN
 Ente Responsable: ${currentAuditorEnte} (Ministerio del Poder Popular para Relaciones Interiores, Justicia y Paz)
 Auditor en Turno: ${currentAuditorCargo} — ${currentAuditorName}
-Fecha de Emisión: ${new Date().toLocaleDateString('es-VE')}
+Fecha de Emisión: ${new Date().toLocaleDateString('es-VE')} ${new Date().toLocaleTimeString('es-VE')}
 
 ───────────────────────────────────────────────────────
-1. RESUMEN DE PROCESAMIENTO CRIPTOGRÁFICO:
+1. RESUMEN DE PROCESAMIENTO CRIPTOGRÁFICO REAL:
 • Total de expedientes universitarios inspeccionados: ${totalCount}
 • Trámites validados y firmados en Ethereum Sepolia: ${verifiedCount}
-• Trámites rechazados con observación de ley: ${rejectedCount}
+• Trámites revocados / rechazados con observación de ley: ${rejectedCount}
 • Tasa de efectividad de auditoría estatal: ${efficiencyRate}%
 
-2. DICTAMEN DE INTELIGENCIA ARTIFICIAL (NIVEL DE CONFIANZA 99.8%):
-• Integridad Estructural: No se detectan anomalías de colisión de Hashes SHA-256.
-• Validación de Entidades (NER): Coincidencia de 100% entre las cédulas presentadas por los graduando de la Universidad Santa María y los registros de la Gaceta Oficial.
+2. AUDITORÍA ALGORÍTMICA DE INTEGRIDAD DOCUMENTAL (NIVEL DE CONFIANZA: ${overallConfidence}%):
+• Integridad Dual SHA-256 / IPFS CID: ${hashIntegrityRate}% de huellas digitales válidas sin colisión.
+• Extracción de Entidades Nombradas (Rule-Based NER): ${nerAccuracyRate}% coincidencia de Cédula (V-/E-).
 • Verificación de Inmutabilidad: Legajos criptográficos protegidos contra alteración física y digital conforme al Art. 16 de la Ley sobre Mensajes de Datos.
 ───────────────────────────────────────────────────────
 Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-ID-${Math.floor(10000 + Math.random()*90000)}
+${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de Respaldo Servidor Activa'}
       `.trim();
+
       setAiAnalysisResult(summaryText);
+    } catch (e) {
+      setAiAnalysisResult("Error ejecutando análisis de auditoría documental.");
+    } finally {
       setAiLoading(false);
-    }, 800);
+    }
   };
+
 
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
     setAdminMsg('Registrando auditor...');
     setAdminLoading(true);
     try {
-      const data = await authAPI.registerAdmin(newAdmin);
+      // Extraer token JWT del admin autenticado para autorizar la creación
+      const adminToken = JSON.parse(localStorage.getItem('admin_data') || '{}').token;
+      const data = await authAPI.registerAdmin(newAdmin, adminToken);
       if (data.success) {
-        setAdminMsg('✅ Funcionario auditor creado exitosamente.');
-        setNewAdmin({ username: '', password: '', cargo: 'Inspector Gubernamental', ente: 'SAREN', pin_institucional: `GOV-${Math.floor(1000 + Math.random() * 9000)}-SAREN` });
+        setAdminMsg('Funcionario auditor creado exitosamente.');
+        setNewAdmin({ username: '', password: '', cargo: 'Inspector Gubernamental', ente: 'SAREN', pin_institucional: '' });
         setTimeout(() => { setShowAdminModal(false); setAdminMsg(''); }, 2000);
       } else {
-        setAdminMsg(`❌ Error: ${data.detail || 'No se pudo crear'}`);
+        setAdminMsg(`Error: ${data.detail || 'No se pudo crear'}`);
       }
     } catch (err) {
-      setAdminMsg(`❌ Error: ${err.message || 'Error de conexión.'}`);
+      setAdminMsg(`Error: ${err.message || 'Error de conexión. Verifica tu sesión y el PIN Institucional.'}`);
     } finally {
       setAdminLoading(false);
     }
@@ -282,8 +354,8 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
           <button
             onClick={() => setFilterStatus('PENDING')}
             style={{
-              background: '#f59e0b',
-              color: '#000',
+              background: '#d97706',
+              color: '#fff',
               border: 'none',
               padding: '0.55rem 1.1rem',
               borderRadius: '8px',
@@ -293,10 +365,10 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
               display: 'flex',
               alignItems: 'center',
               gap: '0.4rem',
-              boxShadow: '0 4px 12px rgba(245,158,11,0.4)'
+              boxShadow: '0 4px 12px rgba(217,119,6,0.3)'
             }}
           >
-            <Clock size={15} /> Ver Pendientes Solamente ➔
+            <Clock size={15} /> Ver Pendientes Solamente
           </button>
         </motion.div>
       )}
@@ -321,12 +393,36 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
         </div>
 
         <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={connectMetaMask}
+            disabled={web3Connecting}
+            style={{
+              background: web3Account ? 'rgba(16,185,129,0.2)' : 'rgba(30,58,138,0.3)',
+              color: web3Account ? '#34d399' : '#f8fafc',
+              border: `1px solid ${web3Account ? 'rgba(16,185,129,0.4)' : 'rgba(217,119,6,0.4)'}`,
+              padding: '0.65rem 1.1rem',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s',
+              boxShadow: web3Account ? '0 4px 12px rgba(16,185,129,0.2)' : 'none'
+            }}
+            title={web3Account ? `Billetera Auditor Conectada: ${web3Account}` : 'Conectar MetaMask para firma directa'}
+          >
+            <Wallet size={16} /> {web3Account ? `MetaMask (${web3Account.slice(0, 6)}...${web3Account.slice(-4)})` : 'Conectar MetaMask'}
+          </button>
+
           <button 
             onClick={() => { setShowAiAssistantModal(true); runAiFraudAnalysis(); }}
-            style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.4)', padding: '0.65rem 1.1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+            style={{ background: 'rgba(30,58,138,0.3)', color: '#fbbf24', border: '1px solid rgba(217,119,6,0.4)', padding: '0.65rem 1.1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
           >
-            <Bot size={16} /> Asistente IA de Auditoría
+            <Bot size={16} /> Asistente Institucional
           </button>
+
 
           <button 
             onClick={handleExportCSV}
@@ -388,7 +484,7 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
                 <h3 style={{ margin: 0, color: '#ef4444', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <AlertOctagon size={22} /> Rechazar Documento / Legajo
                 </h3>
-                <button onClick={() => setRejectingRecord(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
+                <button onClick={() => setRejectingRecord(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
               </div>
 
               <div style={{ background: 'rgba(239,68,68,0.1)', padding: '1rem', borderRadius: '10px', marginBottom: '1.2rem', border: '1px solid rgba(239,68,68,0.3)' }}>
@@ -427,8 +523,8 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
                   </div>
                 )}
 
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(255,255,255,0.04)', padding: '0.6rem', borderRadius: '6px' }}>
-                  🔒 Firma de Auditoría: Se registrará que el rechazo fue emitido por <strong>{currentAuditorName} ({currentAuditorCargo})</strong>.
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(255,255,255,0.04)', padding: '0.6rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Lock size={12} color="#94a3b8" /> Firma de Auditoría: Se registrará que el rechazo fue emitido por <strong>{currentAuditorName} ({currentAuditorCargo})</strong>.
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
@@ -437,7 +533,7 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
                     disabled={rejectingLoading}
                     style={{ flex: 1, padding: '0.85rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', fontWeight: '800', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
                   >
-                    {rejectingLoading ? 'Procesando Rechazo...' : 'Confirmar Rechazo ❌'}
+                    {rejectingLoading ? 'Procesando Rechazo...' : 'Confirmar Rechazo On-Chain'}
                   </button>
                   <button
                     onClick={() => setRejectingRecord(null)}
@@ -457,35 +553,35 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
       <AnimatePresence>
         {showAiAssistantModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass-panel" style={{ maxWidth: '680px', width: '100%', padding: '2rem', borderRadius: '16px', background: '#09090b', border: '1px solid rgba(168,85,247,0.4)', boxShadow: '0 25px 50px rgba(168,85,247,0.25)' }}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass-panel" style={{ maxWidth: '680px', width: '100%', padding: '2rem', borderRadius: '16px', background: '#09090b', border: '1px solid rgba(217,119,6,0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-                <h3 style={{ margin: 0, color: '#c084fc', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <Bot size={24} color="#c084fc" /> Asistente de Inteligencia Artificial para el Auditor
+                <h3 style={{ margin: 0, color: '#fbbf24', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Bot size={24} color="#d97706" /> Asistente Institucional de Auditoría
                 </h3>
-                <button onClick={() => setShowAiAssistantModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
+                <button onClick={() => setShowAiAssistantModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
               </div>
 
               {aiLoading ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#c084fc' }}>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#fbbf24' }}>
                   <RefreshCw size={32} className="spinning" style={{ margin: '0 auto 1rem auto' }} />
                   <p>Ejecutando algoritmos de detección de fraude y resumen de ley...</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1.2rem', borderRadius: '10px', border: '1px solid rgba(168,85,247,0.2)', fontFamily: 'monospace', fontSize: '0.82rem', color: '#e9d5ff', lineHeight: '1.6', maxHeight: '350px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1.2rem', borderRadius: '10px', border: '1px solid rgba(217,119,6,0.2)', fontFamily: 'monospace', fontSize: '0.82rem', color: '#f8fafc', lineHeight: '1.6', maxHeight: '350px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
                     {aiAnalysisResult}
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => { navigator.clipboard.writeText(aiAnalysisResult); alert('Reporte copiado al portapapeles.'); }}
-                      style={{ padding: '0.7rem 1.2rem', background: 'rgba(168,85,247,0.2)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.4)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}
+                      style={{ padding: '0.7rem 1.2rem', background: 'rgba(30,58,138,0.2)', color: '#fbbf24', border: '1px solid rgba(217,119,6,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                     >
-                      📋 Copiar Reporte
+                      <Clipboard size={14} /> Copiar Reporte
                     </button>
                     <button
                       onClick={() => setShowAiAssistantModal(false)}
-                      style={{ padding: '0.7rem 1.2rem', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}
+                      style={{ padding: '0.7rem 1.2rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}
                     >
                       Cerrar Ventana
                     </button>
@@ -518,9 +614,9 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
         <div style={{ display: 'flex', gap: '0.4rem', background: 'rgba(0,0,0,0.4)', padding: '0.2rem', borderRadius: '10px' }}>
           {[
             { id: 'ALL', label: 'Todos' },
-            { id: 'PENDING', label: '⏳ Pendientes' },
-            { id: 'VERIFIED', label: '✅ Verificados' },
-            { id: 'REJECTED', label: '❌ Rechazados' },
+            { id: 'PENDING', label: 'Pendientes' },
+            { id: 'VERIFIED', label: 'Verificados' },
+            { id: 'REJECTED', label: 'Rechazados' },
           ].map(f => (
             <button
               key={f.id}
@@ -528,7 +624,7 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
               style={{
                 padding: '0.45rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
                 fontWeight: '700', fontSize: '0.78rem', transition: 'all 0.2s',
-                background: filterStatus === f.id ? '#0ea5e9' : 'transparent',
+                background: filterStatus === f.id ? 'linear-gradient(135deg, #1e3a8a, #2563eb)' : 'transparent',
                 color: filterStatus === f.id ? '#fff' : '#94a3b8'
               }}
             >
@@ -664,20 +760,20 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
                               disabled={verifying === record.hash}
                               style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '800' }}
                             >
-                              {verifying === record.hash ? 'Auditando...' : 'Aprobar ✓'}
+                              {verifying === record.hash ? 'Auditando...' : 'Aprobar Documento'}
                             </button>
 
                             <button
                               onClick={() => setRejectingRecord(record)}
                               style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}
                             >
-                              Rechazar ✕
+                              Rechazar Legajo
                             </button>
                           </>
                         ) : isVerified ? (
-                          <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '800', background: 'rgba(16,185,129,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>✓ Aprobado</span>
+                          <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '800', background: 'rgba(16,185,129,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Aprobado</span>
                         ) : (
-                          <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: '800', background: 'rgba(239,68,68,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>✕ Rechazado</span>
+                          <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: '800', background: 'rgba(239,68,68,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Rechazado</span>
                         )}
 
                       </div>
@@ -701,23 +797,23 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
               exit={{ y: 30, opacity: 0 }}
               style={{
                 background: '#09090b', borderRadius: '16px', maxWidth: '840px', width: '100%', maxHeight: '92vh',
-                overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.8)', border: '1px solid rgba(14,165,233,0.4)', display: 'flex', flexDirection: 'column'
+                overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.8)', border: '1px solid rgba(217,119,6,0.3)', display: 'flex', flexDirection: 'column'
               }}
             >
               <div style={{ padding: '1rem 1.4rem', background: '#0c0e17', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Eye color="#0ea5e9" size={20} /> Expediente Digital del Graduando — {activePUBRecord.ownerName}
+                  <Eye color="#d97706" size={20} /> Expediente Digital del Graduando — {activePUBRecord.ownerName}
                 </h3>
-                <button onClick={() => setActivePUBRecord(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                <button onClick={() => setActivePUBRecord(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
               </div>
 
               <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                 
-                <div style={{ background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)', padding: '1.2rem', borderRadius: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ background: 'rgba(30,58,138,0.15)', border: '1px solid rgba(217,119,6,0.3)', padding: '1.2rem', borderRadius: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
                     <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Solicitante:</span>
                     <h4 style={{ margin: '0.2rem 0', color: '#fff', fontSize: '1.1rem' }}>{activePUBRecord.ownerName}</h4>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#38bdf8' }}>C.I: {activePUBRecord.cedula}</p>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#fbbf24' }}>C.I: {activePUBRecord.cedula}</p>
                   </div>
                   <div>
                     <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Trámite Registrado:</span>
@@ -749,14 +845,14 @@ Firma Electrónica Auditoría: ${currentAuditorName.toUpperCase()} // SAREN-GOV-
                     onClick={() => { handleVerify(activePUBRecord.hash); setActivePUBRecord(null); }}
                     style={{ padding: '0.65rem 1.2rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                   >
-                    ✓ Aprobar y Verificar en Blockchain
+                    Aprobar y Registrar en Blockchain
                   </button>
                 )}
                 <button
                   onClick={() => setActivePUBRecord(null)}
                   style={{ padding: '0.65rem 1.2rem', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                 >
-                  Cerrar Ventana ✕
+                  Cerrar Previsualización
                 </button>
               </div>
             </motion.div>

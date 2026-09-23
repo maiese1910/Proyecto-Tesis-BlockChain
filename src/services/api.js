@@ -45,8 +45,8 @@ export const authAPI = {
   loginAdmin: (username, password) =>
     apiFetch('/admin/login', { method: 'POST', body: { username, password } }),
 
-  registerAdmin: (data) =>
-    apiFetch('/admin/users', { method: 'POST', body: data }),
+  registerAdmin: (data, token) =>
+    apiFetch('/admin/users', { method: 'POST', body: data, token }),
 };
 
 // ─── Perfiles ───────────────────────────────────────────────────────────────
@@ -78,9 +78,13 @@ export const blockchainAPI = {
   register: (data) =>
     apiFetch('/blockchain/register', { method: 'POST', body: data }),
 
+  sendRawTx: (rawTxHex) =>
+    apiFetch('/blockchain/send-raw-tx', { method: 'POST', body: { raw_transaction: rawTxHex } }),
+
   getCertificate: (hash) =>
     apiFetch(`/blockchain/certificate/${hash}`),
 };
+
 
 // ─── Hash ───────────────────────────────────────────────────────────────────
 export const hashAPI = {

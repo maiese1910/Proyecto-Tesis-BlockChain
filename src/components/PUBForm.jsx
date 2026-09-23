@@ -76,7 +76,7 @@ const PUB_FIELDS = [
     id: 'nombre_completo',
     label: 'Nombre Completo del Solicitante',
     placeholder: 'Ej: Juan Carlos Pérez García',
-    pregunta: '¡Comencemos! 📝\n\n**Campo 1 — Nombre Completo**\n\n¿Cuál es tu nombre completo tal como aparece en tu cédula de identidad?',
+    pregunta: 'Formulario Oficial — Planilla Única Bancaria (PUB)\n\n**Campo 1 — Nombre Completo**\n\n¿Cuál es su nombre completo tal como aparece en su cédula de identidad?',
     ayuda: 'Escribe **todos tus nombres y ambos apellidos**, exactamente como aparecen en tu cédula laminada. Ejemplo: *Juan Carlos Pérez García*. No uses abreviaciones ni apodos.',
   },
   {
@@ -236,10 +236,10 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
     setMessages([]);
     setTimeout(() => {
       addBotMessage(
-        '🏛️ **Asistente de Llenado — Planilla Única Bancaria (PUB)**\n\n' +
-        'Te guiaré campo por campo. Cada respuesta será **validada en tiempo real**.\n' +
-        '• Si algo está mal, te lo diré y podrás corregirlo al instante.\n' +
-        '• Escribe **"ayuda"** si tienes dudas sobre cualquier campo.\n\n' +
+        '**Asistente Institucional — Planilla Única Bancaria (PUB)**\n\n' +
+        'Le guiaré campo por campo. Cada respuesta será **validada en tiempo real**.\n' +
+        '• Si el formato no coincide, se le indicará la corrección requerida.\n' +
+        '• Escriba **"ayuda"** si requiere orientación sobre cualquier campo.\n\n' +
         PUB_FIELDS[0].pregunta
       );
     }, 300);
@@ -260,7 +260,7 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
     // Comando ayuda
     if (['ayuda', 'help', '?'].includes(userText.toLowerCase())) {
       setTimeout(() => {
-        addBotMessage(`💡 **Ayuda — ${currentField.label}**\n\n${currentField.ayuda}\n\nCuando estés listo, escribe el valor correcto.`);
+        addBotMessage(`**Instrucción — ${currentField.label}**\n\n${currentField.ayuda}\n\nCuando esté listo, ingrese el valor correcto.`);
       }, 300);
       return;
     }
@@ -273,9 +273,9 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
       setFieldErrors(prev => ({ ...prev, [currentField.id]: userText }));
       setTimeout(() => {
         addBotMessage(
-          `⚠️ **¡Oye! El campo "${currentField.label}" tiene información inválida.**\n\n` +
+          `**El campo "${currentField.label}" requiere atención.**\n\n` +
           `${error}\n\n` +
-          `Por favor corrígelo antes de continuar. Escribe **"ayuda"** si necesitas orientación.`,
+          `Por favor corríjalo antes de continuar. Escriba **"ayuda"** si necesita orientación.`,
           true
         );
       }, 350);
@@ -323,15 +323,15 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
 
         setTimeout(() => {
           addBotMessage(
-            `✅ **Institución Educativa** registrada.\n\n` +
-            `🤖 **Calculadora IA de Aranceles (SAREN):**\n` +
-            `He analizado tu trámite (*${updatedData.tramite}*). El costo estipulado corresponde a **${unidad}** (Tasa Petro oficial).\n\n` +
-            `💰 **Monto Total a Pagar: ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(montoCalculado)} Bs.**\n\n` +
+            `**Institución Educativa** registrada.\n\n` +
+            `**Cálculo Autómata de Aranceles (SAREN):**\n` +
+            `Se ha analizado el trámite (*${updatedData.tramite}*). El costo estipulado corresponde a **${unidad}** (Tasa Petro oficial).\n\n` +
+            `**Monto Total a Pagar: ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(montoCalculado)} Bs.**\n\n` +
             `Datos de la cuenta destino:\n` +
             `• **Banco:** Banco de Venezuela\n` +
             `• **Cuenta:** 0102-0552-22-0000001234\n` +
             `• **A nombre de:** SAREN Recaudación (G-20000000-0)\n\n` +
-            `📱 Ahora necesito los datos de tu **Pago Móvil** para registrar la transacción.\n\n` +
+            `Ingrese los datos de su **Pago Móvil** para registrar la transacción.\n\n` +
             `${PUB_FIELDS[nextIndex].pregunta}`
           );
         }, 450);
@@ -339,18 +339,18 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
         // Guardar banco del pagador y pedir confirmación
         setTimeout(() => {
           addBotMessage(
-            `✅ **Banco del Pagador** registrado: *${userText}*\n\n` +
-            `📋 **Resumen de tu Pago Móvil:**\n` +
+            `**Banco del Pagador** registrado: *${userText}*\n\n` +
+            `**Resumen del Pago Registrado:**\n` +
             `• **Cédula:** ${updatedData.pago_cedula}\n` +
             `• **Teléfono:** ${updatedData.pago_telefono}\n` +
             `• **Banco:** ${userText}\n` +
             `• **Monto:** ${updatedData.monto} Bs.\n\n` +
-            `Por favor realiza el pago móvil y escribe **"listo"** cuando hayas confirmado la transferencia.`
+            `Realice la transferencia y escriba **"listo"** al haber confirmado la transacción.`
           );
         }, 450);
       } else {
         setTimeout(() => {
-          addBotMessage(`✅ **${currentField.label}** registrado correctamente.\n\n${PUB_FIELDS[nextIndex].pregunta}`);
+          addBotMessage(`**${currentField.label}** registrado correctamente.\n\n${PUB_FIELDS[nextIndex].pregunta}`);
         }, 450);
       }
     } else {
@@ -358,9 +358,9 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
       setCurrentFieldIndex(-1);
       setTimeout(() => {
         addBotMessage(
-          '🎉 **¡Planilla PUB completada y validada al 100%!**\n\n' +
-          'Todos los datos, incluyendo la verificación del arancel, son correctos. Tu planilla oficial está generada en la vista previa.\n\n' +
-          '👉 Ahora **Registra la huella digital en Blockchain** usando el botón de abajo. Esto inmutabilizará tu planilla antes de imprimirla.'
+          '**Planilla PUB completada y validada correctamente.**\n\n' +
+          'Los datos ingresados y la tasa arancelaria han sido verificados. La vista previa oficial se encuentra lista.\n\n' +
+          'Seleccione **Registrar Hash en Blockchain** en la barra inferior para inscribir el documento antes de la impresión.'
         );
       }, 500);
     }
@@ -389,7 +389,7 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
 
   const handleBlockchain = async () => {
     setIsHashing(true);
-    addBotMessage('⛓️ **Registrando huella digital en Blockchain (Sepolia)...**\n\nGenerando hash SHA-256 y registrando en la red descentralizada...');
+    addBotMessage('**Registrando hash en Blockchain (Sepolia)...**\n\nGenerando hash SHA-256 y registrando en la red descentralizada...');
     
     try {
       const hash = await generateHash(formData);
@@ -407,10 +407,10 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
           setBlockchainHash(hash);
           saveToLocalHistory(hash);
           addBotMessage(
-            `🔐 **¡Registro exitoso en Blockchain!**\n\n` +
-            `**Hash del documento (SHA-256 real):**\n\`${hash}\`\n\n` +
+            `**Registro exitoso en Blockchain**\n\n` +
+            `**Hash del documento (SHA-256):**\n\`${hash}\`\n\n` +
             `**Transaction Hash:**\n\`${data.txHash}\`\n\n` +
-            `Este registro es inmutable. Puedes verificarlo en [Etherscan](${data.certificateUrl}).`
+            `Este registro es inmutable. Puede verificarlo en [Etherscan](${data.certificateUrl}).`
           );
           return;
         }
@@ -422,14 +422,14 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
       setBlockchainHash(hash);
       saveToLocalHistory(hash);
       addBotMessage(
-        `🔐 **¡Huella digital registrada exitosamente!**\n\n` +
+        `**Huella digital registrada exitosamente**\n\n` +
         `**Hash del documento (SHA-256):**\n\`${hash}\`\n\n` +
-        `La huella digital ha sido generada y almacenada. El documento queda protegido contra modificaciones.\n\n` +
-        `📋 Puedes verificar la integridad del documento en cualquier momento desde la sección **"Verificar Blockchain"**.`
+        `La huella criptográfica ha sido generada y almacenada. El documento queda protegido contra modificaciones.\n\n` +
+        `Puede verificar la integridad del documento en cualquier momento desde la sección **"Verificar Blockchain"**.`
       );
     } catch (err) {
       console.error('Hash generation error:', err);
-      addBotMessage('❌ **Error:** No se pudo generar la huella digital del documento. Intenta de nuevo.', true);
+      addBotMessage('**Error:** No se pudo generar la huella digital del documento. Intente de nuevo.', true);
     } finally {
       setIsHashing(false);
     }
@@ -440,7 +440,7 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
     const field = PUB_FIELDS[currentFieldIndex];
     addUserMessage('ayuda');
     setTimeout(() => {
-      addBotMessage(`💡 **Ayuda — ${field.label}**\n\n${field.ayuda}\n\nCuando estés listo, escribe el valor correcto.`);
+      addBotMessage(`**Instrucción — ${field.label}**\n\n${field.ayuda}\n\nCuando esté listo, ingrese el valor correcto.`);
     }, 300);
   };
 
@@ -486,7 +486,7 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
                   Campo {currentFieldIndex + 1} de {PUB_FIELDS.length}
                 </small>
               )}
-              {isComplete && <small style={{ marginLeft: '0.8rem', color: 'var(--success)', fontSize: '0.8rem' }}>Completado ✓</small>}
+              {isComplete && <small style={{ marginLeft: '0.8rem', color: 'var(--success)', fontSize: '0.8rem' }}>Completado</small>}
             </h2>
           </div>
 
@@ -509,10 +509,10 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
                 <FileText size={48} opacity={0.3} />
                 <div>
                   <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Planilla PUB — SAREN</h3>
-                  <p>Validación campo a campo con IA.<br />Escribe <strong style={{ color: 'var(--primary)' }}>"ayuda"</strong> si tienes dudas en cualquier momento.</p>
+                  <p>Validación asistida del trámite.<br />Escriba <strong style={{ color: '#d97706' }}>"ayuda"</strong> si requiere orientación en cualquier momento.</p>
                 </div>
-                <button className="send-btn" style={{ padding: '0.8rem 2rem' }} onClick={handleStart}>
-                  🚀 Comenzar a llenar la planilla
+                <button className="send-btn" style={{ padding: '0.8rem 2rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)' }} onClick={handleStart}>
+                  Iniciar Registro de Planilla
                 </button>
               </div>
             )}
@@ -539,21 +539,21 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
               <div style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.5rem' }}>
                 <button
                   onClick={handleAyudaRapida}
-                  style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--warning)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '8px', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
+                  style={{ background: 'rgba(217,119,6,0.15)', color: '#fbbf24', border: '1px solid rgba(217,119,6,0.3)', borderRadius: '8px', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
                 >
-                  💡 ¿Qué va aquí?
+                  Ver Instrucciones del Campo
                 </button>
               </div>
             )}
             {isComplete && !blockchainHash && (
               <button
                 className="send-btn"
-                style={{ width: '100%', padding: '0.9rem', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', background: 'linear-gradient(to right, #7c3aed, #4f46e5)', fontSize: '0.95rem' }}
+                style={{ width: '100%', padding: '0.9rem', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', fontSize: '0.95rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
                 onClick={handleBlockchain}
                 disabled={isHashing}
               >
                 <ShieldCheck size={20} />
-                {isHashing ? 'Generando hash...' : '⛓️ Registrar Huella en Blockchain'}
+                {isHashing ? 'Generando hash...' : 'Registrar Hash en Blockchain'}
               </button>
             )}
             <form className="input-wrapper" onSubmit={handleSend}>
@@ -806,7 +806,7 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
               animate={{ opacity: 1 }}
               style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px', textAlign: 'center' }}
             >
-              <p style={{ color: 'var(--success)', fontWeight: '700' }}>✅ Planilla 100% Válida — Lista para Blockchain</p>
+              <p style={{ color: 'var(--success)', fontWeight: '700' }}>Planilla Válida — Lista para Registro Criptográfico</p>
             </motion.div>
           )}
         </motion.div>

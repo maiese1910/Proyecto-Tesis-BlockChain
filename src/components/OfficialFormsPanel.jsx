@@ -11,7 +11,7 @@ const OFFICIAL_DOCS = [
     category: "Legalización Estatal",
     desc: "Formato oficial de liquidación de aranceles para el registro de títulos universitarios ante el Registro Principal.",
     filename: "Planilla_Unica_Bancaria_PUB_SAREN.pdf",
-    color: "#0ea5e9",
+    color: "#d97706",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.4;">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
@@ -88,7 +88,7 @@ const OFFICIAL_DOCS = [
     category: "Trámite Académico",
     desc: "Formato oficial de la Facultad de Ingeniería para la solicitud del título profesional ante Control de Estudios (Módulo 4).",
     filename: "Solicitud_de_Grado_USM_Ingenieria.pdf",
-    color: "#a855f7",
+    color: "#2563eb",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.4;">
         <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 15px;">
@@ -185,7 +185,7 @@ const OFFICIAL_DOCS = [
     category: "Solvencia Académica",
     desc: "Constancia oficial de no adeudo de material bibliográfico ni equipos en la USM expedida por la Dirección de Biblioteca.",
     filename: "Solvencia_Biblioteca_Laboratorios_USM.pdf",
-    color: "#f59e0b",
+    color: "#b45309",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.5;">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
@@ -223,7 +223,7 @@ const OFFICIAL_DOCS = [
     category: "Legalización Nacional",
     desc: "Formato oficial para la solicitud de cita electrónica de legalización de títulos ante el MPPEU.",
     filename: "Planilla_Cita_GTU_MPPEU.pdf",
-    color: "#ec4899",
+    color: "#1e3a8a",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.4;">
         <div style="text-align: center; border-bottom: 2px solid #b91c1c; padding-bottom: 10px; margin-bottom: 15px;">
@@ -306,10 +306,10 @@ const OfficialFormsPanel = ({ user }) => {
 
   return (
     <div className="view-container">
-      <div className="dashboard-header" style={{ borderLeftColor: "#0ea5e9" }}>
+      <div className="dashboard-header" style={{ borderLeftColor: "#d97706" }}>
         <div>
           <h2 style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
-            <FileText size={28} style={{ color: "#0ea5e9" }} />
+            <FileText size={28} style={{ color: "#d97706" }} />
             Planillas y Formularios Oficiales
           </h2>
           <p>
@@ -331,13 +331,15 @@ const OfficialFormsPanel = ({ user }) => {
             }}
           >
             <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.8rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: "700", textTransform: "uppercase", color: doc.color, background: `${doc.color}15`, padding: "0.2rem 0.6rem", borderRadius: "12px", border: `1px solid ${doc.color}33` }}>
-                  {doc.category}
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "600" }}>
-                  {doc.ente}
-                </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.9rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.7rem", fontWeight: "700", textTransform: "uppercase", color: doc.color, background: `${doc.color}15`, padding: "0.25rem 0.6rem", borderRadius: "12px", border: `1px solid ${doc.color}33`, whiteSpace: "nowrap" }}>
+                    {doc.category}
+                  </span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "600" }}>
+                    {doc.ente}
+                  </span>
+                </div>
               </div>
               <h3 style={{ fontSize: "1.05rem", margin: "0 0 0.5rem 0", color: "var(--text-main)" }}>{doc.title}</h3>
               <p style={{ fontSize: "0.83rem", color: "var(--text-muted)", margin: "0 0 1.2rem 0", lineHeight: "1.4" }}>{doc.desc}</p>
@@ -412,7 +414,7 @@ const OfficialFormsPanel = ({ user }) => {
                   onClick={() => setSelectedDoc(null)}
                   style={{ background: "rgba(255,255,255,0.1)", border: "1px solid var(--border)", color: "#fff", padding: "0.6rem 1.2rem", borderRadius: "8px", cursor: "pointer", fontWeight: "600", flex: 1 }}
                 >
-                  Cerrar Ventana ✕
+                  Cerrar Ventana
                 </button>
                 <button
                   onClick={() => { handleDownloadPDF(selectedDoc); setSelectedDoc(null); }}

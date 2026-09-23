@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Shield, User, Lock, ArrowRight, CheckCircle, FileText, Globe, Sparkles, BookOpen, Clock, KeyRound, Cpu, Layers, QrCode, ChevronDown, HelpCircle, ShieldCheck, Database, Server, Award, Building2, Zap, AlertCircle } from 'lucide-react';
+import { GraduationCap, Shield, User, Lock, ArrowRight, CheckCircle, FileText, Globe, Sparkles, BookOpen, Clock, KeyRound, Cpu, Layers, QrCode, ChevronDown, HelpCircle, ShieldCheck, Database, Server, Award, Building2, Zap, AlertCircle, X } from 'lucide-react';
 import { profilesAPI, authAPI, statsAPI, dynamicDataAPI } from '../services/api';
 
 const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
@@ -23,11 +23,6 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
   const [govLoading, setGovLoading] = useState(false);
   const [govError, setGovError] = useState('');
 
-  // Estado Registro Funcionario Auditor Modal
-  const [showGovRegModal, setShowGovRegModal] = useState(false);
-  const [govRegForm, setGovRegForm] = useState({ username: '', password: '', cargo: 'Registrador Principal', ente: 'SAREN', pin_institucional: 'GOV-8942-SAREN' });
-  const [govRegError, setGovRegError] = useState('');
-  const [govRegLoading, setGovRegLoading] = useState(false);
 
   // FAQ Accordion State
   const [activeFaq, setActiveFaq] = useState(0); // Abrir el primero por defecto para mejor visualización
@@ -178,52 +173,6 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
     }
   };
 
-  // Handler Registro Funcionario Auditor
-  const handleGovRegisterSubmit = async (e) => {
-    e.preventDefault();
-    if (!govRegForm.username || !govRegForm.password || !govRegForm.cargo || !govRegForm.ente || !govRegForm.pin_institucional) {
-      setGovRegError('Por favor completa todos los campos obligatorios, incluyendo el PIN Institucional.');
-      return;
-    }
-    setGovRegError('');
-    setGovRegLoading(true);
-
-    try {
-      const res = await authAPI.registerAdmin({
-        username: govRegForm.username,
-        password: govRegForm.password,
-        cargo: govRegForm.cargo,
-        ente: govRegForm.ente,
-        pin_institucional: govRegForm.pin_institucional
-      });
-
-      if (res.success) {
-        const adminData = {
-          username: govRegForm.username,
-          cargo: govRegForm.cargo,
-          ente: govRegForm.ente,
-          token: res.token || "admin_registered_token"
-        };
-        localStorage.setItem('admin_auth', 'true');
-        localStorage.setItem('admin_data', JSON.stringify(adminData));
-        onAdminLogin(adminData);
-      } else {
-        setGovRegError('No se pudo registrar el funcionario. Verifica el PIN Institucional.');
-      }
-    } catch (err) {
-      const demoAdmin = {
-        username: govRegForm.username,
-        cargo: govRegForm.cargo || "Auditor Principal SAREN",
-        ente: govRegForm.ente || "SAREN",
-        token: "demo_registered_token"
-      };
-      localStorage.setItem('admin_auth', 'true');
-      localStorage.setItem('admin_data', JSON.stringify(demoAdmin));
-      onAdminLogin(demoAdmin);
-    } finally {
-      setGovRegLoading(false);
-    }
-  };
 
   const faqItems = [
     {
@@ -286,11 +235,11 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           
           {/* Logo e Identidad Profesional */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'linear-gradient(135deg, #1e3a8a, #0ea5e9)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'linear-gradient(135deg, #1e3a8a, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 0 20px rgba(30,58,138,0.4)' }}>
               <Award size={26} />
             </div>
             <div>
-              <h1 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, background: 'linear-gradient(to right, #38bdf8, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h1 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, background: 'linear-gradient(135deg, #f8fafc 0%, #d97706 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Plataforma de Validación USM
               </h1>
               <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>Sistema Institucional de Verificación Criptográfica</p>
@@ -304,7 +253,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               style={{
                 padding: '0.55rem 1.1rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
                 fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: '#fff', boxShadow: '0 4px 14px rgba(14,165,233,0.3)'
+                background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', color: '#fff', boxShadow: '0 4px 14px rgba(30,58,138,0.4)'
               }}
             >
               <User size={15} /> Graduando USM
@@ -333,12 +282,12 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         <motion.div
           animate={{ scale: [1, 1.25, 1], opacity: [0.2, 0.4, 0.2], x: [0, 30, 0], y: [0, -20, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ position: 'absolute', top: '0', left: '15%', width: '380px', height: '380px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(14,165,233,0.35) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none', filter: 'blur(50px)', zIndex: 0 }}
+          style={{ position: 'absolute', top: '0', left: '15%', width: '380px', height: '380px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(30,58,138,0.35) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none', filter: 'blur(50px)', zIndex: 0 }}
         />
         <motion.div
           animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.35, 0.15], x: [0, -40, 0], y: [0, 30, 0] }}
           transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ position: 'absolute', top: '100px', right: '12%', width: '420px', height: '420px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none', filter: 'blur(60px)', zIndex: 0 }}
+          style={{ position: 'absolute', top: '100px', right: '12%', width: '420px', height: '420px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(217,119,6,0.2) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none', filter: 'blur(60px)', zIndex: 0 }}
         />
 
         <motion.div variants={containerVariants} initial="hidden" animate="visible" style={{ position: 'relative', zIndex: 1 }}>
@@ -346,9 +295,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           <motion.div
             variants={itemVariants}
             whileHover={{ scale: 1.04 }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(14,165,233,0.12)', color: '#38bdf8', padding: '0.5rem 1.4rem', borderRadius: '30px', border: '1px solid rgba(14,165,233,0.3)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '1.5rem', backdropFilter: 'blur(8px)', cursor: 'default' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(30,58,138,0.2)', color: '#d97706', padding: '0.5rem 1.4rem', borderRadius: '30px', border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.85rem', fontWeight: '700', marginBottom: '1.5rem', backdropFilter: 'blur(8px)', cursor: 'default' }}
           >
-            <Sparkles size={16} /> Proyecto de Grado — Plataforma de Validación con IA & Web3 Blockchain
+            <Sparkles size={16} /> Proyecto de Grado — Plataforma de Validación Documental & Web3 Blockchain
           </motion.div>
 
           <motion.h1 variants={itemVariants} style={{ fontSize: '2.9rem', fontWeight: '900', lineHeight: '1.15', maxWidth: '950px', margin: '0 auto 1.2rem auto', background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.5px' }}>
@@ -373,7 +322,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             >
               
               {/* Decoración Superior Glow */}
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: roleTab === 'student' ? 'linear-gradient(to right, #0ea5e9, #7c3aed)' : 'linear-gradient(to right, #ef4444, #b91c1c)' }} />
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: roleTab === 'student' ? 'linear-gradient(to right, #1e3a8a, #d97706)' : 'linear-gradient(to right, #ef4444, #b91c1c)' }} />
 
               {/* Selector de Pestañas Interactivo */}
               <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', padding: '0.3rem', borderRadius: '12px', marginBottom: '1.8rem', gap: '0.4rem' }}>
@@ -382,9 +331,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                   style={{
                     flex: 1, padding: '0.7rem 1rem', borderRadius: '9px', border: 'none', cursor: 'pointer',
                     fontWeight: '800', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.3s',
-                    background: roleTab === 'student' ? 'linear-gradient(135deg, #0ea5e9, #2563eb)' : 'transparent',
+                    background: roleTab === 'student' ? 'linear-gradient(135deg, #1e3a8a, #2563eb)' : 'transparent',
                     color: roleTab === 'student' ? '#fff' : '#94a3b8',
-                    boxShadow: roleTab === 'student' ? '0 4px 15px rgba(14,165,233,0.3)' : 'none'
+                    boxShadow: roleTab === 'student' ? '0 4px 15px rgba(30,58,138,0.4)' : 'none'
                   }}
                 >
                   <User size={16} /> Graduando USM
@@ -410,7 +359,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                   <div>
                     <label style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Cédula de Identidad del Graduando</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.6rem 1rem' }}>
-                      <User size={18} color="#0ea5e9" />
+                      <User size={18} color="#d97706" />
                       <input
                         type="text"
                         placeholder="Ej: V-28.315.101"
@@ -428,15 +377,15 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                       type="submit"
                       disabled={studentLoading}
                       className="send-btn"
-                      style={{ flex: 2, padding: '0.85rem', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: '#fff', fontWeight: '800', fontSize: '0.9rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                      style={{ flex: 2, padding: '0.85rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', color: '#fff', fontWeight: '800', fontSize: '0.9rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                     >
-                      {studentLoading ? 'Validando...' : 'Ingresar a la Plataforma ➔'}
+                      {studentLoading ? 'Validando...' : 'Ingresar a la Plataforma'} <ArrowRight size={16} />
                     </button>
                     
                     <button
                       type="button"
                       onClick={() => { fillStudentDemo(); handleStudentSubmit(); }}
-                      style={{ flex: 1, padding: '0.85rem', background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.3)', color: '#38bdf8', fontWeight: '700', fontSize: '0.85rem', borderRadius: '10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      style={{ flex: 1, padding: '0.85rem', background: 'rgba(217,119,6,0.15)', border: '1px solid rgba(217,119,6,0.3)', color: '#fbbf24', fontWeight: '700', fontSize: '0.85rem', borderRadius: '10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
                       Acceso Rápido
                     </button>
@@ -493,7 +442,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                       disabled={govLoading}
                       style={{ flex: 2, padding: '0.85rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', fontWeight: '800', fontSize: '0.9rem', borderRadius: '10px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                     >
-                      <Lock size={16} /> {govLoading ? 'Autenticando...' : 'Acceso Seguro Auditoría ➔'}
+                      <Lock size={16} /> {govLoading ? 'Autenticando...' : 'Acceso Seguro Auditoría'} <ArrowRight size={16} />
                     </button>
                     
                     <button
@@ -510,13 +459,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                   </div>
 
                   <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.8rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowGovRegModal(true)}
-                      style={{ background: 'transparent', border: 'none', color: '#f87171', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
-                    >
-                      ¿Nuevo funcionario? Registrar nuevo auditor con PIN Institucional
-                    </button>
+                    <p style={{ color: '#94a3b8', fontSize: '0.76rem', margin: 0, lineHeight: '1.4', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}>
+                      <Lock size={12} color="#94a3b8" /> La creación de cuentas de auditor se gestiona internamente por un administrador autorizado.
+                    </p>
                   </div>
                 </motion.form>
               )}
@@ -529,9 +474,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         {/* Tarjetas de Métricas en Tiempo Real */}
         <motion.div variants={containerVariants} initial="hidden" whileInView="visible" viewport={{ once: true }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1.2rem', maxWidth: '1050px', margin: '0 auto' }}>
           {[
-            { label: 'Graduandos Registrados', val: `${stats.graduandos_activos}+`, icon: User, color: '#38bdf8' },
+            { label: 'Graduandos Registrados', val: `${stats.graduandos_activos}+`, icon: User, color: '#d97706' },
             { label: 'Documentos Pre-validados', val: `${stats.docs_prevalidados}+`, icon: CheckCircle, color: '#10b981' },
-            { label: 'Títulos en Blockchain', val: `${stats.titulos_blockchain}+`, icon: ShieldCheck, color: '#a855f7' },
+            { label: 'Títulos en Blockchain', val: `${stats.titulos_blockchain}+`, icon: ShieldCheck, color: '#3b82f6' },
             { label: 'Horas Ahorradas', val: '2.450+ hrs', icon: Clock, color: '#f59e0b' },
           ].map((item, idx) => (
             <motion.div key={idx} variants={itemVariants} whileHover={{ y: -5 }} className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', borderTop: `3px solid ${item.color}`, background: 'rgba(15,23,42,0.6)' }}>
@@ -558,8 +503,8 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
             {[
-              { num: '01', title: 'Pre-validación IA (OCR)', desc: 'Extrae automáticamente nombre, cédula y mención mediante Tesseract WASM.', icon: Cpu, color: '#a855f7' },
-              { num: '02', title: 'Planilla PUB SAREN', desc: 'Calcula aranceles y genera la planilla única bancaria lista para liquidar.', icon: FileText, color: '#0ea5e9' },
+              { num: '01', title: 'Pre-validación Documental (OCR)', desc: 'Extrae automáticamente nombre, cédula y mención mediante Tesseract WASM.', icon: Cpu, color: '#d97706' },
+              { num: '02', title: 'Planilla PUB SAREN', desc: 'Calcula aranceles y genera la planilla única bancaria lista para liquidar.', icon: FileText, color: '#1e3a8a' },
               { num: '03', title: 'Hash en Blockchain', desc: 'Genera la huella criptográfica SHA-256 registrada en la red Ethereum Sepolia.', icon: Layers, color: '#10b981' },
               { num: '04', title: 'Auditoría con QR', desc: 'Funcionarios de SAREN y MPPRE escanean el QR para verificar autenticidad.', icon: QrCode, color: '#ef4444' },
             ].map((step) => (
@@ -617,24 +562,24 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           
           {/* Columna Izquierda: Fundamentación Académica y Legal */}
           <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#38bdf8' }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#d97706' }}>
               <BookOpen size={22} /> Fundamentación Científica y Marco Legal
             </h2>
 
             <div className="glass-panel" style={{ padding: '1.8rem', marginBottom: '1.5rem' }}>
               <h3 style={{ fontSize: '1.15rem', color: '#ffffff', marginBottom: '0.8rem' }}>
-                📜 Cumplimiento de la Ley de Simplificación de Trámites Administrativos
+                Cumplimiento de la Ley de Simplificación de Trámites Administrativos
               </h3>
               <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: '1.6', margin: '0 0 1rem 0' }}>
                 Conforme al Artículo 4 y 7 de la <strong>Ley de Simplificación de Trámites Administrativos</strong>, las instituciones del Estado deben adoptar medios electrónicos para eliminar la exigencia repetitiva de documentos físicos cuando su autenticidad pueda ser validada criptográficamente.
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <h4 style={{ color: '#10b981', fontSize: '0.88rem', margin: '0 0 0.3rem 0' }}>🔒 Inmutabilidad Hash</h4>
+                  <h4 style={{ color: '#10b981', fontSize: '0.88rem', margin: '0 0 0.3rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Lock size={14} /> Inmutabilidad Hash</h4>
                   <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Cualquier alteración matemática invalida automáticamente el código de verificación.</p>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <h4 style={{ color: '#a855f7', fontSize: '0.88rem', margin: '0 0 0.3rem 0' }}>🌐 Interoperabilidad Estatal</h4>
+                  <h4 style={{ color: '#d97706', fontSize: '0.88rem', margin: '0 0 0.3rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Globe size={14} /> Interoperabilidad Estatal</h4>
                   <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Formato alineado a normativas de USM, SAREN y MPPRE (GTU).</p>
                 </div>
               </div>
@@ -650,7 +595,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             <div className="glass-panel" style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {[
                 { date: '25/Feb/2026', title: 'Aviso Importante: Citas SAREN', desc: 'Recuerda llevar la Planilla PUB impresa junto a los timbres fiscales.' },
-                { date: '18/Feb/2026', title: 'Prevalidaciones IA Habilitadas', desc: 'Los estudiantes de 10mo semestre ya pueden pre-validar sus expedientes en el bot.' },
+                { date: '18/Feb/2026', title: 'Prevalidaciones Documentales Habilitadas', desc: 'Los estudiantes de 10mo semestre ya pueden pre-validar sus expedientes en la plataforma.' },
                 { date: '10/Feb/2026', title: 'Resolución MPPRE Legalización', desc: 'Validaciones de títulos firmados por autoridades USM habilitados para apostilla directa.' },
               ].map((news, idx) => (
                 <div key={idx} style={{ borderBottom: idx !== 2 ? '1px solid var(--border)' : 'none', paddingBottom: idx !== 2 ? '0.8rem' : 0 }}>
@@ -670,7 +615,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       <section style={{ padding: '4rem 1.5rem', maxWidth: '860px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#fff', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-            <HelpCircle color="#0ea5e9" size={26} /> Preguntas Frecuentes de la Evaluación
+            <HelpCircle color="#d97706" size={26} /> Preguntas Frecuentes de la Evaluación
           </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.92rem' }}>
             Respuestas clave estructuradas para la defensa del Proyecto de Tesis USM.
@@ -685,8 +630,8 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                 key={idx}
                 initial={false}
                 animate={{
-                  backgroundColor: isOpen ? 'rgba(14,165,233,0.06)' : 'rgba(15,23,42,0.6)',
-                  borderColor: isOpen ? 'rgba(14,165,233,0.4)' : 'rgba(255,255,255,0.08)'
+                  backgroundColor: isOpen ? 'rgba(30,58,138,0.15)' : 'rgba(15,23,42,0.6)',
+                  borderColor: isOpen ? 'rgba(217,119,6,0.4)' : 'rgba(255,255,255,0.08)'
                 }}
                 style={{
                   borderRadius: '14px',
@@ -702,13 +647,13 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     padding: '1.25rem 1.5rem',
                     background: 'transparent',
                     border: 'none',
-                    color: isOpen ? '#38bdf8' : '#ffffff',
+                    color: isOpen ? '#fbbf24' : '#ffffff',
                     fontWeight: '700',
                     fontSize: '1rem',
                     textAlign: 'left',
                     cursor: 'pointer',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: '1rem'
                   }}
@@ -719,7 +664,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     transition={{ duration: 0.3 }}
                     style={{ flexShrink: 0 }}
                   >
-                    <ChevronDown size={20} color={isOpen ? '#38bdf8' : '#94a3b8'} />
+                    <ChevronDown size={20} color={isOpen ? '#fbbf24' : '#94a3b8'} />
                   </motion.div>
                 </button>
 
@@ -772,9 +717,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass-panel" style={{ maxWidth: '460px', width: '100%', padding: '2rem', borderRadius: '16px', background: '#09090b', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h3 style={{ margin: 0, color: '#fff', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <User color="#0ea5e9" size={22} /> Registro de Graduando USM
+                  <User color="#d97706" size={22} /> Registro de Graduando USM
                 </h3>
-                <button onClick={() => setShowRegModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                <button onClick={() => setShowRegModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
               </div>
 
               <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -831,7 +776,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
                 {regError && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: 0 }}>{regError}</p>}
 
-                <button type="submit" className="send-btn" style={{ padding: '0.8rem', background: '#0ea5e9', fontWeight: '800', marginTop: '0.5rem', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
+                <button type="submit" className="send-btn" style={{ padding: '0.8rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', fontWeight: '800', marginTop: '0.5rem', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
                   Completar Registro e Iniciar Sesión
                 </button>
               </form>
@@ -840,106 +785,6 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         )}
       </AnimatePresence>
 
-      {/* ─── MODAL DE REGISTRO PARA FUNCIONARIOS AUDITORES (SAREN / MPPRE) ─── */}
-      <AnimatePresence>
-        {showGovRegModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass-panel" style={{ maxWidth: '460px', width: '100%', padding: '2rem', borderRadius: '16px', background: '#09090b', border: '1px solid rgba(239,68,68,0.4)', boxShadow: '0 20px 50px rgba(239,68,68,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Shield color="#ef4444" size={22} /> Registro de Funcionario Auditor
-                </h3>
-                <button onClick={() => setShowGovRegModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-              </div>
-
-              <form onSubmit={handleGovRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Usuario Funcionario</label>
-                  <input
-                    type="text"
-                    className="chat-input"
-                    placeholder="Ej: mppre_auditor"
-                    value={govRegForm.username}
-                    onChange={e => setGovRegForm({ ...govRegForm, username: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Contraseña</label>
-                  <input
-                    type="password"
-                    className="chat-input"
-                    placeholder="••••••••"
-                    value={govRegForm.password}
-                    onChange={e => setGovRegForm({ ...govRegForm, password: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px' }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Ente Gubernamental</label>
-                    <select
-                      className="chat-input"
-                      value={govRegForm.ente}
-                      onChange={e => setGovRegForm({ ...govRegForm, ente: e.target.value })}
-                      style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem', borderRadius: '8px' }}
-                    >
-                      <option value="SAREN">SAREN</option>
-                      <option value="MPPRE">MPPRE</option>
-                      <option value="GTU">GTU</option>
-                      <option value="USM">USM Secretarías</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Cargo Oficial</label>
-                    <input
-                      type="text"
-                      className="chat-input"
-                      placeholder="Registrador Principal"
-                      value={govRegForm.cargo}
-                      onChange={e => setGovRegForm({ ...govRegForm, cargo: e.target.value })}
-                      style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px' }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                    <label style={{ fontSize: '0.78rem', color: '#f87171', margin: 0, fontWeight: 'bold' }}>🔑 PIN Institucional de Ente (Generado Automáticamente)</label>
-                    <button
-                      type="button"
-                      onClick={() => setGovRegForm(prev => ({ ...prev, pin_institucional: `GOV-${Math.floor(1000 + Math.random() * 9000)}-${(prev.ente || 'SAREN').toUpperCase()}` }))}
-                      style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#f87171', fontSize: '0.72rem', cursor: 'pointer', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold' }}
-                    >
-                      ⚡ Generar Nuevo PIN
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    className="chat-input"
-                    placeholder="GOV-8942-SAREN"
-                    value={govRegForm.pin_institucional}
-                    onChange={e => setGovRegForm({ ...govRegForm, pin_institucional: e.target.value })}
-                    style={{ width: '100%', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', padding: '0.67rem 0.8rem', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}
-                  />
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.2rem', display: 'block' }}>
-                    ✅ Generado por el sistema de forma automática. Se guardará en la base de datos para este usuario.
-                  </span>
-                </div>
-
-                {govRegError && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: 0 }}>⚠️ {govRegError}</p>}
-
-                <button type="submit" disabled={govRegLoading} className="send-btn" style={{ padding: '0.8rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', fontWeight: '800', marginTop: '0.5rem', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
-                  {govRegLoading ? 'Registrando Auditor...' : 'Crear Cuenta de Auditor Autorizado'}
-                </button>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

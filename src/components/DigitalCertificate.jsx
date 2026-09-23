@@ -67,7 +67,7 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
           maxHeight: '92vh',
           overflow: 'hidden',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-          border: '1px solid rgba(124, 58, 237, 0.4)',
+          border: '1px solid rgba(217, 119, 6, 0.4)',
           display: 'flex',
           flexDirection: 'column'
         }}
@@ -76,16 +76,16 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
         <div style={{
           padding: '1rem 1.5rem',
           background: '#0c0e17',
-          borderBottom: '1px solid rgba(124, 58, 237, 0.3)',
+          borderBottom: '1px solid rgba(217, 119, 6, 0.3)',
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           position: 'sticky',
           top: 0,
           zIndex: 100
         }}>
           <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Shield color="#a78bfa" size={20} /> Certificado Digital de Inmutabilidad
+            <Shield color="#d97706" size={20} /> Certificado Digital de Inmutabilidad
           </h3>
           <button 
             onClick={onClose}
@@ -119,7 +119,7 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
           ) : (
             <div id="printable-certificate">
               {/* Header del Certificado */}
-              <div style={{ textAlign: 'center', borderBottom: '2px solid rgba(124, 58, 237, 0.2)', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
+              <div style={{ textAlign: 'center', borderBottom: '2px solid rgba(217, 119, 6, 0.3)', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
                 <p style={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
                   {certData.institution}
                 </p>
@@ -162,12 +162,12 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', margin: 0 }}>Hash Criptográfico (SHA-256)</p>
                       <button 
                         onClick={handleCopy}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                        style={{ background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
                       >
                         {copied ? '¡Copiado!' : 'Copiar'}
                       </button>
                     </div>
-                    <p style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--primary)', wordBreak: 'break-all', background: 'rgba(124, 58, 237, 0.1)', padding: '0.5rem', borderRadius: '6px' }}>
+                    <p style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#fbbf24', wordBreak: 'break-all', background: 'rgba(30, 58, 138, 0.25)', padding: '0.5rem', borderRadius: '6px' }}>
                       {certData.document_hash}
                     </p>
                   </div>
@@ -216,9 +216,9 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                     }
                   }}
                   className="send-btn" 
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', background: 'linear-gradient(to right, #7c3aed, #4f46e5)', color: '#ffffff', cursor: 'pointer', border: 'none', borderRadius: '8px' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', color: '#ffffff', cursor: 'pointer', border: 'none', borderRadius: '8px' }}
                 >
-                  <Shield size={18} /> Verificar en la misma Pestaña
+                  <Shield size={18} /> Verificar Hash Criptográfico
                 </button>
               </div>
 
@@ -232,10 +232,9 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
             onClick={onClose}
             style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', width: '100%' }}
           >
-            Cerrar Ventana ✕
+            Cerrar Ventana
           </button>
         </div>
-
       </motion.div>
     </motion.div>
   );

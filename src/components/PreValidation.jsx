@@ -125,7 +125,7 @@ const PreValidation = () => {
                   </h4>
                   {item.status === 'error' && (
                     <p style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: '500' }}>
-                      ❌ Falta: {item.missingText}
+                      Falta: {item.missingText}
                     </p>
                   )}
                   {item.status === 'pending' && (

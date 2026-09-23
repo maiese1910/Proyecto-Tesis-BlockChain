@@ -5,28 +5,28 @@ import WalletConnect from './WalletConnect';
 const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Panel Principal', icon: <LayoutDashboard className="icon" /> },
-    { id: 'ocr', label: 'Motor OCR (IA)', icon: <Brain className="icon" /> },
-    { id: 'chat', label: 'Asistente IA', icon: <MessageSquare className="icon" /> },
-    { id: 'prevalidation', label: 'Pre-validación', icon: <ShieldCheck className="icon" /> },
-    { id: 'pub', label: 'Llenar Planilla PUB', icon: <ClipboardList className="icon" /> },
+    { id: 'ocr', label: 'Escaneo de Documentos (OCR)', icon: <Brain className="icon" /> },
+    { id: 'chat', label: 'Asistente Institucional', icon: <MessageSquare className="icon" /> },
+    { id: 'prevalidation', label: 'Pre-validación Documental', icon: <ShieldCheck className="icon" /> },
+    { id: 'pub', label: 'Planilla Única Bancaria (PUB)', icon: <ClipboardList className="icon" /> },
     { id: 'history', label: 'Historial de Trámites', icon: <History className="icon" /> },
     { id: 'blockchain', label: 'Verificar Blockchain', icon: <Link className="icon" /> },
-    { id: 'survival', label: 'Guía de Supervivencia', icon: <Map className="icon" /> },
+    { id: 'survival', label: 'Guía de Trámites SAREN / MPPRE', icon: <Map className="icon" /> },
     { id: 'forms', label: 'Planillas Oficiales', icon: <FileText className="icon" /> },
   ];
 
   return (
     <div className="sidebar">
       <div className="sidebar-brand">
-        <h1>USM Validation<br />Platform</h1>
-        <p>Decentralized Administrative Procedures</p>
+        <h1>Universidad Santa María<br /><span style={{ fontSize: '0.85rem', color: '#d97706', fontWeight: 600 }}>Plataforma de Apostilla</span></h1>
+        <p>Sistema Distribuido de Verificación Blockchain</p>
       </div>
 
       {/* Perfil del usuario */}
       {user && (
         <div className="user-profile" style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
-          <div style={{ background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ background: 'rgba(30,58,138,0.15)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #1e3a8a, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <User size={18} color="white" />
             </div>
             <div style={{ overflow: 'hidden' }}>

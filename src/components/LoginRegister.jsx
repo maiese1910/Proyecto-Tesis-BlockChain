@@ -226,13 +226,13 @@ const LoginRegister = ({ onLogin }) => {
                 ))}
               </div>
 
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: '500' }}>⚠️ {error}</p>}
+              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: '500' }}>{error}</p>}
 
-              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem' }} onClick={validateAndRegister} disabled={loading}>
-                {loading ? 'Guardando...' : 'Crear Perfil y Entrar →'}
+              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)' }} onClick={validateAndRegister} disabled={loading}>
+                {loading ? 'Guardando...' : 'Crear Perfil e Iniciar Sesión'}
               </button>
               <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
-                ← Volver
+                Volver al Inicio
               </button>
             </div>
           )}
@@ -254,8 +254,8 @@ const LoginRegister = ({ onLogin }) => {
                 />
               </div>
 
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>⚠️ {error}</p>}
-              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem' }} onClick={handleLogin} disabled={loading}>
+              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{error}</p>}
+              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)' }} onClick={handleLogin} disabled={loading}>
                 <Shield size={18} /> {loading ? 'Buscando...' : 'Acceder a mi perfil'}
               </button>
               <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>

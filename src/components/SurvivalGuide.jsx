@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, Sun, Navigation, Info, ShieldAlert, ChevronRight } from 'lucide-react';
+import { MapPin, Clock, Sun, Navigation, Info, ShieldAlert, ChevronRight, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { dynamicDataAPI } from '../services/api';
 
@@ -65,7 +65,7 @@ const SurvivalGuide = () => {
                 onClick={() => alert("Simulando descarga de Planilla Única Bancaria (PUB) oficial...")}
                 style={{ alignSelf: 'flex-start', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)', border: '1px solid var(--success)', padding: '0.4rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}
               >
-                📥 Descargar Formato PUB en Blanco
+                <Download size={14} /> Descargar Formato PUB en Blanco
               </button>
             </div>
           )
@@ -186,8 +186,8 @@ const SurvivalGuide = () => {
                   alt="Fachada de la Sede" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
-                <div style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,0.7)', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', backdropFilter: 'blur(4px)' }}>
-                  📍 Foto Referencial de la Sede
+                <div style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,0.7)', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <MapPin size={12} color="#fbbf24" /> Foto Referencial de la Sede
                 </div>
               </div>
 
