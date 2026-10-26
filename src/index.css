@@ -1,21 +1,41 @@
+@import "tailwindcss";
+
 :root {
-  --primary: #1e3a8a;
-  --primary-glow: rgba(30, 58, 138, 0.4);
-  --primary-light: #3b82f6;
-  --accent: #d97706;
-  --accent-glow: rgba(217, 119, 6, 0.3);
-  --accent-light: #f59e0b;
-  --bg-dark: #090d16;
-  --bg-panel: rgba(15, 23, 42, 0.75);
-  --bg-panel-hover: rgba(30, 41, 59, 0.85);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border: rgba(255, 255, 255, 0.1);
-  --border-gold: rgba(217, 119, 6, 0.3);
+  /* Paleta Corporativa Sobria (Slate) */
+  --bg-dark: #020617;          /* slate-950 fondo institucional */
+  --bg-panel: rgba(15, 23, 42, 0.85); /* slate-900 translúcido */
+  --bg-panel-hover: rgba(30, 41, 59, 0.9); /* slate-800 */
+  --border: rgba(51, 65, 85, 0.5); /* slate-700 / slate-800 */
+  --border-subtle: #334155;     /* slate-700 */
+  --text-main: #f8fafc;        /* slate-50 texto de alto contraste */
+  --text-secondary: #cbd5e1;   /* slate-300 */
+  --text-muted: #94a3b8;       /* slate-400 */
   --glass-blur: 16px;
-  --success: #10b981;
+
+  /* Botones Principales (Blue Clásico - Confianza) */
+  --primary: #2563eb;          /* blue-600 */
+  --primary-hover: #1d4ed8;    /* blue-700 */
+  --primary-active: #1e40af;   /* blue-800 */
+  --primary-light: #3b82f6;    /* blue-500 */
+  --primary-glow: rgba(37, 99, 235, 0.35);
+
+  /* Estados de Documento Validado (Emerald - Certificación Legal) */
+  --success: #10b981;          /* emerald-500 */
+  --validated: #10b981;        /* emerald-500 */
+  --validated-hover: #059669;  /* emerald-600 */
+  --validated-bg: rgba(16, 185, 129, 0.12);
+  --validated-border: rgba(16, 185, 129, 0.35);
+  --validated-badge: #d1fae5;  /* emerald-100 */
+  --validated-badge-text: #065f46; /* emerald-800 */
+  --validated-glow: rgba(16, 185, 129, 0.3);
+
+  /* Acentos y estados */
+  --accent: #2563eb;
+  --accent-glow: rgba(37, 99, 235, 0.35);
+  --accent-light: #3b82f6;
   --warning: #f59e0b;
   --danger: #ef4444;
+
   /* Safe area paddings para notch/dynamic island */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -39,8 +59,8 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   background-image: 
-    radial-gradient(circle at 15% 50%, rgba(30, 58, 138, 0.18), transparent 45%),
-    radial-gradient(circle at 85% 30%, rgba(217, 119, 6, 0.08), transparent 45%);
+    radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.12), transparent 45%),
+    radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.06), transparent 45%);
 }
 
 /* ─── ESTILOS PROFESIONALES Y ELEGANTES PARA SELECTS / LISTAS DESPLEGABLES ─── */
@@ -352,26 +372,55 @@ select.chat-input option {
 .send-btn {
   background: var(--primary);
   color: white;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 0 1.5rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+  box-shadow: 0 2px 8px var(--primary-glow);
 }
 
 .send-btn:hover {
-  background: #0284c7;
-  box-shadow: 0 0 15px var(--primary-glow);
+  background: var(--primary-hover);
+  box-shadow: 0 4px 16px var(--primary-glow);
+  transform: translateY(-1px);
+}
+
+.send-btn:active {
+  background: var(--primary-active);
+  transform: translateY(0);
 }
 
 .send-btn:disabled {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
   cursor: not-allowed;
   box-shadow: none;
+  transform: none;
 }
+
+/* ─── ESTILOS CORPORATIVOS DOCUMENTO VALIDADO (Emerald) ─── */
+.badge-validated {
+  background: var(--validated-bg);
+  border: 1px solid var(--validated-border);
+  color: #34d399;
+  box-shadow: 0 0 14px var(--validated-glow);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.card-validated {
+  border: 1px solid var(--validated-border) !important;
+  box-shadow: 0 0 20px -5px var(--validated-glow), 0 20px 40px -15px rgba(0, 0, 0, 0.7) !important;
+}
+
 
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(10px); }

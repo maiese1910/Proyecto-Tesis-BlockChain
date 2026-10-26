@@ -3,10 +3,13 @@ import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion';
 import { blockchainAPI } from '../services/api';
 
-// Conexión real con el backend FastAPI → Blockchain
+// Conexión con el backend FastAPI → Blockchain (con timeout rápido de 2.5s para fallback)
 const verifyOnChain = async (hash) => {
   try {
-    return await blockchainAPI.verify(hash);
+    return await Promise.race([
+      blockchainAPI.verify(hash),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500))
+    ]);
   } catch (error) {
     console.error("Verification Error:", error);
     return { exists: false, error: "No se pudo conectar con el servicio de verificación." };
@@ -112,41 +115,48 @@ const BlockchainVerifier = ({ initialHash }) => {
               exit={{ opacity: 0 }}
             >
               {result.exists ? (
-                <div style={{ border: '1px solid rgba(16,185,129,0.4)', borderRadius: '16px', overflow: 'hidden' }}>
-                  {/* Banner */}
-                  <div style={{ background: 'rgba(16,185,129,0.15)', padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <CheckCircle size={32} color="var(--success)" />
-                    <div>
-                      <h3 style={{ color: 'var(--success)', marginBottom: '0.2rem' }}>Documento Auténtico y Verificado</h3>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Este documento existe de forma inmutable en la Blockchain de Ethereum.</p>
+                <div className="card-validated" style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(16,185,129,0.5)', borderRadius: '16px', overflow: 'hidden' }}>
+                  {/* Banner Validado (Emerald) */}
+                  <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,95,70,0.1))', padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(16,185,129,0.25)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16,185,129,0.4)', boxShadow: '0 0 15px rgba(16,185,129,0.3)' }}>
+                        <CheckCircle size={28} color="#10b981" />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <h3 style={{ color: '#10b981', margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Documento Auténtico y Verificado</h3>
+                          <span className="badge-validated">Oficial On-Chain</span>
+                        </div>
+                        <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginTop: '0.2rem' }}>El hash coincide matemáticamente con el registro inmutable en Ethereum.</p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Detalles */}
-                  <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                  {/* Detalles (Slate) */}
+                  <div style={{ padding: '1.5rem 2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', background: '#0b1120' }}>
                     {[
-                      { label: 'Propietario', value: result.ownerName },
+                      { label: 'Propietario / Titular', value: result.ownerName },
                       { label: 'Cédula de Identidad', value: result.cedula },
                       { label: 'Tipo de Documento', value: result.documentType },
-                      { label: 'Fecha de Registro', value: formatTimestamp(result.timestamp) },
+                      { label: 'Fecha de Certificación', value: formatTimestamp(result.timestamp) },
                     ].map(item => (
-                      <div key={item.label}>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.3rem' }}>{item.label}</p>
-                        <p style={{ fontWeight: '600' }}>{item.value}</p>
+                      <div key={item.label} style={{ background: '#0f172a', padding: '1rem', borderRadius: '10px', border: '1px solid #1e293b' }}>
+                        <p style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>{item.label}</p>
+                        <p style={{ fontWeight: '600', color: '#f8fafc', fontSize: '0.95rem' }}>{item.value}</p>
                       </div>
                     ))}
 
                     <div style={{ gridColumn: '1 / -1' }}>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Transaction Hash (Blockchain)</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.3)', padding: '0.8rem 1rem', borderRadius: '8px' }}>
-                        <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.8rem', color: '#fbbf24', wordBreak: 'break-all' }}>
+                      <p style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>Transaction Hash (Sepolia)</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#0f172a', border: '1px solid #1e293b', padding: '0.8rem 1rem', borderRadius: '10px' }}>
+                        <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.82rem', color: '#38bdf8', wordBreak: 'break-all' }}>
                           {result.txHash}
                         </code>
                         <a
                           href={`https://sepolia.etherscan.io/tx/${result.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                          style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', whiteSpace: 'nowrap', fontWeight: '600' }}
                         >
                           Ver en Etherscan <ExternalLink size={14} />
                         </a>
@@ -154,10 +164,10 @@ const BlockchainVerifier = ({ initialHash }) => {
                     </div>
                   </div>
 
-                  <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(30,58,138,0.15)', flexWrap: 'wrap' }}>
-                    <ShieldCheck size={18} color="#d97706" />
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      Registrado en la red <strong style={{ color: '#d97706' }}>Ethereum Sepolia Testnet</strong> — inmutable e inalcanzable por cualquier institución.
+                  <div style={{ padding: '0.9rem 2rem', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: '0.8rem', background: '#020617', flexWrap: 'wrap' }}>
+                    <ShieldCheck size={18} color="#10b981" />
+                    <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
+                      Registro validado en la red <strong style={{ color: '#38bdf8' }}>Ethereum Sepolia Testnet</strong> — autenticidad respaldada mediante smart contract.
                     </p>
                   </div>
                 </div>
