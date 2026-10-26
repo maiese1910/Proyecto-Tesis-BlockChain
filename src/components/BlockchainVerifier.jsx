@@ -115,48 +115,48 @@ const BlockchainVerifier = ({ initialHash }) => {
               exit={{ opacity: 0 }}
             >
               {result.exists ? (
-                <div className="card-validated" style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(16,185,129,0.5)', borderRadius: '16px', overflow: 'hidden' }}>
-                  {/* Banner Validado (Emerald) */}
-                  <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,95,70,0.1))', padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(16,185,129,0.25)' }}>
+                <div className="card-validated" style={{ background: 'rgba(14, 19, 29, 0.95)', border: '1px solid rgba(173,226,230,0.5)', borderRadius: '16px', overflow: 'hidden' }}>
+                  {/* Banner Validado (Huemint Aqua & Navy) */}
+                  <div style={{ background: 'linear-gradient(135deg, rgba(173,226,230,0.18), rgba(54,68,134,0.25))', padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(173,226,230,0.25)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16,185,129,0.4)', boxShadow: '0 0 15px rgba(16,185,129,0.3)' }}>
-                        <CheckCircle size={28} color="#10b981" />
+                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(173,226,230,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(173,226,230,0.45)', boxShadow: '0 0 16px rgba(173,226,230,0.35)' }}>
+                        <CheckCircle size={28} color="#ade2e6" />
                       </div>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                          <h3 style={{ color: '#10b981', margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Documento Auténtico y Verificado</h3>
+                          <h3 style={{ color: '#ade2e6', margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Documento Auténtico y Verificado</h3>
                           <span className="badge-validated">Oficial On-Chain</span>
                         </div>
-                        <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginTop: '0.2rem' }}>El hash coincide matemáticamente con el registro inmutable en Ethereum.</p>
+                        <p style={{ color: '#9cb3ba', fontSize: '0.88rem', marginTop: '0.2rem' }}>El hash coincide matemáticamente con el registro inmutable en Ethereum.</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Detalles (Slate) */}
-                  <div style={{ padding: '1.5rem 2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', background: '#0b1120' }}>
+                  {/* Detalles (Huemint Surface) */}
+                  <div style={{ padding: '1.5rem 2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', background: '#080c14' }}>
                     {[
                       { label: 'Propietario / Titular', value: result.ownerName },
                       { label: 'Cédula de Identidad', value: result.cedula },
                       { label: 'Tipo de Documento', value: result.documentType },
                       { label: 'Fecha de Certificación', value: formatTimestamp(result.timestamp) },
                     ].map(item => (
-                      <div key={item.label} style={{ background: '#0f172a', padding: '1rem', borderRadius: '10px', border: '1px solid #1e293b' }}>
-                        <p style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>{item.label}</p>
-                        <p style={{ fontWeight: '600', color: '#f8fafc', fontSize: '0.95rem' }}>{item.value}</p>
+                      <div key={item.label} style={{ background: '#0e131d', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(102,118,127,0.35)' }}>
+                        <p style={{ fontSize: '0.72rem', color: '#9cb3ba', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>{item.label}</p>
+                        <p style={{ fontWeight: '600', color: '#ffffff', fontSize: '0.95rem' }}>{item.value}</p>
                       </div>
                     ))}
 
                     <div style={{ gridColumn: '1 / -1' }}>
-                      <p style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>Transaction Hash (Sepolia)</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#0f172a', border: '1px solid #1e293b', padding: '0.8rem 1rem', borderRadius: '10px' }}>
-                        <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.82rem', color: '#38bdf8', wordBreak: 'break-all' }}>
+                      <p style={{ fontSize: '0.72rem', color: '#9cb3ba', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>Transaction Hash (Sepolia)</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#0e131d', border: '1px solid rgba(102,118,127,0.35)', padding: '0.8rem 1rem', borderRadius: '10px' }}>
+                        <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.82rem', color: '#ade2e6', wordBreak: 'break-all' }}>
                           {result.txHash}
                         </code>
                         <a
                           href={`https://sepolia.etherscan.io/tx/${result.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', whiteSpace: 'nowrap', fontWeight: '600' }}
+                          style={{ color: '#7286b6', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', whiteSpace: 'nowrap', fontWeight: '700' }}
                         >
                           Ver en Etherscan <ExternalLink size={14} />
                         </a>
@@ -164,10 +164,10 @@ const BlockchainVerifier = ({ initialHash }) => {
                     </div>
                   </div>
 
-                  <div style={{ padding: '0.9rem 2rem', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: '0.8rem', background: '#020617', flexWrap: 'wrap' }}>
-                    <ShieldCheck size={18} color="#10b981" />
-                    <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
-                      Registro validado en la red <strong style={{ color: '#38bdf8' }}>Ethereum Sepolia Testnet</strong> — autenticidad respaldada mediante smart contract.
+                  <div style={{ padding: '0.9rem 2rem', borderTop: '1px solid rgba(102,118,127,0.3)', display: 'flex', alignItems: 'center', gap: '0.8rem', background: '#000100', flexWrap: 'wrap' }}>
+                    <ShieldCheck size={18} color="#ade2e6" />
+                    <p style={{ fontSize: '0.82rem', color: '#9cb3ba', margin: 0 }}>
+                      Registro validado en la red <strong style={{ color: '#ade2e6' }}>Ethereum Sepolia Testnet</strong> — autenticidad respaldada mediante smart contract.
                     </p>
                   </div>
                 </div>

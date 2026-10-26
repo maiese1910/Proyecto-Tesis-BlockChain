@@ -1,5 +1,3 @@
-import colors from 'tailwindcss/colors';
-
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -10,82 +8,72 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ─── BASE CORPORATIVA SOBRIA (Slate) ──────────────────────────────────
-        // Usado para fondos, superficies, bordes estructurados y tipografía
-        corporate: colors.slate,
-        slate: colors.slate,
-
-        // Tokens semánticos de superficie y estructura (Slate)
-        surface: {
-          light: colors.slate[50],     // Fondos claros / páginas
-          panel: colors.slate[100],    // Tarjetas e interfaces modales (modo claro)
-          border: colors.slate[200],   // Bordes divisorios estándar
-          subtle: colors.slate[300],   // Bordes de inputs / divisores marcados
-          dark: colors.slate[900],     // Paneles oscuros corporativos
-          darker: colors.slate[950],   // Fondo base corporativo oscuro
+        // ─── Paleta Huemint Bootstrap-Plus ─────────────────────────────────────
+        // #ade2e6 · #ffffff · #000100 · #322920 · #566262 · #66767f · #364486 · #7286b6 · #9cb3ba
+        huemint: {
+          aqua: '#ade2e6',       // Aqua / Cyan luminoso para acentos y verificación
+          white: '#ffffff',      // Blanco de alto contraste
+          black: '#000100',      // Negro profundo obsidiana base
+          espresso: '#322920',   // Carbón oscuro cálido
+          slateGreen: '#566262', // Gris verdoso sobrio
+          steel: '#66767f',      // Gris acero para bordes y texto secundario
+          navy: '#364486',       // Azul marino / royal profundo para botones y marca
+          periwinkle: '#7286b6', // Azul bígaro para hovers y estados activos
+          ice: '#9cb3ba',        // Hielo grisáceo para textos secundarios y chips
         },
 
-        // Tokens semánticos de tipografía (Slate)
-        content: {
-          primary: colors.slate[900],   // Texto principal en fondos claros
-          secondary: colors.slate[600], // Subtítulos / texto de apoyo
-          muted: colors.slate[400],     // Placeholders y metadatos secundarios
-          inverse: colors.slate[50],    // Texto claro para paneles oscuros
-        },
-
-        // ─── BOTONES PRINCIPALES Y LLAMADAS A LA ACCIÓN (Blue Clásico) ────────
-        // Transmite solidez, seguridad bancaria e institucional
+        // Mapeo semántico para componentes
         primary: {
-          50: colors.blue[50],
-          100: colors.blue[100],
-          200: colors.blue[200],
-          300: colors.blue[300],
-          400: colors.blue[400],
-          500: colors.blue[500],
-          600: colors.blue[600],       // Botón corporativo principal (DEFAULT)
-          700: colors.blue[700],       // Estado Hover
-          800: colors.blue[800],       // Estado Active / Pressed
-          900: colors.blue[900],       // Encabezados de alto contraste
-          950: colors.blue[950],
-          DEFAULT: colors.blue[600],
-          hover: colors.blue[700],
-          active: colors.blue[800],
-          focus: colors.blue[500],
+          DEFAULT: '#364486',
+          hover: '#7286b6',
+          active: '#263063',
+          light: '#7286b6',
+          glow: 'rgba(54, 68, 134, 0.45)',
         },
 
-        // ─── ESTADOS DE 'DOCUMENTO VALIDADO' (Emerald) ────────────────────────
-        // Transmite validación legal, certificación blockchain exitosa y autenticidad
+        accent: {
+          DEFAULT: '#ade2e6',
+          light: '#ffffff',
+          dark: '#7286b6',
+          glow: 'rgba(173, 226, 230, 0.35)',
+        },
+
+        surface: {
+          dark: '#000100',
+          panel: '#0e131d',
+          card: '#141a26',
+          hover: '#1b2333',
+          border: '#66767f',
+          borderSubtle: '#566262',
+        },
+
+        content: {
+          main: '#ffffff',
+          sub: '#9cb3ba',
+          muted: '#66767f',
+          inverse: '#000100',
+        },
+
+        // Estados de validación usando el tono Aqua (#ade2e6)
         validated: {
-          50: colors.emerald[50],       // Fondo de banners de documento válido
-          100: colors.emerald[100],     // Fondo de badges / insignias de verificación
-          200: colors.emerald[200],     // Borde suave de validación
-          300: colors.emerald[300],     // Borde destacado de certificación
-          400: colors.emerald[400],     // Acentos e iconos en dark mode
-          500: colors.emerald[500],     // Iconos de verificación (CheckCircle)
-          600: colors.emerald[600],     // Estado base de validado
-          700: colors.emerald[700],     // Texto de éxito en modo claro
-          800: colors.emerald[800],     // Texto oscuro de confirmación legal
-          900: colors.emerald[900],
-          950: colors.emerald[950],
-          DEFAULT: colors.emerald[600],
-          badge: colors.emerald[100],
-          badgeText: colors.emerald[800],
-          border: colors.emerald[300],
-          glow: 'rgba(16, 185, 129, 0.25)',
+          DEFAULT: '#ade2e6',
+          badge: 'rgba(173, 226, 230, 0.12)',
+          border: 'rgba(173, 226, 230, 0.45)',
+          text: '#ade2e6',
+          glow: 'rgba(173, 226, 230, 0.3)',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'Outfit', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Inter', 'Outfit', 'system-ui', '-apple-system', 'sans-serif'],
       },
       boxShadow: {
-        'corporate-sm': '0 1px 2px 0 rgba(15, 23, 42, 0.05)',
-        'corporate': '0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.06)',
-        'corporate-lg': '0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.08)',
-        'validated-glow': '0 0 20px -2px rgba(16, 185, 129, 0.35)',
+        'huemint-primary': '0 4px 20px -2px rgba(54, 68, 134, 0.5)',
+        'huemint-aqua': '0 0 25px -3px rgba(173, 226, 230, 0.35)',
+        'huemint-card': '0 20px 40px -15px rgba(0, 1, 0, 0.8)',
       },
       borderRadius: {
-        'corporate': '0.5rem',
-        'corporate-lg': '0.75rem',
+        'corporate': '0.6rem',
+        'corporate-lg': '0.9rem',
       },
     },
   },

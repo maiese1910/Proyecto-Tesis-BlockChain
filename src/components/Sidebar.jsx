@@ -18,19 +18,19 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
   return (
     <div className="sidebar">
       <div className="sidebar-brand">
-        <h1>Universidad Santa María<br /><span style={{ fontSize: '0.85rem', color: '#d97706', fontWeight: 600 }}>Plataforma de Apostilla</span></h1>
+        <h1>Universidad Santa María<br /><span style={{ fontSize: '0.85rem', color: '#ade2e6', fontWeight: 600 }}>Plataforma de Apostilla</span></h1>
         <p>Sistema Distribuido de Verificación Blockchain</p>
       </div>
 
       {/* Perfil del usuario */}
       {user && (
         <div className="user-profile" style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
-          <div style={{ background: 'rgba(30,58,138,0.15)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #1e3a8a, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <User size={18} color="white" />
+          <div style={{ background: 'rgba(54,68,134,0.2)', border: '1px solid rgba(173,226,230,0.35)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #364486, #7286b6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <User size={18} color="#ade2e6" />
             </div>
             <div style={{ overflow: 'hidden' }}>
-              <p style={{ fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <p style={{ fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#ffffff' }}>
                 {user.nombre.split(' ')[0]} {user.nombre.split(' ').slice(-1)[0]}
               </p>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{user.carrera?.split(' ').slice(-1)[0]}</p>
