@@ -1,16 +1,38 @@
-# React + Vite
+# 🏛️ USM-ApostillaBot
+> **Plataforma Descentralizada con Inteligencia Artificial y Blockchain para la Verificación y Tramitación de Documentos Académicos**  
+> *Trabajo Especial de Grado — Facultad de Ingeniería, Universidad Santa María (USM)*
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+---
 
-Currently, two official plugins are available:
+## 🚀 Inicio Rápido
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Para iniciar el servidor completo (Backend FastAPI + Frontend React/Vite) con un solo comando:
 
-## React Compiler
+```bash
+python run_system.py
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** [http://localhost:5173](http://localhost:5173)
+- **Backend API & Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 📖 Documentación Completa del Proyecto
+
+Toda la documentación técnica, manual de arquitectura, descripción detallada de todos los módulos del Frontend, especificación de todos los Endpoints del Backend, Smart Contract en Solidity y guía para la defensa se encuentra en:
+
+👉 **[DOCUMENTACION.md](./DOCUMENTACION.md)**
+
+---
+
+## 🏗️ Estructura del Repositorio
+
+- `api/`: Servidor Backend desarrollado en FastAPI, Web3.py, WebSockets, EasyOCR y PyJWT.
+- `blockchain/`: Contrato Inteligente `USMDocumentRegistry.sol` en Solidity 0.8.20 para Ethereum Sepolia.
+- `src/`: Código fuente del Frontend en React 19, Vite, Tailwind CSS y Framer Motion.
+  - `src/components/`: Componentes modulares (Dashboard, OCR, Pre-validación, PUB, Verificador Blockchain, Panel Gubernamental, etc.).
+  - `src/services/api.js`: Cliente centralizado de comunicación con la API.
+- `run_system.py`: Script de orquestación y arranque unificado de servicios.
+- `deploy.py`: Script de compilación y despliegue del contrato inteligente a la red Sepolia.
+- `supabase_schema.sql`: Esquema SQL de persistencia y políticas RLS para PostgreSQL en Supabase.
+- `DOCUMENTACION.md`: Manual integral de arquitectura, módulos, endpoints y defensa de tesis.
