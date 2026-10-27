@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "vercel-build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -16,7 +20,6 @@
     "html2pdf.js": "^0.14.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.8.0",
-    "puppeteer": "^25.1.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -34,6 +37,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
     "postcss": "^8.5.32",
+    "puppeteer": "^25.1.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.0.9"
   }

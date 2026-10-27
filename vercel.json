@@ -1,18 +1,68 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.py" },
-    { "source": "/blockchain/(.*)", "destination": "/api/index.py" },
-    { "source": "/ws/(.*)", "destination": "/api/index.py" },
-    { "source": "/admin/(.*)", "destination": "/api/index.py" },
-    { "source": "/profiles/(.*)", "destination": "/api/index.py" },
-    { "source": "/chat/(.*)", "destination": "/api/index.py" },
-    { "source": "/hash/(.*)", "destination": "/api/index.py" },
-    { "source": "/carreras", "destination": "/api/index.py" },
-    { "source": "/guias", "destination": "/api/index.py" },
-    { "source": "/planillas", "destination": "/api/index.py" },
-    { "source": "/pub/(.*)", "destination": "/api/index.py" },
-    { "source": "/((?!assets/|.*\\..*).*)", "destination": "/index.html" }
+  "builds": [
+    {
+      "src": "api/main.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/blockchain/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/ws/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/profiles/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/chat/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/hash/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/carreras",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/guias",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/planillas",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/pub/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
   ]
 }
