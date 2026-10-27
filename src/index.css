@@ -5,11 +5,11 @@
   /* Colors */
   --color-ink-black: #17191c;
   --color-paper-white: #ffffff;
-  --color-mist-gray: #f2f2f3;
+  --color-mist-gray: #f2f2f4;
   --color-fog-white: #fafafb;
-  --color-slate-gray: #777b86;
-  --color-ash-gray: #979799;
-  --color-smoke-gray: #a3a6af;
+  --color-slate-gray: #474b55;
+  --color-ash-gray: #646875;
+  --color-smoke-gray: #828795;
   --color-blush-peach: #fbe1d1;
   --color-sienna-brown: #5d2a1a;
 
@@ -58,36 +58,39 @@
   --radius-elevatedcards: 20px;
   --radius-inputs: 16px;
   --radius-buttons: 9999px;
+  --radius-pill: 9999px;
 
-  /* Shadows */
-  --shadow-subtle: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 4px 24px 0px;
-  --shadow-subtle-2: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.06) 0px 8px 40px 0px;
-  --shadow-subtle-3: rgba(4, 23, 43, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.07) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 8px 10px -6px;
+  /* Shadows — Soft, Multi-Layered with Hover Depth */
+  --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 16px -2px rgba(23, 25, 28, 0.04);
+  --shadow-artifact: 0 1px 3px rgba(0, 0, 0, 0.06), 0 12px 32px -4px rgba(23, 25, 28, 0.08);
+  --shadow-hover: 0 18px 38px -6px rgba(23, 25, 28, 0.12), 0 0 0 1px rgba(23, 25, 28, 0.08);
+  --shadow-button: 0 2px 8px rgba(23, 25, 28, 0.14);
+  --shadow-button-hover: 0 8px 24px rgba(23, 25, 28, 0.22);
 
-  /* Surfaces */
-  --surface-canvas: #ffffff;
-  --surface-card-mist: #f2f2f3;
+  /* Surfaces — Warm Paper Canvas against crisp Paper White Cards */
+  --surface-canvas: #f6f6f8;
+  --surface-card-mist: #ffffff;
   --surface-section-fog: #fafafb;
   --surface-accent-blush: #fbe1d1;
   --surface-elevated-white: #ffffff;
 
   /* Mapeo Semántico del Sistema */
-  --bg-dark: #ffffff;
+  --bg-dark: #f6f6f8;
   --bg-panel: #ffffff;
-  --bg-panel-hover: #fafafb;
-  --border: #ececec;
-  --border-subtle: #f2f2f3;
-  --border-hairline: rgba(4, 23, 43, 0.06);
+  --bg-panel-hover: #ffffff;
+  --border: #e2e2e6;
+  --border-subtle: #eaeaea;
+  --border-hairline: rgba(23, 25, 28, 0.08);
   --text-main: #17191c;
-  --text-secondary: #777b86;
-  --text-muted: #979799;
+  --text-secondary: #474b55;
+  --text-muted: #646875;
 
   /* Botones Primarios (Pill Ink Black) */
   --primary: #17191c;
-  --primary-hover: #2d3036;
+  --primary-hover: #26292f;
   --primary-active: #000000;
-  --primary-light: #777b86;
-  --primary-glow: rgba(23, 25, 28, 0.12);
+  --primary-light: #474b55;
+  --primary-glow: rgba(23, 25, 28, 0.14);
 
   /* Acento y Validación (Blush Peach #fbe1d1 y Sienna Brown #5d2a1a) */
   --accent: #fbe1d1;
