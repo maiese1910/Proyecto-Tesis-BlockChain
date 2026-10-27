@@ -1313,6 +1313,10 @@ async def get_digital_certificate(doc_hash: str):
                         timestamp = int(dt.timestamp())
                     except Exception:
                         pass
+                    break
+            except Exception as e:
+                print(f"[WARN] Error consultando Supabase para certificado: {e}")
+
     # 2.5 Fallback a registros en memoria
     if not owner_name:
         for r in _records_memory:
