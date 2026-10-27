@@ -28,30 +28,30 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.88)',
-        backdropFilter: 'blur(6px)',
+        backgroundColor: 'rgba(23, 25, 28, 0.45)',
+        backdropFilter: 'blur(8px)',
         zIndex: 1300,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1rem'
+        padding: '1.25rem'
       }}
     >
       <motion.div
-        initial={{ y: 25, opacity: 0, scale: 0.97 }}
+        initial={{ y: 20, opacity: 0, scale: 0.98 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 25, opacity: 0, scale: 0.97 }}
+        exit={{ y: 20, opacity: 0, scale: 0.98 }}
         style={{
-          background: '#0f172a',
-          color: '#ffffff',
-          borderRadius: '16px',
+          background: '#ffffff',
+          color: 'var(--color-ink-black)',
+          borderRadius: 'var(--radius-cards)',
           maxWidth: '920px',
           width: '100%',
           maxHeight: '94vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)',
-          border: '1px solid #1e293b',
+          boxShadow: 'var(--shadow-card)',
+          border: '1px solid var(--border)',
           overflow: 'hidden'
         }}
       >
@@ -60,48 +60,49 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '1.1rem 1.5rem',
-          background: '#090d16',
-          borderBottom: '1px solid #1e293b'
+          padding: '1.2rem 1.6rem',
+          background: '#ffffff',
+          borderBottom: '1px solid var(--border)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{
               width: 38,
               height: 38,
-              borderRadius: '10px',
-              background: '#0284c7',
-              color: '#ffffff',
+              borderRadius: '50%',
+              background: 'var(--color-fog-white)',
+              border: '1px solid var(--border)',
+              color: 'var(--color-ink-black)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Building2 size={22} />
+              <Building2 size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', fontFamily: 'var(--font-serif)', fontWeight: 400, color: 'var(--color-ink-black)' }}>
                 Mesa de Cotejo Físico-Digital — Taquilla GTU (MPPEU)
               </h3>
-              <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8' }}>
-                Expediente: <strong style={{ color: '#38bdf8' }}>{record.solicitudCode || 'GTU-2026-USM-8492'}</strong> · Contrastación del pergamino original vs. extracción OCR
+              <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.78rem', color: 'var(--color-slate-gray)' }}>
+                Expediente: <strong style={{ color: 'var(--color-ink-black)' }}>{record.solicitudCode || 'GTU-2026-USM-8492'}</strong> · Contrastación del pergamino original vs. extracción OCR
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             style={{
-              background: 'rgba(255,255,255,0.08)',
-              border: 'none',
+              background: 'var(--color-fog-white)',
+              border: '1px solid var(--border)',
               borderRadius: '50%',
               width: 32,
               height: 32,
-              color: '#94a3b8',
+              color: 'var(--color-slate-gray)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
@@ -111,74 +112,76 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
           overflowY: 'auto',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-          gap: '1.5rem'
+          gap: '1.5rem',
+          background: 'var(--color-fog-white)'
         }}>
           
           {/* Column 1: Expediente Digital (OCR) */}
           <div style={{
-            background: 'rgba(30, 41, 59, 0.5)',
-            border: '1px solid #334155',
-            borderRadius: '12px',
-            padding: '1.25rem'
+            background: '#ffffff',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            padding: '1.35rem',
+            boxShadow: 'var(--shadow-subtle)'
           }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
-              color: '#38bdf8',
-              fontSize: '0.85rem',
+              color: 'var(--color-ink-black)',
+              fontSize: '0.82rem',
               fontWeight: 600,
               marginBottom: '1rem',
               textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              letterSpacing: '0.04em'
             }}>
-              <FileText size={16} /> 1. Datos Digitales Registrados (OCR + PUB)
+              <FileText size={15} /> 1. Datos Digitales Registrados (OCR + PUB)
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.86rem' }}>
-              <div style={{ background: '#090d16', padding: '0.75rem 0.9rem', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Titular del Título:</span>
-                <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, fontSize: '0.98rem', color: '#ffffff' }}>
+              <div style={{ background: 'var(--color-fog-white)', padding: '0.75rem 0.9rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Titular del Título:</span>
+                <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, fontSize: '0.96rem', color: 'var(--color-ink-black)' }}>
                   {record.ownerName}
                 </p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-                <div style={{ background: '#090d16', padding: '0.65rem 0.8rem', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                  <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Cédula de Identidad:</span>
-                  <p style={{ margin: '0.15rem 0 0 0', fontWeight: 600, color: '#38bdf8' }}>{record.cedula}</p>
+                <div style={{ background: 'var(--color-fog-white)', padding: '0.65rem 0.8rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Cédula de Identidad:</span>
+                  <p style={{ margin: '0.15rem 0 0 0', fontWeight: 600, color: 'var(--color-ink-black)' }}>{record.cedula}</p>
                 </div>
-                <div style={{ background: '#090d16', padding: '0.65rem 0.8rem', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                  <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Institución:</span>
-                  <p style={{ margin: '0.15rem 0 0 0', fontWeight: 600, color: '#ffffff' }}>Universidad Santa María</p>
+                <div style={{ background: 'var(--color-fog-white)', padding: '0.65rem 0.8rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Institución:</span>
+                  <p style={{ margin: '0.15rem 0 0 0', fontWeight: 600, color: 'var(--color-ink-black)' }}>Universidad Santa María</p>
                 </div>
               </div>
 
-              <div style={{ background: '#090d16', padding: '0.75rem 0.9rem', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Grado / Carrera:</span>
-                <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: '#f8fafc' }}>
+              <div style={{ background: 'var(--color-fog-white)', padding: '0.75rem 0.9rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Grado / Carrera:</span>
+                <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: 'var(--color-ink-black)' }}>
                   {record.documentType || 'Título de Ingeniero de Sistemas'}
                 </p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem' }}>
-                <div style={{ background: '#090d16', padding: '0.5rem 0.6rem', borderRadius: '8px', border: '1px solid #1e293b', textAlign: 'center' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Tomo</span>
-                  <p style={{ margin: 0, fontWeight: 700, color: '#fbbf24' }}>{record.tomo || 'XVIII'}</p>
+                <div style={{ background: 'var(--color-fog-white)', padding: '0.5rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Tomo</span>
+                  <p style={{ margin: 0, fontWeight: 700, color: 'var(--color-sienna-brown)' }}>{record.tomo || 'XVIII'}</p>
                 </div>
-                <div style={{ background: '#090d16', padding: '0.5rem 0.6rem', borderRadius: '8px', border: '1px solid #1e293b', textAlign: 'center' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Folio</span>
-                  <p style={{ margin: 0, fontWeight: 700, color: '#fbbf24' }}>{record.folio || '142'}</p>
+                <div style={{ background: 'var(--color-fog-white)', padding: '0.5rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Folio</span>
+                  <p style={{ margin: 0, fontWeight: 700, color: 'var(--color-sienna-brown)' }}>{record.folio || '142'}</p>
                 </div>
-                <div style={{ background: '#090d16', padding: '0.5rem 0.6rem', borderRadius: '8px', border: '1px solid #1e293b', textAlign: 'center' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Libro</span>
-                  <p style={{ margin: 0, fontWeight: 700, color: '#fbbf24' }}>{record.libro || '2026'}</p>
+                <div style={{ background: 'var(--color-fog-white)', padding: '0.5rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Libro</span>
+                  <p style={{ margin: 0, fontWeight: 700, color: 'var(--color-sienna-brown)' }}>{record.libro || '2026'}</p>
                 </div>
               </div>
 
-              <div style={{ background: '#090d16', padding: '0.65rem 0.8rem', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Hash SHA-256 Preliminar del Expediente:</span>
-                <p style={{ margin: '0.15rem 0 0 0', fontFamily: 'monospace', fontSize: '0.72rem', color: '#a78bfa', wordBreak: 'break-all' }}>
+              <div style={{ background: 'var(--color-fog-white)', padding: '0.65rem 0.8rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Hash SHA-256 Preliminar del Expediente:</span>
+                <p style={{ margin: '0.15rem 0 0 0', fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--color-slate-gray)', wordBreak: 'break-all' }}>
                   {record.hash}
                 </p>
               </div>
@@ -187,10 +190,11 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
 
           {/* Column 2: Verificación Física en Taquilla */}
           <div style={{
-            background: 'rgba(30, 41, 59, 0.5)',
-            border: '1px solid #334155',
-            borderRadius: '12px',
-            padding: '1.25rem',
+            background: '#ffffff',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            padding: '1.35rem',
+            boxShadow: 'var(--shadow-subtle)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between'
@@ -200,14 +204,14 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                color: '#34d399',
-                fontSize: '0.85rem',
+                color: 'var(--color-ink-black)',
+                fontSize: '0.82rem',
                 fontWeight: 600,
                 marginBottom: '1rem',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '0.04em'
               }}>
-                <Stamp size={16} /> 2. Lista de Cotejo Físico (Pergamino Original)
+                <Stamp size={15} /> 2. Lista de Cotejo Físico (Pergamino Original)
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
@@ -243,9 +247,9 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
                         alignItems: 'flex-start',
                         gap: '0.75rem',
                         padding: '0.75rem 0.9rem',
-                        background: checked ? 'rgba(16, 185, 129, 0.1)' : '#090d16',
-                        border: `1px solid ${checked ? 'rgba(16, 185, 129, 0.35)' : '#1e293b'}`,
-                        borderRadius: '8px',
+                        background: checked ? 'rgba(16, 185, 129, 0.05)' : 'var(--color-fog-white)',
+                        border: `1px solid ${checked ? '#10b981' : 'var(--border)'}`,
+                        borderRadius: '12px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease'
                       }}
@@ -253,22 +257,22 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
                       <div style={{
                         width: 20,
                         height: 20,
-                        borderRadius: '4px',
-                        border: `2px solid ${checked ? '#10b981' : '#64748b'}`,
-                        backgroundColor: checked ? '#10b981' : 'transparent',
+                        borderRadius: '6px',
+                        border: `2px solid ${checked ? 'var(--color-ink-black)' : 'var(--color-slate-gray)'}`,
+                        backgroundColor: checked ? 'var(--color-ink-black)' : 'transparent',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
                         marginTop: '0.1rem'
                       }}>
-                        {checked && <Check size={14} color="#ffffff" />}
+                        {checked && <Check size={13} color="#ffffff" strokeWidth={3} />}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: '0.86rem', fontWeight: 600, color: checked ? '#ffffff' : '#94a3b8' }}>
+                        <p style={{ margin: 0, fontSize: '0.86rem', fontWeight: 600, color: 'var(--color-ink-black)' }}>
                           {item.title}
                         </p>
-                        <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.74rem', color: '#64748b' }}>
+                        <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.76rem', color: 'var(--color-slate-gray)', lineHeight: 1.4 }}>
                           {item.desc}
                         </p>
                       </div>
@@ -278,8 +282,8 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
               </div>
 
               {/* Notes Input */}
-              <div style={{ marginTop: '0.9rem' }}>
-                <label style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'block', marginBottom: '0.3rem' }}>
+              <div style={{ marginTop: '1rem' }}>
+                <label style={{ fontSize: '0.76rem', color: 'var(--color-slate-gray)', display: 'block', marginBottom: '0.35rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Observaciones del Funcionario de Taquilla (opcional):
                 </label>
                 <input
@@ -289,12 +293,12 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
                   placeholder="Ej: Presentó pergamino en óptimo estado de conservación"
                   style={{
                     width: '100%',
-                    padding: '0.6rem 0.8rem',
-                    background: '#090d16',
-                    border: '1px solid #1e293b',
-                    borderRadius: '6px',
-                    color: '#ffffff',
-                    fontSize: '0.82rem',
+                    padding: '0.65rem 0.9rem',
+                    background: '#ffffff',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-inputs)',
+                    color: 'var(--color-ink-black)',
+                    fontSize: '0.84rem',
                     outline: 'none'
                   }}
                 />
@@ -307,18 +311,18 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
               gap: '0.75rem',
               marginTop: '1.25rem',
               paddingTop: '1rem',
-              borderTop: '1px solid #334155'
+              borderTop: '1px solid var(--border)'
             }}>
               <button
                 onClick={() => onReject(record)}
                 style={{
-                  padding: '0.75rem 1rem',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                  color: '#f87171',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '0.82rem',
+                  padding: '0.75rem 1.25rem',
+                  background: '#ffffff',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#b91c1c',
+                  borderRadius: 'var(--radius-pill)',
+                  fontWeight: 500,
+                  fontSize: '0.84rem',
                   cursor: 'pointer'
                 }}
               >
@@ -334,21 +338,19 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem',
-                  padding: '0.75rem 1.25rem',
-                  background: allChecksPassed
-                    ? 'linear-gradient(135deg, #0284c7, #0ea5e9)'
-                    : '#334155',
-                  color: '#ffffff',
+                  padding: '0.75rem 1.4rem',
+                  background: allChecksPassed ? 'var(--color-ink-black)' : 'var(--color-mist-gray)',
+                  color: allChecksPassed ? '#ffffff' : 'var(--color-slate-gray)',
                   border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 700,
+                  borderRadius: 'var(--radius-pill)',
+                  fontWeight: 500,
                   fontSize: '0.86rem',
                   cursor: allChecksPassed && !loading ? 'pointer' : 'not-allowed',
-                  opacity: allChecksPassed && !loading ? 1 : 0.6,
-                  boxShadow: allChecksPassed ? '0 4px 14px rgba(2, 132, 199, 0.4)' : 'none'
+                  boxShadow: allChecksPassed ? 'var(--shadow-subtle)' : 'none',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                <ShieldCheck size={18} />
+                <ShieldCheck size={17} />
                 {loading ? 'Anclando a Ethereum Sepolia...' : 'Aprobar Cotejo y Sellar en Blockchain (GTU)'}
               </button>
             </div>

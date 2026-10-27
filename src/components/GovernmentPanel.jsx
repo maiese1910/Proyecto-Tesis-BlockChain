@@ -405,12 +405,13 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
       {/* ─── SELECTOR DE ROL MINISTERIAL (ARQUITECTURA DE TESIS) ─── */}
       <div style={{
         display: 'flex',
-        gap: '0.65rem',
+        gap: '0.5rem',
         marginBottom: '1.5rem',
-        background: '#090d16',
-        padding: '0.45rem',
-        borderRadius: '12px',
-        border: '1px solid #1e293b',
+        background: '#ffffff',
+        padding: '0.4rem',
+        borderRadius: 'var(--radius-pill)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-subtle)',
         flexWrap: 'wrap'
       }}>
         <button
@@ -422,24 +423,26 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
             alignItems: 'center',
             justifyContent: 'center',
             gap: '0.55rem',
-            padding: '0.8rem 1rem',
-            borderRadius: '8px',
+            padding: '0.75rem 1.25rem',
+            borderRadius: 'var(--radius-pill)',
             border: 'none',
-            background: ministerialMode === 'MPPEU' ? '#0284c7' : 'transparent',
-            color: ministerialMode === 'MPPEU' ? '#ffffff' : '#94a3b8',
-            fontWeight: 600,
+            background: ministerialMode === 'MPPEU' ? 'var(--color-ink-black)' : 'transparent',
+            color: ministerialMode === 'MPPEU' ? '#ffffff' : 'var(--color-slate-gray)',
+            fontWeight: 500,
             fontSize: '0.86rem',
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
         >
-          <Building2 size={17} />
+          <Building2 size={16} />
           <span>Etapa 2: Taquilla MPPEU (Cotejo GTU)</span>
           <span style={{
             fontSize: '0.72rem',
-            background: ministerialMode === 'MPPEU' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
-            padding: '0.15rem 0.5rem',
-            borderRadius: '10px'
+            background: ministerialMode === 'MPPEU' ? 'var(--color-blush-peach)' : 'var(--color-mist-gray)',
+            color: ministerialMode === 'MPPEU' ? 'var(--color-sienna-brown)' : 'var(--color-slate-gray)',
+            padding: '0.15rem 0.55rem',
+            borderRadius: 'var(--radius-pill)',
+            fontWeight: 600
           }}>
             {records.filter(r => !r.mppeuVerified && !(r.status || '').includes('CERTIFICADO_MPPEU') && !(r.status || '').includes('APOSTILLADO_MPPRE')).length} pendientes
           </span>
@@ -454,24 +457,26 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
             alignItems: 'center',
             justifyContent: 'center',
             gap: '0.55rem',
-            padding: '0.8rem 1rem',
-            borderRadius: '8px',
+            padding: '0.75rem 1.25rem',
+            borderRadius: 'var(--radius-pill)',
             border: 'none',
-            background: ministerialMode === 'MPPRE' ? '#d97706' : 'transparent',
-            color: ministerialMode === 'MPPRE' ? '#ffffff' : '#94a3b8',
-            fontWeight: 600,
+            background: ministerialMode === 'MPPRE' ? 'var(--color-ink-black)' : 'transparent',
+            color: ministerialMode === 'MPPRE' ? '#ffffff' : 'var(--color-slate-gray)',
+            fontWeight: 500,
             fontSize: '0.86rem',
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
         >
-          <Globe size={17} />
+          <Globe size={16} />
           <span>Etapa 3: Cancillería MPPRE (Apostilla 100% Digital)</span>
           <span style={{
             fontSize: '0.72rem',
-            background: ministerialMode === 'MPPRE' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
-            padding: '0.15rem 0.5rem',
-            borderRadius: '10px'
+            background: ministerialMode === 'MPPRE' ? 'var(--color-blush-peach)' : 'var(--color-mist-gray)',
+            color: ministerialMode === 'MPPRE' ? 'var(--color-sienna-brown)' : 'var(--color-slate-gray)',
+            padding: '0.15rem 0.55rem',
+            borderRadius: 'var(--radius-pill)',
+            fontWeight: 600
           }}>
             {records.filter(r => (r.mppeuVerified || (r.status || '').includes('CERTIFICADO_MPPEU')) && !r.mppreVerified && !(r.status || '').includes('APOSTILLADO_MPPRE')).length} listos
           </span>
@@ -486,18 +491,18 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
             alignItems: 'center',
             justifyContent: 'center',
             gap: '0.55rem',
-            padding: '0.8rem 1rem',
-            borderRadius: '8px',
+            padding: '0.75rem 1.25rem',
+            borderRadius: 'var(--radius-pill)',
             border: 'none',
-            background: ministerialMode === 'ALL' ? '#334155' : 'transparent',
-            color: ministerialMode === 'ALL' ? '#ffffff' : '#94a3b8',
-            fontWeight: 600,
+            background: ministerialMode === 'ALL' ? 'var(--color-ink-black)' : 'transparent',
+            color: ministerialMode === 'ALL' ? '#ffffff' : 'var(--color-slate-gray)',
+            fontWeight: 500,
             fontSize: '0.86rem',
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
         >
-          <ShieldCheck size={17} />
+          <ShieldCheck size={16} />
           <span>Auditoría General & IA</span>
         </button>
       </div>
@@ -508,28 +513,28 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
-            background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(217,119,6,0.25))',
-            border: '1px solid rgba(245,158,11,0.5)',
-            padding: '0.9rem 1.4rem',
-            borderRadius: '14px',
+            background: 'var(--color-blush-peach)',
+            border: '1px solid rgba(93, 42, 26, 0.15)',
+            padding: '1rem 1.5rem',
+            borderRadius: 'var(--radius-cards)',
             marginBottom: '1.5rem',
             display: 'flex',
             alignItems: 'center',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '1rem',
-            boxShadow: '0 8px 25px rgba(245,158,11,0.15)'
+            boxShadow: 'var(--shadow-subtle)'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f59e0b', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-              <Bell size={20} />
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#ffffff', color: 'var(--color-sienna-brown)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bell size={18} />
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: '0.98rem', color: '#ffffff' }}>
+              <h4 style={{ margin: 0, fontSize: '0.98rem', color: 'var(--color-sienna-brown)', fontWeight: 600 }}>
                 Atención Funcionario: Tienes <strong>{pendingCount} expediente{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''}</strong> por auditar y revisar.
               </h4>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: '#fef3c7' }}>
+              <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.82rem', color: 'var(--color-sienna-brown)', opacity: 0.85 }}>
                 Los graduandos de la USM aguardan por la firma digital y verificación en la Blockchain.
               </p>
             </div>
@@ -538,151 +543,245 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
           <button
             onClick={() => setFilterStatus('PENDING')}
             style={{
-              background: '#d97706',
-              color: '#fff',
+              background: 'var(--color-sienna-brown)',
+              color: '#ffffff',
               border: 'none',
-              padding: '0.55rem 1.1rem',
-              borderRadius: '8px',
-              fontWeight: '800',
-              fontSize: '0.82rem',
+              padding: '0.55rem 1.2rem',
+              borderRadius: 'var(--radius-pill)',
+              fontWeight: 500,
+              fontSize: '0.84rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              boxShadow: '0 4px 12px rgba(217,119,6,0.3)'
+              gap: '0.45rem',
+              boxShadow: 'var(--shadow-subtle)'
             }}
           >
-            <Clock size={15} /> Ver Pendientes Solamente
+            <Clock size={14} /> Ver Pendientes Solamente
           </button>
         </motion.div>
       )}
 
       {/* ─── ENCABEZADO CON MÉTRICAS Y ASISTENTE IA DE AUDITORÍA ─── */}
-      <div className="dashboard-header" style={{ borderLeftColor: '#ef4444', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.2rem', background: 'rgba(15,23,42,0.8)', padding: '1.8rem', borderRadius: '16px', border: '1px solid rgba(239,68,68,0.3)', marginBottom: '1.8rem' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        flexWrap: 'wrap',
+        gap: '1.25rem',
+        background: '#ffffff',
+        padding: '1.75rem 2rem',
+        borderRadius: 'var(--radius-cards)',
+        border: '1px solid var(--border)',
+        marginBottom: '1.8rem',
+        boxShadow: 'var(--shadow-subtle)'
+      }}>
         <div style={{ flex: 1, minWidth: '280px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.4rem' }}>
-            <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-              <ShieldCheck size={24} />
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'var(--color-fog-white)',
+              border: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-ink-black)'
+            }}>
+              <ShieldCheck size={20} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.4rem', color: '#ffffff' }}>Panel de Auditoría Gubernamental ({currentAuditorEnte})</h2>
-              <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: 'bold' }}>
-                Funcionario Activo: <strong>{currentAuditorCargo} ({currentAuditorName})</strong>
+              <h2 style={{
+                margin: 0,
+                fontSize: '1.5rem',
+                fontFamily: 'var(--font-serif)',
+                fontWeight: 400,
+                color: 'var(--color-ink-black)'
+              }}>
+                Panel de Auditoría Gubernamental ({currentAuditorEnte})
+              </h2>
+              <span style={{ fontSize: '0.82rem', color: 'var(--color-slate-gray)' }}>
+                Funcionario Activo: <strong style={{ color: 'var(--color-ink-black)' }}>{currentAuditorCargo} ({currentAuditorName})</strong>
               </span>
             </div>
           </div>
-          <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0.6rem 0 0 0', lineHeight: '1.5' }}>
+          <p style={{ color: 'var(--color-slate-gray)', fontSize: '0.92rem', margin: '0.5rem 0 0 0', lineHeight: 1.55 }}>
             Inspección de expedientes académicos firmados por la Universidad Santa María. Aprueba o rechaza legajos con observación de ley e inscribe la resolución en la Blockchain de Ethereum.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
           <button
             onClick={connectMetaMask}
             disabled={web3Connecting}
             style={{
-              background: web3Account ? 'rgba(16,185,129,0.2)' : 'rgba(30,58,138,0.3)',
-              color: web3Account ? '#34d399' : '#f8fafc',
-              border: `1px solid ${web3Account ? 'rgba(16,185,129,0.4)' : 'rgba(217,119,6,0.4)'}`,
-              padding: '0.65rem 1.1rem',
-              borderRadius: '10px',
+              background: web3Account ? 'var(--color-fog-white)' : '#ffffff',
+              color: 'var(--color-ink-black)',
+              border: '1px solid var(--border)',
+              padding: '0.55rem 1rem',
+              borderRadius: 'var(--radius-pill)',
               cursor: 'pointer',
-              fontWeight: '700',
+              fontWeight: 500,
               fontSize: '0.82rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s',
-              boxShadow: web3Account ? '0 4px 12px rgba(16,185,129,0.2)' : 'none'
+              gap: '0.45rem',
+              boxShadow: 'var(--shadow-subtle)'
             }}
             title={web3Account ? `Billetera Auditor Conectada: ${web3Account}` : 'Conectar MetaMask para firma directa'}
           >
-            <Wallet size={16} /> {web3Account ? `MetaMask (${web3Account.slice(0, 6)}...${web3Account.slice(-4)})` : 'Conectar MetaMask'}
+            <Wallet size={15} /> {web3Account ? `MetaMask (${web3Account.slice(0, 6)}...${web3Account.slice(-4)})` : 'Conectar MetaMask'}
           </button>
 
           <button 
             onClick={() => { setShowAiAssistantModal(true); runAiFraudAnalysis(); }}
-            style={{ background: 'rgba(30,58,138,0.3)', color: '#fbbf24', border: '1px solid rgba(217,119,6,0.4)', padding: '0.65rem 1.1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+            style={{
+              background: '#ffffff',
+              color: 'var(--color-ink-black)',
+              border: '1px solid var(--border)',
+              padding: '0.55rem 1rem',
+              borderRadius: 'var(--radius-pill)',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              boxShadow: 'var(--shadow-subtle)'
+            }}
           >
-            <Bot size={16} /> Asistente Institucional
+            <Bot size={15} /> Asistente Institucional
           </button>
-
 
           <button 
             onClick={handleExportCSV}
-            style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.4)', padding: '0.65rem 1.1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+            style={{
+              background: '#ffffff',
+              color: 'var(--color-ink-black)',
+              border: '1px solid var(--border)',
+              padding: '0.55rem 1rem',
+              borderRadius: 'var(--radius-pill)',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              boxShadow: 'var(--shadow-subtle)'
+            }}
           >
-            <FileSpreadsheet size={16} /> Exportar Reporte (CSV/Excel)
+            <FileSpreadsheet size={15} /> Exportar Reporte
           </button>
 
           <button 
             onClick={() => setShowAdminModal(true)}
-            style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#ffffff', border: 'none', padding: '0.65rem 1.1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '800', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 14px rgba(239,68,68,0.3)' }}
+            style={{
+              background: 'var(--color-ink-black)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '0.55rem 1.1rem',
+              borderRadius: 'var(--radius-pill)',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              boxShadow: 'var(--shadow-subtle)'
+            }}
           >
-            <Shield size={16} /> + Añadir Auditor
+            <Shield size={15} /> + Añadir Auditor
           </button>
         </div>
       </div>
 
       {/* ─── TARJETAS DE RESUMEN EJECUTIVO (MÉTRICAS) ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem', marginBottom: '1.8rem' }}>
-        <div className="glass-panel" style={{ padding: '1.2rem', borderTop: '3px solid #38bdf8' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1.8rem' }}>
+        <motion.div whileHover={{ y: -4 }} style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 'var(--radius-cards)', padding: '1.35rem 1.6rem', boxShadow: 'var(--shadow-subtle)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-slate-gray)', fontSize: '0.84rem', marginBottom: '0.4rem' }}>
             <span>Expedientes Recibidos</span>
-            <FileText size={18} color="#38bdf8" />
+            <FileText size={17} color="var(--color-ink-black)" />
           </div>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#fff' }}>{totalCount}</h3>
-        </div>
+          <h3 style={{ fontSize: '2rem', fontFamily: 'var(--font-serif)', fontWeight: 400, margin: 0, color: 'var(--color-ink-black)' }}>{totalCount}</h3>
+        </motion.div>
 
-        <div className="glass-panel" style={{ padding: '1.2rem', borderTop: '3px solid #f59e0b' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+        <motion.div whileHover={{ y: -4 }} style={{ background: 'var(--color-blush-peach)', border: '1px solid rgba(93, 42, 26, 0.15)', borderRadius: 'var(--radius-cards)', padding: '1.35rem 1.6rem', boxShadow: 'var(--shadow-subtle)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-sienna-brown)', fontSize: '0.84rem', marginBottom: '0.4rem' }}>
             <span>Pendientes por Auditar</span>
-            <Clock size={18} color="#f59e0b" />
+            <Clock size={17} color="var(--color-sienna-brown)" />
           </div>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#f59e0b' }}>{pendingCount}</h3>
-        </div>
+          <h3 style={{ fontSize: '2rem', fontFamily: 'var(--font-serif)', fontWeight: 400, margin: 0, color: 'var(--color-sienna-brown)' }}>{pendingCount}</h3>
+        </motion.div>
 
-        <div className="glass-panel" style={{ padding: '1.2rem', borderTop: '3px solid #10b981' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+        <motion.div whileHover={{ y: -4 }} style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 'var(--radius-cards)', padding: '1.35rem 1.6rem', boxShadow: 'var(--shadow-subtle)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-slate-gray)', fontSize: '0.84rem', marginBottom: '0.4rem' }}>
             <span>Auditados y Verificados</span>
-            <CheckCircle size={18} color="#10b981" />
+            <CheckCircle size={17} color="#10b981" />
           </div>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#10b981' }}>{verifiedCount}</h3>
-        </div>
+          <h3 style={{ fontSize: '2rem', fontFamily: 'var(--font-serif)', fontWeight: 400, margin: 0, color: 'var(--color-ink-black)' }}>{verifiedCount}</h3>
+        </motion.div>
 
-        <div className="glass-panel" style={{ padding: '1.2rem', borderTop: '3px solid #ef4444' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+        <motion.div whileHover={{ y: -4 }} style={{ background: '#ffffff', border: '1px solid var(--border)', borderRadius: 'var(--radius-cards)', padding: '1.35rem 1.6rem', boxShadow: 'var(--shadow-subtle)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--color-slate-gray)', fontSize: '0.84rem', marginBottom: '0.4rem' }}>
             <span>Rechazados con Observación</span>
-            <AlertOctagon size={18} color="#ef4444" />
+            <AlertOctagon size={17} color="var(--color-sienna-brown)" />
           </div>
-          <h3 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#ef4444' }}>{rejectedCount}</h3>
-        </div>
+          <h3 style={{ fontSize: '2rem', fontFamily: 'var(--font-serif)', fontWeight: 400, margin: 0, color: 'var(--color-ink-black)' }}>{rejectedCount}</h3>
+        </motion.div>
       </div>
 
       {/* ─── MODAL DE RECHAZO DE DOCUMENTO CON OBSERVACIÓN ─── */}
       <AnimatePresence>
         {rejectingRecord && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass-panel" style={{ maxWidth: '500px', width: '100%', padding: '2rem', borderRadius: '16px', background: '#09090b', border: '1px solid rgba(239,68,68,0.5)', boxShadow: '0 25px 50px rgba(239,68,68,0.25)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-                <h3 style={{ margin: 0, color: '#ef4444', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <AlertOctagon size={22} /> Rechazar Documento / Legajo
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+            <motion.div initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '520px', width: '100%', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.35rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <AlertOctagon size={20} color="var(--color-sienna-brown)" /> Rechazar Documento / Legajo
                 </h3>
-                <button onClick={() => setRejectingRecord(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
+                <button
+                  onClick={() => setRejectingRecord(null)}
+                  style={{
+                    background: 'var(--color-fog-white)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--color-slate-gray)',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={16} />
+                </button>
               </div>
 
-              <div style={{ background: 'rgba(239,68,68,0.1)', padding: '1rem', borderRadius: '10px', marginBottom: '1.2rem', border: '1px solid rgba(239,68,68,0.3)' }}>
-                <p style={{ margin: '0 0 0.2rem 0', fontWeight: 'bold', color: '#fff' }}>Solicitante: {rejectingRecord.ownerName}</p>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: '#f87171' }}>C.I: {rejectingRecord.cedula} — {rejectingRecord.documentType}</p>
+              <div style={{ background: 'var(--color-fog-white)', padding: '1rem 1.25rem', borderRadius: '16px', marginBottom: '1.25rem', border: '1px solid var(--border)' }}>
+                <p style={{ margin: '0 0 0.25rem 0', fontWeight: 600, color: 'var(--color-ink-black)', fontSize: '0.95rem' }}>
+                  Solicitante: {rejectingRecord.ownerName}
+                </p>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--color-slate-gray)' }}>
+                  C.I: {rejectingRecord.cedula} — {rejectingRecord.documentType}
+                </p>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Selecciona el Motivo Oficial de Rechazo:</label>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.4rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Motivo Oficial de Rechazo:
+                  </label>
                   <select
                     value={rejectionReason}
                     onChange={e => setRejectionReason(e.target.value)}
-                    style={{ width: '100%' }}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      background: 'var(--color-fog-white)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-inputs)',
+                      color: 'var(--color-ink-black)',
+                      fontSize: '0.88rem',
+                      outline: 'none'
+                    }}
                   >
                     <option value="Inconsistencia en número de folio o acta del título">Inconsistencia en número de folio o acta del título</option>
                     <option value="Fotocopia escaneada ilegible o con información cortada">Fotocopia escaneada ilegible o con información cortada</option>
@@ -695,33 +794,65 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                 {rejectionReason === 'OTRO' && (
                   <div>
-                    <label style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.3rem', display: 'block' }}>Escribe la observación detallada:</label>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.4rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Observación detallada:
+                    </label>
                     <textarea
                       rows={3}
                       className="chat-input"
                       placeholder="Indica de forma precisa la falla observada para que el graduando pueda corregirla..."
                       value={customReason}
                       onChange={e => setCustomReason(e.target.value)}
-                      style={{ width: '100%', resize: 'none', background: 'rgba(0,0,0,0.4)', color: '#fff', padding: '0.7rem', borderRadius: '8px' }}
+                      style={{
+                        width: '100%',
+                        resize: 'none',
+                        background: 'var(--color-fog-white)',
+                        color: 'var(--color-ink-black)',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-inputs)',
+                        border: '1px solid var(--border)',
+                        outline: 'none',
+                        fontSize: '0.88rem'
+                      }}
                     />
                   </div>
                 )}
 
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(255,255,255,0.04)', padding: '0.6rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <Lock size={12} color="#94a3b8" /> Firma de Auditoría: Se registrará que el rechazo fue emitido por <strong>{currentAuditorName} ({currentAuditorCargo})</strong>.
+                <div style={{ fontSize: '0.76rem', color: 'var(--color-slate-gray)', background: 'var(--color-mist-gray)', padding: '0.7rem 0.9rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Lock size={13} color="var(--color-slate-gray)" /> Firma de Auditoría: Se registrará que el rechazo fue emitido por <strong>{currentAuditorName} ({currentAuditorCargo})</strong>.
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                   <button
                     onClick={confirmRejection}
                     disabled={rejectingLoading}
-                    style={{ flex: 1, padding: '0.85rem', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', fontWeight: '800', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem 1.25rem',
+                      background: 'var(--color-ink-black)',
+                      color: '#ffffff',
+                      fontWeight: 500,
+                      borderRadius: 'var(--radius-pill)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.86rem',
+                      boxShadow: 'var(--shadow-subtle)'
+                    }}
                   >
                     {rejectingLoading ? 'Procesando Rechazo...' : 'Confirmar Rechazo On-Chain'}
                   </button>
                   <button
                     onClick={() => setRejectingRecord(null)}
-                    style={{ padding: '0.85rem 1.2rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#94a3b8', borderRadius: '8px', cursor: 'pointer' }}
+                    style={{
+                      padding: '0.75rem 1.25rem',
+                      background: '#ffffff',
+                      border: '1px solid var(--border)',
+                      color: 'var(--color-ink-black)',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.86rem'
+                    }}
                   >
                     Cancelar
                   </button>
@@ -732,40 +863,78 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
         )}
       </AnimatePresence>
 
-
       {/* ─── MODAL ASISTENTE IA DE AUDITORÍA Y REPORTES ─── */}
       <AnimatePresence>
         {showAiAssistantModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="glass-panel" style={{ maxWidth: '680px', width: '100%', padding: '2rem', borderRadius: '16px', background: '#09090b', border: '1px solid rgba(217,119,6,0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-                <h3 style={{ margin: 0, color: '#fbbf24', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <Bot size={24} color="#d97706" /> Asistente Institucional de Auditoría
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+            <motion.div initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '680px', width: '100%', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.35rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Bot size={22} color="var(--color-ink-black)" /> Asistente Institucional de Auditoría
                 </h3>
-                <button onClick={() => setShowAiAssistantModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
+                <button
+                  onClick={() => setShowAiAssistantModal(false)}
+                  style={{
+                    background: 'var(--color-fog-white)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--color-slate-gray)',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={16} />
+                </button>
               </div>
 
               {aiLoading ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#fbbf24' }}>
-                  <RefreshCw size={32} className="spinning" style={{ margin: '0 auto 1rem auto' }} />
-                  <p>Ejecutando algoritmos de detección de fraude y resumen de ley...</p>
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-slate-gray)' }}>
+                  <RefreshCw size={32} className="spinning" style={{ margin: '0 auto 1rem auto', color: 'var(--color-ink-black)' }} />
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>Ejecutando algoritmos de detección de fraude y resumen de ley...</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1.2rem', borderRadius: '10px', border: '1px solid rgba(217,119,6,0.2)', fontFamily: 'monospace', fontSize: '0.82rem', color: '#f8fafc', lineHeight: '1.6', maxHeight: '350px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ background: 'var(--color-fog-white)', padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: '0.82rem', color: 'var(--color-ink-black)', lineHeight: '1.65', maxHeight: '350px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
                     {aiAnalysisResult}
                   </div>
 
-                  <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => { navigator.clipboard.writeText(aiAnalysisResult); alert('Reporte copiado al portapapeles.'); }}
-                      style={{ padding: '0.7rem 1.2rem', background: 'rgba(30,58,138,0.2)', color: '#fbbf24', border: '1px solid rgba(217,119,6,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                      style={{
+                        padding: '0.65rem 1.25rem',
+                        background: '#ffffff',
+                        color: 'var(--color-ink-black)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-pill)',
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        fontSize: '0.84rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        boxShadow: 'var(--shadow-subtle)'
+                      }}
                     >
                       <Clipboard size={14} /> Copiar Reporte
                     </button>
                     <button
                       onClick={() => setShowAiAssistantModal(false)}
-                      style={{ padding: '0.7rem 1.2rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}
+                      style={{
+                        padding: '0.65rem 1.25rem',
+                        background: 'var(--color-ink-black)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: 'var(--radius-pill)',
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        fontSize: '0.84rem',
+                        boxShadow: 'var(--shadow-subtle)'
+                      }}
                     >
                       Cerrar Ventana
                     </button>
@@ -777,25 +946,201 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
         )}
       </AnimatePresence>
 
+      {/* ─── MODAL AÑADIR NUEVO AUDITOR MINISTERIAL ─── */}
+      <AnimatePresence>
+        {showAdminModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+            <motion.div initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '480px', width: '100%', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.35rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Shield size={20} color="var(--color-ink-black)" /> Registrar Nuevo Auditor
+                </h3>
+                <button
+                  onClick={() => setShowAdminModal(false)}
+                  style={{
+                    background: 'var(--color-fog-white)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--color-slate-gray)',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateAdmin} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.3rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Usuario Funcionario:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej: mppre_auditor2"
+                    value={newAdmin.username}
+                    onChange={e => setNewAdmin({ ...newAdmin, username: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', color: 'var(--color-ink-black)', outline: 'none', fontSize: '0.88rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.3rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Contraseña Inicial:
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={newAdmin.password}
+                    onChange={e => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', color: 'var(--color-ink-black)', outline: 'none', fontSize: '0.88rem' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.3rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Ente Ministerial:
+                    </label>
+                    <select
+                      value={newAdmin.ente}
+                      onChange={e => setNewAdmin({ ...newAdmin, ente: e.target.value })}
+                      style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', color: 'var(--color-ink-black)', outline: 'none', fontSize: '0.85rem' }}
+                    >
+                      <option value="MPPEU">MPPEU (Taquilla GTU)</option>
+                      <option value="MPPRE">MPPRE (Cancillería)</option>
+                      <option value="SAREN">SAREN (Registro)</option>
+                      <option value="USM">USM (Universidad)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.3rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Cargo Oficial:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej: Inspector Consular"
+                      value={newAdmin.cargo}
+                      onChange={e => setNewAdmin({ ...newAdmin, cargo: e.target.value })}
+                      style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', color: 'var(--color-ink-black)', outline: 'none', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.3rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    PIN Institucional de Autorización:
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="PIN de Seguridad Gubernamental"
+                    value={newAdmin.pin_institucional}
+                    onChange={e => setNewAdmin({ ...newAdmin, pin_institucional: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', color: 'var(--color-ink-black)', outline: 'none', fontSize: '0.88rem' }}
+                  />
+                </div>
+
+                {adminMsg && (
+                  <div style={{ background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', padding: '0.6rem 0.9rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 500 }}>
+                    {adminMsg}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.6rem' }}>
+                  <button
+                    type="submit"
+                    disabled={adminLoading}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem 1.25rem',
+                      background: 'var(--color-ink-black)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: adminLoading ? 'not-allowed' : 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.86rem',
+                      boxShadow: 'var(--shadow-subtle)'
+                    }}
+                  >
+                    {adminLoading ? 'Registrando...' : 'Crear Auditor'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminModal(false)}
+                    style={{
+                      padding: '0.75rem 1.25rem',
+                      background: '#ffffff',
+                      border: '1px solid var(--border)',
+                      color: 'var(--color-ink-black)',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.86rem'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ─── FILTROS Y BÚSQUEDA ─── */}
-      <div className="glass-panel" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', padding: '1rem 1.2rem' }}>
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-cards)',
+        marginBottom: '1.5rem',
+        display: 'flex',
+        gap: '1rem',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        padding: '1rem 1.4rem',
+        boxShadow: 'var(--shadow-subtle)'
+      }}>
         
         {/* Buscador */}
         <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <Search size={17} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-slate-gray)' }} />
           <input 
             type="text" 
-            className="chat-input" 
             placeholder="Buscar por Nombre, Cédula o Hash..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', paddingLeft: '2.5rem' }}
+            style={{
+              width: '100%',
+              padding: '0.65rem 1rem 0.65rem 2.6rem',
+              background: 'var(--color-fog-white)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-inputs)',
+              color: 'var(--color-ink-black)',
+              outline: 'none',
+              fontSize: '0.88rem'
+            }}
           />
         </div>
 
         {/* Filtro por Estado */}
-        <div style={{ display: 'flex', gap: '0.4rem', background: 'rgba(0,0,0,0.4)', padding: '0.2rem', borderRadius: '10px' }}>
+        <div style={{
+          display: 'flex',
+          gap: '0.25rem',
+          background: 'var(--color-fog-white)',
+          padding: '0.25rem',
+          borderRadius: 'var(--radius-pill)',
+          border: '1px solid var(--border)'
+        }}>
           {[
             { id: 'ALL', label: 'Todos' },
             { id: 'PENDING', label: 'Pendientes' },
@@ -806,10 +1151,15 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
               key={f.id}
               onClick={() => setFilterStatus(f.id)}
               style={{
-                padding: '0.45rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                fontWeight: '700', fontSize: '0.78rem', transition: 'all 0.2s',
-                background: filterStatus === f.id ? 'linear-gradient(135deg, #1e3a8a, #2563eb)' : 'transparent',
-                color: filterStatus === f.id ? '#fff' : '#94a3b8'
+                padding: '0.45rem 0.9rem',
+                borderRadius: 'var(--radius-pill)',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: '0.8rem',
+                transition: 'all 0.2s ease',
+                background: filterStatus === f.id ? 'var(--color-ink-black)' : 'transparent',
+                color: filterStatus === f.id ? '#ffffff' : 'var(--color-slate-gray)'
               }}
             >
               {f.label}
@@ -824,7 +1174,20 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
             animate={{ scale: 1, opacity: 1 }}
             onClick={handleBatchVerify}
             disabled={batchVerifying}
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', padding: '0.55rem 1rem', borderRadius: '8px', fontWeight: '800', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            style={{
+              background: 'var(--color-blush-peach)',
+              color: 'var(--color-sienna-brown)',
+              border: '1px solid rgba(93, 42, 26, 0.2)',
+              padding: '0.55rem 1.1rem',
+              borderRadius: 'var(--radius-pill)',
+              fontWeight: 600,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              boxShadow: 'var(--shadow-subtle)'
+            }}
           >
             <CheckSquare size={16} /> {batchVerifying ? 'Auditando...' : `Aprobar (${selectedHashes.length}) Seleccionados`}
           </motion.button>
@@ -834,25 +1197,38 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
 
       {/* ─── VISTA DESKTOP: TABLA CON PREVISUALIZADOR, AUDITORIA Y RECHAZO ─── */}
-      <div className="glass-panel gov-table-desktop" style={{ padding: '0', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-cards)',
+        overflow: 'hidden',
+        boxShadow: 'var(--shadow-subtle)',
+        marginBottom: '2rem'
+      }}>
         {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>Cargando expedientes académicos en la Blockchain...</div>
+          <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--color-slate-gray)' }}>
+            <RefreshCw size={24} className="spinning" style={{ margin: '0 auto 0.75rem auto', color: 'var(--color-ink-black)' }} />
+            <p style={{ margin: 0, fontSize: '0.9rem' }}>Cargando expedientes académicos en la Blockchain...</p>
+          </div>
         ) : filteredRecords.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No se encontraron trámites con los criterios seleccionados.</div>
+          <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--color-slate-gray)' }}>
+            <FileText size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4 }} />
+            <p style={{ margin: 0, fontSize: '0.92rem' }}>No se encontraron trámites con los criterios seleccionados.</p>
+          </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid var(--border)' }}>
+              <tr style={{ background: 'var(--color-fog-white)', borderBottom: '1px solid var(--border)' }}>
                 <th style={{ padding: '1rem 0.8rem', width: '40px', textAlign: 'center' }}>
-                  <button onClick={toggleSelectAll} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
-                    {selectedHashes.length === filteredRecords.length ? <CheckSquare size={18} color="#0ea5e9" /> : <Square size={18} />}
+                  <button onClick={toggleSelectAll} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-slate-gray)' }}>
+                    {selectedHashes.length === filteredRecords.length ? <CheckSquare size={18} color="var(--color-ink-black)" /> : <Square size={18} />}
                   </button>
                 </th>
-                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Solicitante</th>
-                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Trámite</th>
-                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Hash Blockchain</th>
-                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Estado & Auditor Responsable</th>
-                <th style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>Acciones de Auditoría</th>
+                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Solicitante</th>
+                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Trámite</th>
+                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Hash Blockchain</th>
+                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Estado & Auditor Responsable</th>
+                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'center' }}>Acciones de Auditoría</th>
               </tr>
             </thead>
             <tbody>
@@ -863,98 +1239,241 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                 const auditorSign = record.verifiedBy || currentAuditorName;
 
                 return (
-                  <tr key={record.hash} style={{ borderBottom: '1px solid var(--border)', background: isSelected ? 'rgba(14,165,233,0.06)' : 'transparent' }}>
+                  <tr
+                    key={record.hash}
+                    style={{
+                      borderBottom: '1px solid var(--border)',
+                      background: isSelected ? 'rgba(251, 225, 209, 0.25)' : 'transparent',
+                      transition: 'background 0.15s ease'
+                    }}
+                  >
                     
                     {/* Checkbox Selección */}
-                    <td style={{ padding: '1rem 0.8rem', textAlign: 'center' }}>
-                      <button onClick={() => toggleSelectHash(record.hash)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
-                        {isSelected ? <CheckSquare size={18} color="#0ea5e9" /> : <Square size={18} />}
+                    <td style={{ padding: '1.1rem 0.8rem', textAlign: 'center' }}>
+                      <button onClick={() => toggleSelectHash(record.hash)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-slate-gray)' }}>
+                        {isSelected ? <CheckSquare size={18} color="var(--color-ink-black)" /> : <Square size={18} />}
                       </button>
                     </td>
 
                     {/* Solicitante */}
-                    <td style={{ padding: '1rem' }}>
-                      <p style={{ fontWeight: '700', margin: '0 0 0.2rem 0', color: '#ffffff', fontSize: '0.92rem' }}>{record.ownerName}</p>
-                      <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>C.I: {record.cedula}</p>
+                    <td style={{ padding: '1.1rem 1rem' }}>
+                      <p style={{ fontWeight: 600, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)', fontSize: '0.92rem' }}>{record.ownerName}</p>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--color-slate-gray)', margin: 0 }}>C.I: {record.cedula}</p>
                     </td>
 
                     {/* Trámite */}
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(14, 165, 233, 0.12)', color: '#38bdf8', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700' }}>
-                        <FileText size={14} /> {record.documentType || 'Registro de Título USM'}
+                    <td style={{ padding: '1.1rem 1rem' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        background: 'var(--color-mist-gray)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--color-ink-black)',
+                        padding: '0.3rem 0.75rem',
+                        borderRadius: 'var(--radius-pill)',
+                        fontSize: '0.78rem',
+                        fontWeight: 500
+                      }}>
+                        <FileText size={13} /> {record.documentType || 'Registro de Título USM'}
                       </span>
                     </td>
 
                     {/* Hash */}
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <code style={{ background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.76rem', fontFamily: 'monospace', color: '#a78bfa' }}>
+                    <td style={{ padding: '1.1rem 1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <code style={{
+                          background: 'var(--color-mist-gray)',
+                          border: '1px solid var(--border)',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '6px',
+                          fontSize: '0.76rem',
+                          fontFamily: 'monospace',
+                          color: 'var(--color-slate-gray)',
+                          width: 'fit-content'
+                        }}>
                           {record.hash ? `${record.hash.substring(0, 14)}...` : 'N/A'}
                         </code>
-                        <a href={`https://sepolia.etherscan.io/tx/${record.txHash || ''}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                          Sepolia Explorer <ExternalLink size={10} />
+                        <a
+                          href={`https://sepolia.etherscan.io/tx/${record.txHash || ''}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: '0.74rem',
+                            color: 'var(--color-ink-black)',
+                            textDecoration: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontWeight: 500
+                          }}
+                        >
+                          Sepolia Explorer <ExternalLink size={11} />
                         </a>
                       </div>
                     </td>
 
                     {/* Estado Legal con Traza del Auditor */}
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: isVerified ? '#10b981' : isRejected ? '#ef4444' : '#f59e0b', fontSize: '0.82rem', fontWeight: '700', background: isVerified ? 'rgba(16,185,129,0.1)' : isRejected ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', padding: '0.35rem 0.8rem', borderRadius: '20px', width: 'fit-content' }}>
-                          {isVerified ? <CheckCircle size={15} /> : isRejected ? <AlertOctagon size={15} /> : <AlertTriangle size={15} />}
-                          {record.status}
-                        </span>
+                    <td style={{ padding: '1.1rem 1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            color: 'var(--color-sienna-brown)',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            background: 'var(--color-blush-peach)',
+                            border: '1px solid rgba(93, 42, 26, 0.15)',
+                            padding: '0.3rem 0.75rem',
+                            borderRadius: 'var(--radius-pill)',
+                            width: 'fit-content'
+                          }}>
+                            <Globe size={13} /> Apostillado MPPRE
+                          </span>
+                        ) : record.mppeuVerified || (record.status || '').includes('CERTIFICADO_MPPEU') ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            color: '#0369a1',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            background: '#e0f2fe',
+                            border: '1px solid rgba(3, 105, 161, 0.2)',
+                            padding: '0.3rem 0.75rem',
+                            borderRadius: 'var(--radius-pill)',
+                            width: 'fit-content'
+                          }}>
+                            <Building2 size={13} /> Certificado GTU (MPPEU)
+                          </span>
+                        ) : isVerified ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            color: '#15803d',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            background: '#dcfce7',
+                            border: '1px solid rgba(21, 128, 61, 0.2)',
+                            padding: '0.3rem 0.75rem',
+                            borderRadius: 'var(--radius-pill)',
+                            width: 'fit-content'
+                          }}>
+                            <CheckCircle size={13} /> Verificado
+                          </span>
+                        ) : isRejected ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            color: '#b91c1c',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            background: '#fee2e2',
+                            border: '1px solid rgba(185, 28, 28, 0.2)',
+                            padding: '0.3rem 0.75rem',
+                            borderRadius: 'var(--radius-pill)',
+                            width: 'fit-content'
+                          }}>
+                            <AlertOctagon size={13} /> Rechazado con Observación
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            color: 'var(--color-slate-gray)',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            background: 'var(--color-mist-gray)',
+                            border: '1px solid var(--border)',
+                            padding: '0.3rem 0.75rem',
+                            borderRadius: 'var(--radius-pill)',
+                            width: 'fit-content'
+                          }}>
+                            <Clock size={13} /> Pendiente por Cotejo
+                          </span>
+                        )}
                         
-                        {(isVerified || isRejected) && (
-                          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                            Firma: <strong>{auditorSign}</strong> ({currentAuditorCargo})
+                        {(isVerified || isRejected || record.mppeuVerified || record.mppreVerified) && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)' }}>
+                            Firma: <strong style={{ color: 'var(--color-ink-black)' }}>{auditorSign}</strong>
                           </span>
                         )}
                       </div>
                     </td>
 
                     {/* Acciones */}
-                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <td style={{ padding: '1.1rem 1rem', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
                         
                         {/* Botón Previsualizar Expediente / PUB */}
                         <button
                           onClick={() => setActivePUBRecord(record)}
-                          style={{ padding: '0.45rem 0.8rem', background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.4)', color: '#38bdf8', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                          style={{
+                            padding: '0.45rem 0.85rem',
+                            background: '#ffffff',
+                            border: '1px solid var(--border)',
+                            color: 'var(--color-ink-black)',
+                            borderRadius: 'var(--radius-pill)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '0.78rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            boxShadow: 'var(--shadow-subtle)'
+                          }}
                           title="Ver Planilla PUB y Expediente Escaneado"
                         >
-                          <Eye size={14} /> Ver Expediente
+                          <Eye size={13} /> Ver Expediente
                         </button>
 
                         {/* Botón Certificado Digital */}
                         <button
                           onClick={() => setActiveCertHash(record.hash)}
-                          style={{ padding: '0.45rem 0.8rem', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.4)', color: '#c084fc', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                          style={{
+                            padding: '0.45rem 0.85rem',
+                            background: '#ffffff',
+                            border: '1px solid var(--border)',
+                            color: 'var(--color-ink-black)',
+                            borderRadius: 'var(--radius-pill)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            fontSize: '0.78rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            boxShadow: 'var(--shadow-subtle)'
+                          }}
                           title="Ver Certificado de Inmutabilidad Criptográfica"
                         >
-                          <ShieldCheck size={14} /> Certificado
+                          <ShieldCheck size={13} /> Certificado
                         </button>
 
                         {/* Acciones Contextuales por Rol Ministerial */}
                         {ministerialMode === 'MPPEU' ? (
                           <>
-                            {!isVerified && !isRejected ? (
+                            {!record.mppeuVerified && !(record.status || '').includes('CERTIFICADO_MPPEU') && !(record.status || '').includes('APOSTILLADO_MPPRE') && !isRejected ? (
                               <>
                                 <button 
                                   onClick={() => setActiveCotejoRecord(record)}
                                   style={{
-                                    padding: '0.45rem 0.85rem',
+                                    padding: '0.45rem 0.95rem',
                                     fontSize: '0.78rem',
-                                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                    background: 'var(--color-ink-black)',
                                     color: '#ffffff',
                                     border: 'none',
-                                    borderRadius: '8px',
+                                    borderRadius: 'var(--radius-pill)',
                                     cursor: 'pointer',
-                                    fontWeight: '700',
+                                    fontWeight: 500,
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.35rem',
-                                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
+                                    boxShadow: 'var(--shadow-subtle)'
                                   }}
                                 >
                                   <Stamp size={14} /> Cotejo Físico-Digital
@@ -962,13 +1481,30 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                                 <button
                                   onClick={() => setRejectingRecord(record)}
-                                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}
+                                  style={{
+                                    padding: '0.45rem 0.85rem',
+                                    fontSize: '0.78rem',
+                                    background: '#ffffff',
+                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    color: '#b91c1c',
+                                    borderRadius: 'var(--radius-pill)',
+                                    cursor: 'pointer',
+                                    fontWeight: 500
+                                  }}
                                 >
                                   Rechazar
                                 </button>
                               </>
                             ) : (
-                              <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: '800', background: 'rgba(2,132,199,0.15)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>
+                              <span style={{
+                                fontSize: '0.76rem',
+                                color: '#0369a1',
+                                fontWeight: 600,
+                                background: '#e0f2fe',
+                                border: '1px solid rgba(3, 105, 161, 0.2)',
+                                padding: '0.3rem 0.75rem',
+                                borderRadius: 'var(--radius-pill)'
+                              }}>
                                 Sello GTU Listo
                               </span>
                             )}
@@ -979,17 +1515,18 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                               <button
                                 onClick={() => setActiveApostilleRecord(record)}
                                 style={{
-                                  padding: '0.45rem 0.85rem',
+                                  padding: '0.45rem 0.95rem',
                                   fontSize: '0.78rem',
-                                  background: 'linear-gradient(135deg, #059669, #10b981)',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  borderRadius: '8px',
+                                  background: '#ffffff',
+                                  border: '1px solid #10b981',
+                                  color: '#047857',
+                                  borderRadius: 'var(--radius-pill)',
                                   cursor: 'pointer',
-                                  fontWeight: '700',
+                                  fontWeight: 500,
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '0.35rem'
+                                  gap: '0.35rem',
+                                  boxShadow: 'var(--shadow-subtle)'
                                 }}
                               >
                                 <Globe size={14} /> Ver Apostilla de La Haya
@@ -999,18 +1536,18 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                                 onClick={() => handleMppreApostille(record)}
                                 disabled={apostilleLoading === record.hash}
                                 style={{
-                                  padding: '0.45rem 0.85rem',
+                                  padding: '0.45rem 0.95rem',
                                   fontSize: '0.78rem',
-                                  background: 'linear-gradient(135deg, #d97706, #b45309)',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  borderRadius: '8px',
+                                  background: 'var(--color-blush-peach)',
+                                  color: 'var(--color-sienna-brown)',
+                                  border: '1px solid rgba(93, 42, 26, 0.2)',
+                                  borderRadius: 'var(--radius-pill)',
                                   cursor: 'pointer',
-                                  fontWeight: '700',
+                                  fontWeight: 600,
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '0.35rem',
-                                  boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)'
+                                  boxShadow: 'var(--shadow-subtle)'
                                 }}
                               >
                                 <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Emitir Apostilla 100% Digital'}
@@ -1023,25 +1560,43 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                             {!isVerified && !isRejected ? (
                               <>
                                 <button 
-                                  className="send-btn" 
                                   onClick={() => handleVerify(record.hash)}
                                   disabled={verifying === record.hash}
-                                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '800' }}
+                                  style={{
+                                    padding: '0.45rem 0.95rem',
+                                    fontSize: '0.78rem',
+                                    background: 'var(--color-ink-black)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-pill)',
+                                    cursor: 'pointer',
+                                    fontWeight: 500,
+                                    boxShadow: 'var(--shadow-subtle)'
+                                  }}
                                 >
                                   {verifying === record.hash ? 'Auditando...' : 'Aprobar'}
                                 </button>
 
                                 <button
                                   onClick={() => setRejectingRecord(record)}
-                                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}
+                                  style={{
+                                    padding: '0.45rem 0.85rem',
+                                    fontSize: '0.78rem',
+                                    background: '#ffffff',
+                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    color: '#b91c1c',
+                                    borderRadius: 'var(--radius-pill)',
+                                    cursor: 'pointer',
+                                    fontWeight: 500
+                                  }}
                                 >
                                   Rechazar
                                 </button>
                               </>
                             ) : isVerified ? (
-                              <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '800', background: 'rgba(16,185,129,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Aprobado</span>
+                              <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 600, background: '#dcfce7', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Aprobado</span>
                             ) : (
-                              <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: '800', background: 'rgba(239,68,68,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Rechazado</span>
+                              <span style={{ fontSize: '0.76rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Rechazado</span>
                             )}
                           </>
                         )}
@@ -1060,45 +1615,120 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
       {/* ─── MODAL PREVISUALIZADOR DEL EXPEDIENTE DIGITAL & PUB ─── */}
       <AnimatePresence>
         {activePUBRecord && (
-          <div className="cert-modal-overlay" style={{ zIndex: 1200, padding: '1rem', backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(23, 25, 28, 0.45)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1200,
+            padding: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
             <motion.div
-              initial={{ y: 30, opacity: 0 }}
+              initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 30, opacity: 0 }}
+              exit={{ y: 20, opacity: 0 }}
               style={{
-                background: '#09090b', borderRadius: '16px', maxWidth: '840px', width: '100%', maxHeight: '92vh',
-                overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.8)', border: '1px solid rgba(217,119,6,0.3)', display: 'flex', flexDirection: 'column'
+                background: '#ffffff',
+                borderRadius: 'var(--radius-cards)',
+                maxWidth: '840px',
+                width: '100%',
+                maxHeight: '92vh',
+                overflow: 'hidden',
+                boxShadow: 'var(--shadow-card)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column'
               }}
             >
-              <div style={{ padding: '1rem 1.4rem', background: '#0c0e17', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Eye color="#d97706" size={20} /> Expediente Digital del Graduando — {activePUBRecord.ownerName}
+              <div style={{
+                padding: '1.25rem 1.6rem',
+                background: '#ffffff',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{
+                  margin: 0,
+                  color: 'var(--color-ink-black)',
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 400,
+                  fontSize: '1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem'
+                }}>
+                  <Eye color="var(--color-ink-black)" size={20} /> Expediente Digital del Graduando — {activePUBRecord.ownerName}
                 </h3>
-                <button onClick={() => setActivePUBRecord(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
+                <button
+                  onClick={() => setActivePUBRecord(null)}
+                  style={{
+                    background: 'var(--color-fog-white)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--color-slate-gray)',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={16} />
+                </button>
               </div>
 
-              <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem', background: 'var(--color-fog-white)' }}>
                 
-                <div style={{ background: 'rgba(30,58,138,0.15)', border: '1px solid rgba(217,119,6,0.3)', padding: '1.2rem', borderRadius: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{
+                  background: '#ffffff',
+                  border: '1px solid var(--border)',
+                  padding: '1.25rem 1.5rem',
+                  borderRadius: '16px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '1.25rem',
+                  boxShadow: 'var(--shadow-subtle)'
+                }}>
                   <div>
-                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Solicitante:</span>
-                    <h4 style={{ margin: '0.2rem 0', color: '#fff', fontSize: '1.1rem' }}>{activePUBRecord.ownerName}</h4>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#fbbf24' }}>C.I: {activePUBRecord.cedula}</p>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Solicitante:</span>
+                    <h4 style={{ margin: '0.2rem 0', color: 'var(--color-ink-black)', fontSize: '1.05rem', fontWeight: 600 }}>{activePUBRecord.ownerName}</h4>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--color-slate-gray)' }}>C.I: {activePUBRecord.cedula}</p>
                   </div>
                   <div>
-                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Trámite Registrado:</span>
-                    <h4 style={{ margin: '0.2rem 0', color: '#fff', fontSize: '1rem' }}>{activePUBRecord.documentType || 'Registro de Título USM'}</h4>
-                    <span style={{ fontSize: '0.78rem', color: (activePUBRecord.status || '').includes('Verificado') ? '#10b981' : (activePUBRecord.status || '').includes('Rechazado') ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }}>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Trámite Registrado:</span>
+                    <h4 style={{ margin: '0.2rem 0', color: 'var(--color-ink-black)', fontSize: '1rem', fontWeight: 600 }}>{activePUBRecord.documentType || 'Registro de Título USM'}</h4>
+                    <span style={{
+                      fontSize: '0.76rem',
+                      color: (activePUBRecord.status || '').includes('Verificado') ? '#15803d' : (activePUBRecord.status || '').includes('Rechazado') ? '#b91c1c' : 'var(--color-sienna-brown)',
+                      fontWeight: 600
+                    }}>
                       Estado: {activePUBRecord.status}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ background: '#fff', color: '#000', padding: '1.5rem', borderRadius: '8px', fontFamily: 'serif', lineHeight: '1.4' }} id="gov-pub-preview-print">
-                  <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '12px' }}>
+                <div style={{
+                  background: '#ffffff',
+                  color: '#17191c',
+                  padding: '2rem',
+                  borderRadius: '16px',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow-subtle)',
+                  fontFamily: 'serif',
+                  lineHeight: '1.5'
+                }} id="gov-pub-preview-print">
+                  <div style={{ textAlign: 'center', borderBottom: '2px solid #17191c', paddingBottom: '10px', marginBottom: '14px' }}>
                     <p style={{ margin: 0, fontSize: '9pt', fontWeight: 'bold' }}>REPÚBLICA BOLIVARIANA DE VENEZUELA</p>
-                    <p style={{ margin: 0, fontSize: '8pt' }}>SERVICIO AUTÓNOMO DE REGISTROS Y NOTARÍAS (SAREN)</p>
-                    <h3 style={{ margin: '6px 0', fontSize: '11pt', textDecoration: 'underline' }}>PLANILLA ÚNICA BANCARIA (PUB) — VISTA AUDITORÍA</h3>
+                    <p style={{ margin: 0, fontSize: '8pt', color: '#555' }}>SERVICIO AUTÓNOMO DE REGISTROS Y NOTARÍAS (SAREN)</p>
+                    <h3 style={{ margin: '8px 0', fontSize: '11pt', textDecoration: 'underline' }}>PLANILLA ÚNICA BANCARIA (PUB) — VISTA AUDITORÍA</h3>
                   </div>
                   <p style={{ fontSize: '9pt' }}><strong>Nombre Solicitante:</strong> {activePUBRecord.ownerName}</p>
                   <p style={{ fontSize: '9pt' }}><strong>Cédula:</strong> {activePUBRecord.cedula}</p>
@@ -1109,18 +1739,44 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
               </div>
 
-              <div style={{ padding: '1rem', background: '#0c0e17', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
+              <div style={{
+                padding: '1.1rem 1.6rem',
+                background: '#ffffff',
+                borderTop: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.75rem'
+              }}>
                 {!(activePUBRecord.status || '').includes('Verificado') && (
                   <button
                     onClick={() => { handleVerify(activePUBRecord.hash); setActivePUBRecord(null); }}
-                    style={{ padding: '0.65rem 1.2rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                    style={{
+                      padding: '0.65rem 1.25rem',
+                      background: 'var(--color-ink-black)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.84rem',
+                      boxShadow: 'var(--shadow-subtle)'
+                    }}
                   >
                     Aprobar y Registrar en Blockchain
                   </button>
                 )}
                 <button
                   onClick={() => setActivePUBRecord(null)}
-                  style={{ padding: '0.65rem 1.2rem', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    background: '#ffffff',
+                    border: '1px solid var(--border)',
+                    color: 'var(--color-ink-black)',
+                    borderRadius: 'var(--radius-pill)',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontSize: '0.84rem'
+                  }}
                 >
                   Cerrar Previsualización
                 </button>

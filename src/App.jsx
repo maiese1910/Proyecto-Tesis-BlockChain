@@ -93,24 +93,64 @@ function App() {
   // 1. SI ES FUNCIONARIO GUBERNAMENTAL LOGUEADO -> MOSTRAR PANEL GUBERNAMENTAL / AUDITORÍA
   if (adminUser) {
     return (
-      <div className="app-layout" style={{ background: '#020617' }}>
+      <div className="app-layout" style={{ background: 'var(--color-mist-gray)', minHeight: '100vh', color: 'var(--color-ink-black)' }}>
         <ToastNotification />
         <div style={{ width: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-          <div className="admin-header">
+          <div className="admin-header" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', padding: '0.9rem 2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
-              <Shield size={24} color="#ef4444" />
-              <h1 style={{ fontSize: '1.2rem', color: '#f8fafc', margin: 0 }}>Panel de Auditoría Gubernamental — {adminUser?.ente || 'Gobierno'}</h1>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                backgroundColor: 'var(--color-fog-white)',
+                border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--color-ink-black)'
+              }}>
+                <Shield size={18} />
+              </div>
+              <h1 style={{
+                fontSize: '1.25rem',
+                fontFamily: 'var(--font-serif)',
+                fontWeight: 400,
+                color: 'var(--color-ink-black)',
+                margin: 0
+              }}>
+                Panel de Auditoría Gubernamental — {adminUser?.ente || 'Gobierno'}
+              </h1>
               {adminUser && (
-                <span style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600' }}>
+                <span style={{
+                  background: 'var(--color-blush-peach)',
+                  color: 'var(--color-sienna-brown)',
+                  border: '1px solid rgba(93, 42, 26, 0.15)',
+                  padding: '0.2rem 0.75rem',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: '0.78rem',
+                  fontWeight: 500
+                }}>
                   {adminUser.cargo || 'Funcionario'} ({adminUser.username})
                 </span>
               )}
             </div>
-            <button onClick={handleAdminLogout} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <button
+              onClick={handleAdminLogout}
+              style={{
+                background: '#ffffff',
+                border: '1px solid var(--border)',
+                color: 'var(--color-ink-black)',
+                padding: '0.45rem 1rem',
+                borderRadius: 'var(--radius-pill)',
+                fontSize: '0.82rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                boxShadow: 'var(--shadow-subtle)',
+                transition: 'all 0.2s ease'
+              }}
+            >
               Cerrar Sesión Auditoría
             </button>
           </div>
-          <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
+          <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem', backgroundColor: 'var(--color-mist-gray)' }}>
             {adminUser?.ente === 'USM' ? (
               <AdminDashboard adminData={adminUser} />
             ) : (
