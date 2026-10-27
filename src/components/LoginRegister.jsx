@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, User, CreditCard, BookOpen, ArrowRight, Shield } from 'lucide-react';
+import { Award, User, CreditCard, BookOpen, ArrowRight, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { profilesAPI, dynamicDataAPI } from '../services/api';
 
@@ -68,7 +68,6 @@ const LoginRegister = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      // Intentamos buscarlo con y sin prefijo V- por flexibilidad
       let queryCedula = loginCedula;
       if (!queryCedula.includes('-')) {
         queryCedula = `V-${formatCedula(queryCedula)}`;
@@ -92,40 +91,75 @@ const LoginRegister = ({ onLogin }) => {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', height: '100dvh', width: '100vw', padding: '1rem',
-      background: 'radial-gradient(circle at 20% 50%, rgba(14,165,233,0.12), transparent 40%), radial-gradient(circle at 80% 30%, rgba(124,58,237,0.12), transparent 40%)',
+      minHeight: '100vh', minHeight: '100dvh', width: '100vw', padding: '1.5rem',
+      backgroundColor: 'var(--surface-canvas)',
       overflow: 'auto',
     }}>
       <div style={{ width: '100%', maxWidth: '480px' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+        {/* Header Institucional Steep */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 72, height: 72, borderRadius: '20px', background: 'linear-gradient(135deg, #0ea5e9, #7c3aed)', marginBottom: '1.5rem', boxShadow: '0 0 30px rgba(14,165,233,0.4)' }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 58, height: 58, borderRadius: '50%',
+              backgroundColor: 'var(--color-ink-black)',
+              color: '#ffffff',
+              marginBottom: '1rem',
+              boxShadow: 'var(--shadow-button)'
+            }}
           >
-            <GraduationCap size={36} color="white" />
+            <Award size={28} color="#ffffff" />
           </div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, background: 'linear-gradient(to right, #38bdf8, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            USM Validation Platform
+          <h1 style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: '1.85rem',
+            fontWeight: 400,
+            color: 'var(--color-ink-black)',
+            margin: 0,
+            letterSpacing: '-0.02em'
+          }}>
+            Plataforma USM
           </h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            Plataforma Descentralizada — Ingeniería 10mo Semestre
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.4rem', fontSize: '0.92rem' }}>
+            Sistema Descentralizado de Validación Documental
           </p>
         </div>
 
-        <div className="glass-panel" style={{ padding: '2.5rem' }}>
+        <motion.div
+          className="glass-panel"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            padding: '2.5rem',
+            backgroundColor: '#ffffff',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-cards)',
+            boxShadow: 'var(--shadow-artifact)'
+          }}
+        >
 
           {/* ── Bienvenida ────────────────────────────────────────── */}
           {mode === 'welcome' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>¿Cómo deseas continuar?</h2>
+              <h2 style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '1.35rem',
+                fontWeight: 400,
+                textAlign: 'center',
+                marginBottom: '0.5rem',
+                color: 'var(--color-ink-black)'
+              }}>
+                ¿Cómo deseas continuar?
+              </h2>
               <button
                 className="send-btn"
-                style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', fontSize: '1rem' }}
+                style={{ padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', fontSize: '0.94rem' }}
                 onClick={() => setMode('register')}
               >
-                <User size={20} /> Crear Perfil de Graduando <ArrowRight size={18} />
+                <User size={18} /> Crear Perfil de Graduando <ArrowRight size={16} />
               </button>
               <button
+                className="btn-ghost"
                 onClick={() => {
                   const stored = localStorage.getItem('usm_user');
                   if (stored) {
@@ -134,30 +168,36 @@ const LoginRegister = ({ onLogin }) => {
                     setMode('login');
                   }
                 }}
-                style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', fontSize: '1rem', transition: 'all 0.2s' }}
+                style={{ padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', fontSize: '0.94rem' }}
               >
-                <Shield size={20} /> Ya tengo un perfil registrado
+                <Shield size={18} /> Ya tengo un perfil registrado
               </button>
             </div>
           )}
 
           {/* ── Registro ──────────────────────────────────────────── */}
           {mode === 'register' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-              <h2 style={{ marginBottom: '0.5rem' }}>Crear Perfil</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+              <h2 style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '1.35rem',
+                fontWeight: 400,
+                color: 'var(--color-ink-black)',
+                margin: 0
+              }}>
+                Crear Perfil de Graduando
+              </h2>
 
-              {[{ icon: <User size={16} />, placeholder: 'Nombre completo (ej: Juan Pérez)', key: 'nombre' }].map(f => (
-                <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.2rem 1rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{f.icon}</span>
-                  <input
-                    className="chat-input"
-                    style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.8rem 0' }}
-                    placeholder={f.placeholder}
-                    value={form[f.key]}
-                    onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  />
-                </div>
-              ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', padding: '0.2rem 1rem' }}>
+                <span style={{ color: 'var(--color-slate-gray)' }}><User size={16} /></span>
+                <input
+                  className="chat-input"
+                  style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.8rem 0' }}
+                  placeholder="Nombre completo (ej: Juan Pérez)"
+                  value={form.nombre}
+                  onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
+                />
+              </div>
 
               {/* Campo de cédula con toggle V/E */}
               <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
@@ -167,24 +207,24 @@ const LoginRegister = ({ onLogin }) => {
                     type="button"
                     onClick={() => setForm(p => ({ ...p, cedula_tipo: tipo }))}
                     style={{
-                      padding: '0.8rem 1rem',
-                      borderRadius: '8px',
+                      padding: '0.75rem 1rem',
+                      borderRadius: 'var(--radius-inputs)',
                       border: '1px solid',
                       cursor: 'pointer',
-                      fontWeight: '700',
-                      fontSize: '1rem',
+                      fontWeight: 500,
+                      fontSize: '0.95rem',
                       transition: 'all 0.2s',
-                      minWidth: '52px',
-                      borderColor: form.cedula_tipo === tipo ? 'rgba(14,165,233,0.6)' : 'var(--border)',
-                      background: form.cedula_tipo === tipo ? 'rgba(14,165,233,0.15)' : 'rgba(255,255,255,0.05)',
-                      color: form.cedula_tipo === tipo ? 'var(--primary)' : 'var(--text-muted)',
+                      minWidth: '50px',
+                      borderColor: form.cedula_tipo === tipo ? 'var(--color-ink-black)' : 'var(--border)',
+                      background: form.cedula_tipo === tipo ? 'var(--color-ink-black)' : '#ffffff',
+                      color: form.cedula_tipo === tipo ? '#ffffff' : 'var(--text-secondary)',
                     }}
                   >
                     {tipo}
                   </button>
                 ))}
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.2rem 1rem' }}>
-                  <CreditCard size={16} color="var(--text-muted)" />
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', padding: '0.2rem 1rem' }}>
+                  <CreditCard size={16} color="var(--color-slate-gray)" />
                   <input
                     className="chat-input"
                     style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.8rem 0' }}
@@ -196,8 +236,8 @@ const LoginRegister = ({ onLogin }) => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.2rem 1rem' }}>
-                <BookOpen size={16} color="var(--text-muted)" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', padding: '0.2rem 1rem' }}>
+                <BookOpen size={16} color="var(--color-slate-gray)" />
                 <select
                   className="chat-input"
                   style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.8rem 0' }}
@@ -209,16 +249,16 @@ const LoginRegister = ({ onLogin }) => {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
                 {['8vo', '9no', '10mo'].map(s => (
                   <button
                     key={s}
                     onClick={() => setForm(p => ({ ...p, semestre: s }))}
                     style={{
-                      flex: 1, padding: '0.7rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem', transition: 'all 0.2s',
-                      background: form.semestre === s ? 'rgba(14,165,233,0.2)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${form.semestre === s ? 'rgba(14,165,233,0.5)' : 'var(--border)'}`,
-                      color: form.semestre === s ? 'var(--primary)' : 'var(--text-muted)',
+                      flex: 1, padding: '0.65rem', borderRadius: 'var(--radius-inputs)', cursor: 'pointer', fontWeight: 500, fontSize: '0.86rem', transition: 'all 0.2s',
+                      background: form.semestre === s ? 'var(--color-ink-black)' : '#ffffff',
+                      border: `1px solid ${form.semestre === s ? 'var(--color-ink-black)' : 'var(--border)'}`,
+                      color: form.semestre === s ? '#ffffff' : 'var(--text-secondary)',
                     }}
                   >
                     {s} Sem.
@@ -226,12 +266,12 @@ const LoginRegister = ({ onLogin }) => {
                 ))}
               </div>
 
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: '500' }}>{error}</p>}
+              {error && <p style={{ color: 'var(--color-sienna-brown)', fontSize: '0.84rem', fontWeight: 500, margin: 0 }}>{error}</p>}
 
-              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)' }} onClick={validateAndRegister} disabled={loading}>
+              <button className="send-btn" style={{ padding: '0.85rem', marginTop: '0.5rem' }} onClick={validateAndRegister} disabled={loading}>
                 {loading ? 'Guardando...' : 'Crear Perfil e Iniciar Sesión'}
               </button>
-              <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}>
+              <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.86rem', textDecoration: 'underline' }}>
                 Volver al Inicio
               </button>
             </div>
@@ -240,11 +280,21 @@ const LoginRegister = ({ onLogin }) => {
           {/* ── Login ─────────────────────────────────────────────── */}
           {mode === 'login' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', textAlign: 'center' }}>
-              <h2>Acceder a mi Perfil</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Ingresa tu número de cédula para recuperar tus datos de la nube.</p>
+              <h2 style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '1.35rem',
+                fontWeight: 400,
+                color: 'var(--color-ink-black)',
+                margin: 0
+              }}>
+                Acceder a mi Perfil
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', margin: 0 }}>
+                Ingresa tu número de cédula para recuperar tus datos de la nube.
+              </p>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.2rem 1rem', marginTop: '0.5rem' }}>
-                <CreditCard size={16} color="var(--text-muted)" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', padding: '0.2rem 1rem', marginTop: '0.5rem' }}>
+                <CreditCard size={16} color="var(--color-slate-gray)" />
                 <input
                   className="chat-input"
                   style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.8rem 0' }}
@@ -254,16 +304,16 @@ const LoginRegister = ({ onLogin }) => {
                 />
               </div>
 
-              {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{error}</p>}
-              <button className="send-btn" style={{ padding: '1rem', marginTop: '0.5rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)' }} onClick={handleLogin} disabled={loading}>
-                <Shield size={18} /> {loading ? 'Buscando...' : 'Acceder a mi perfil'}
+              {error && <p style={{ color: 'var(--color-sienna-brown)', fontSize: '0.84rem', margin: 0 }}>{error}</p>}
+              <button className="send-btn" style={{ padding: '0.85rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} onClick={handleLogin} disabled={loading}>
+                <Shield size={16} /> {loading ? 'Buscando...' : 'Acceder a mi perfil'}
               </button>
-              <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.86rem', textDecoration: 'underline' }}>
                 ← Volver
               </button>
             </div>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

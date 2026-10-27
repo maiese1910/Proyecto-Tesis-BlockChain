@@ -140,8 +140,9 @@ const BlockchainVerifier = ({ initialHash }) => {
             >
               {result.exists ? (
                 /* ─── STEEP ACCENT CARD: BLUSH PEACH (#fbe1d1) CON SIENNA BROWN (#5d2a1a) ─── */
-                <div
+                <motion.div
                   className="card-peach"
+                  whileHover={{ y: -4, scale: 1.008 }}
                   style={{
                     padding: '2.25rem',
                     borderRadius: 'var(--radius-cards)',
@@ -211,13 +212,16 @@ const BlockchainVerifier = ({ initialHash }) => {
                       { label: 'Tipo de Documento', value: result.documentType },
                       { label: 'Fecha de Certificación', value: formatTimestamp(result.timestamp) },
                     ].map(item => (
-                      <div
+                      <motion.div
                         key={item.label}
+                        whileHover={{ y: -3, scale: 1.01 }}
                         style={{
                           backgroundColor: '#ffffff',
                           padding: '1.1rem',
                           borderRadius: 'var(--radius-inputs)',
-                          border: '1px solid rgba(93, 42, 26, 0.12)'
+                          border: '1px solid rgba(93, 42, 26, 0.12)',
+                          boxShadow: '0 2px 8px rgba(93, 42, 26, 0.05)',
+                          transition: 'box-shadow 0.2s ease'
                         }}
                       >
                         <p style={{
@@ -239,7 +243,7 @@ const BlockchainVerifier = ({ initialHash }) => {
                         }}>
                           {item.value}
                         </p>
-                      </div>
+                      </motion.div>
                     ))}
 
                     <div style={{ gridColumn: '1 / -1' }}>
@@ -305,7 +309,7 @@ const BlockchainVerifier = ({ initialHash }) => {
                     <ShieldCheck size={16} />
                     <span>Registro respaldado mediante contrato inteligente verificable en la red Ethereum.</span>
                   </div>
-                </div>
+                </motion.div>
               ) : (
                 /* Estado: Documento No Encontrado */
                 <div style={{

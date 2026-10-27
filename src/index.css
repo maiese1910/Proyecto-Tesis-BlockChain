@@ -60,36 +60,36 @@
   --radius-buttons: 9999px;
   --radius-pill: 9999px;
 
-  /* Shadows — Soft, Multi-Layered with Hover Depth */
-  --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 16px -2px rgba(23, 25, 28, 0.04);
-  --shadow-artifact: 0 1px 3px rgba(0, 0, 0, 0.06), 0 12px 32px -4px rgba(23, 25, 28, 0.08);
-  --shadow-hover: 0 18px 38px -6px rgba(23, 25, 28, 0.12), 0 0 0 1px rgba(23, 25, 28, 0.08);
+  /* Shadows — Soft, Multi-Layered with Tactile Hover Depth */
+  --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px -2px rgba(23, 25, 28, 0.05);
+  --shadow-artifact: 0 1px 3px rgba(0, 0, 0, 0.05), 0 12px 32px -4px rgba(23, 25, 28, 0.09);
+  --shadow-hover: 0 16px 36px -4px rgba(23, 25, 28, 0.12), 0 2px 6px -1px rgba(23, 25, 28, 0.04);
   --shadow-button: 0 2px 8px rgba(23, 25, 28, 0.14);
   --shadow-button-hover: 0 8px 24px rgba(23, 25, 28, 0.22);
 
-  /* Surfaces — Warm Paper Canvas against crisp Paper White Cards */
-  --surface-canvas: #f6f6f8;
+  /* Surfaces — Calm, refined Warm Paper Canvas vs. crisp Pure White Cards */
+  --surface-canvas: #f2f3f5;
   --surface-card-mist: #ffffff;
   --surface-section-fog: #fafafb;
   --surface-accent-blush: #fbe1d1;
   --surface-elevated-white: #ffffff;
 
-  /* Mapeo Semántico del Sistema */
-  --bg-dark: #f6f6f8;
+  /* Mapeo Semántico del Sistema con Alto Contraste Editorial */
+  --bg-dark: #f2f3f5;
   --bg-panel: #ffffff;
   --bg-panel-hover: #ffffff;
-  --border: #e2e2e6;
-  --border-subtle: #eaeaea;
-  --border-hairline: rgba(23, 25, 28, 0.08);
+  --border: #dbdce2;
+  --border-subtle: #e6e7eb;
+  --border-hairline: rgba(23, 25, 28, 0.09);
   --text-main: #17191c;
-  --text-secondary: #474b55;
-  --text-muted: #646875;
+  --text-secondary: #353842;
+  --text-muted: #535763;
 
   /* Botones Primarios (Pill Ink Black) */
   --primary: #17191c;
   --primary-hover: #26292f;
   --primary-active: #000000;
-  --primary-light: #474b55;
+  --primary-light: #353842;
   --primary-glow: rgba(23, 25, 28, 0.14);
 
   /* Acento y Validación (Blush Peach #fbe1d1 y Sienna Brown #5d2a1a) */
@@ -192,7 +192,7 @@ select option:checked {
   height: 100vh;
   height: 100dvh;
   width: 100vw;
-  background-color: var(--color-paper-white);
+  background-color: var(--surface-canvas);
 }
 
 /* Sidebar */
@@ -224,9 +224,9 @@ select option:checked {
 
 .sidebar-brand p {
   font-size: 0.8rem;
-  color: var(--color-slate-gray);
+  color: var(--text-secondary);
   margin-top: 0.4rem;
-  font-weight: 400;
+  font-weight: 450;
 }
 
 .nav-menu {
@@ -241,30 +241,40 @@ select option:checked {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.75rem 1.1rem;
+  padding: 0.75rem 1.15rem;
   border-radius: var(--radius-pill);
-  color: var(--color-slate-gray);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   border: 1px solid transparent;
   font-size: 0.92rem;
   font-weight: 450;
 }
 
 .nav-item:hover {
-  background: var(--color-mist-gray);
+  background: #ffffff;
   color: var(--color-ink-black);
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-color: rgba(23, 25, 28, 0.06);
 }
 
 .nav-item.active {
   background: var(--color-ink-black);
   color: #ffffff;
   border-color: var(--color-ink-black);
+  transform: translateX(3px);
+  box-shadow: 0 4px 14px rgba(23, 25, 28, 0.2);
 }
 
 .nav-item .icon {
   width: 18px;
   height: 18px;
+  transition: transform 0.2s ease;
+}
+
+.nav-item:hover .icon {
+  transform: scale(1.1);
 }
 
 /* Main Content */
@@ -274,7 +284,7 @@ select option:checked {
   overflow-y: auto;
   position: relative;
   min-width: 0;
-  background-color: var(--color-paper-white);
+  background-color: var(--surface-canvas);
 }
 
 .glass-panel {
@@ -283,7 +293,13 @@ select option:checked {
   border-radius: var(--radius-cards);
   padding: 2.25rem;
   box-shadow: var(--shadow-subtle);
-  transition: box-shadow 0.2s ease;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+}
+
+.glass-panel:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  border-color: #cbccd2;
 }
 
 /* Dashboard Home */
@@ -301,9 +317,10 @@ select option:checked {
 }
 
 .dashboard-header p {
-  color: var(--color-slate-gray);
+  color: var(--text-secondary);
   font-size: 1.05rem;
   font-weight: 400;
+  line-height: 1.55;
 }
 
 .stats-grid {
@@ -316,16 +333,24 @@ select option:checked {
 .stat-card {
   padding: 1.5rem;
   border-radius: var(--radius-cards);
-  background: var(--color-fog-white);
+  background: #ffffff;
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-subtle);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  cursor: pointer;
 }
 
 .stat-card:hover {
-  box-shadow: var(--shadow-subtle);
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-hover);
+  border-color: #b8b9c2;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1);
 }
 
 .stat-icon {
@@ -339,6 +364,7 @@ select option:checked {
   justify-content: center;
   font-size: 1.4rem;
   flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Modals / Specific Views */
@@ -460,7 +486,7 @@ select.chat-input option {
 
 .chat-input:focus {
   border-color: var(--color-ink-black);
-  box-shadow: 0 0 0 1px var(--color-ink-black);
+  box-shadow: 0 0 0 2px rgba(23, 25, 28, 0.08);
 }
 
 .send-btn {
@@ -469,21 +495,33 @@ select.chat-input option {
   border: 1px solid var(--color-ink-black);
   border-radius: var(--radius-pill);
   padding: 0.75rem 1.6rem;
-  font-weight: 400;
+  font-weight: 450;
   font-size: 0.92rem;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
-  box-shadow: none;
+  box-shadow: var(--shadow-button);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .send-btn:hover {
-  background: #2b2f36;
-  border-color: #2b2f36;
+  background: #26292f;
+  border-color: #26292f;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-button-hover);
+}
+
+.send-btn:hover svg {
+  transform: translateX(3px);
+  transition: transform 0.2s ease;
 }
 
 .send-btn:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(23, 25, 28, 0.12);
 }
 
 .send-btn:disabled {
@@ -492,23 +530,36 @@ select.chat-input option {
   border-color: var(--border);
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 /* Secondary ghost pill button */
 .btn-ghost {
-  background: transparent;
+  background: #ffffff;
   color: var(--color-ink-black);
-  border: 1px solid var(--color-ink-black);
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   padding: 0.75rem 1.5rem;
-  font-weight: 400;
+  font-weight: 450;
   font-size: 0.92rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .btn-ghost:hover {
-  background: var(--color-mist-gray);
+  background: #ffffff;
+  border-color: var(--color-ink-black);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(23, 25, 28, 0.09);
+}
+
+.btn-ghost:active {
+  transform: translateY(0) scale(0.98);
 }
 
 /* ─── STEEP ACCENT CARD & BADGE (Blush Peach #fbe1d1 & Sienna Brown #5d2a1a) ─── */
@@ -524,6 +575,7 @@ select.chat-input option {
   font-size: 0.82rem;
   font-weight: 500;
   letter-spacing: 0.01em;
+  box-shadow: 0 1px 3px rgba(93, 42, 26, 0.08);
 }
 
 .card-validated,
@@ -531,8 +583,15 @@ select.chat-input option {
   background: var(--color-blush-peach) !important;
   color: var(--color-sienna-brown) !important;
   border-radius: var(--radius-cards) !important;
-  border: 1px solid rgba(93, 42, 26, 0.12) !important;
-  box-shadow: none !important;
+  border: 1px solid rgba(93, 42, 26, 0.16) !important;
+  box-shadow: 0 2px 10px rgba(93, 42, 26, 0.06) !important;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.card-validated:hover,
+.card-peach:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px -4px rgba(93, 42, 26, 0.18) !important;
 }
 
 @keyframes slideIn {
@@ -570,9 +629,17 @@ select.chat-input option {
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-radius: var(--radius-inputs);
-  background: var(--color-fog-white);
+  background: #ffffff;
   border: 1px solid var(--border);
   color: var(--color-ink-black);
+  box-shadow: var(--shadow-subtle);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.result-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 14px rgba(23, 25, 28, 0.07);
+  border-color: #b8b9c2;
 }
 
 .result-item.error {
@@ -607,10 +674,18 @@ select.chat-input option {
 }
 
 .step-card {
-  background: var(--color-fog-white);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-cards);
   padding: 1.5rem;
+  box-shadow: var(--shadow-subtle);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+}
+
+.step-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: #b8b9c2;
 }
 
 /* Scrollbar */

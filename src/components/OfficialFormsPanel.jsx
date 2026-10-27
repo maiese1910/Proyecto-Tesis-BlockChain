@@ -318,37 +318,43 @@ const OfficialFormsPanel = ({ user }) => {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.2rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem" }}>
         {OFFICIAL_DOCS.map((doc) => (
           <motion.div
             key={doc.id}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5, scale: 1.012 }}
             className="glass-panel"
             style={{
               display: "flex", flexDirection: "column", justifyContent: "space-between",
-              borderTop: `4px solid ${doc.color}`, padding: "1.4rem"
+              padding: "1.6rem",
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-cards)',
+              boxShadow: 'var(--shadow-subtle)'
             }}
           >
             <div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.9rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.7rem", fontWeight: "700", textTransform: "uppercase", color: doc.color, background: `${doc.color}15`, padding: "0.25rem 0.6rem", borderRadius: "12px", border: `1px solid ${doc.color}33`, whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: "0.74rem", fontWeight: "600", textTransform: "uppercase", color: "var(--color-ink-black)", background: "var(--color-mist-gray)", padding: "0.25rem 0.65rem", borderRadius: "var(--radius-pill)", border: "1px solid var(--border)", whiteSpace: "nowrap" }}>
                     {doc.category}
                   </span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "600" }}>
+                  <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: "500" }}>
                     {doc.ente}
                   </span>
                 </div>
               </div>
-              <h3 style={{ fontSize: "1.05rem", margin: "0 0 0.5rem 0", color: "var(--text-main)" }}>{doc.title}</h3>
-              <p style={{ fontSize: "0.83rem", color: "var(--text-muted)", margin: "0 0 1.2rem 0", lineHeight: "1.4" }}>{doc.desc}</p>
+              <h3 style={{ fontSize: "1.1rem", margin: "0 0 0.5rem 0", color: "var(--color-ink-black)", fontWeight: 500 }}>{doc.title}</h3>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "0 0 1.2rem 0", lineHeight: "1.45" }}>{doc.desc}</p>
             </div>
 
-            <div style={{ display: "flex", gap: "0.6rem", marginTop: "1rem" }}>
+            <div style={{ display: "flex", gap: "0.65rem", marginTop: "1rem", flexWrap: 'wrap' }}>
               <button
                 onClick={() => setSelectedDoc(doc)}
-                style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-main)", padding: "0.6rem 0.8rem", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "0.8rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                className="btn-ghost"
+                style={{ flex: 1, padding: "0.6rem 0.9rem", fontSize: "0.82rem" }}
               >
                 <Eye size={15} /> Ver Modelo
               </button>
@@ -357,7 +363,7 @@ const OfficialFormsPanel = ({ user }) => {
                 onClick={() => handleDownloadPDF(doc)}
                 disabled={downloading === doc.id}
                 className="send-btn"
-                style={{ flex: 1.2, padding: "0.6rem 0.8rem", fontSize: "0.8rem", background: `linear-gradient(135deg, ${doc.color}, #3b82f6)`, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                style={{ flex: 1.2, padding: "0.6rem 1rem", fontSize: "0.82rem" }}
               >
                 <Download size={15} /> {downloading === doc.id ? "Generando..." : "Descargar PDF"}
               </button>
@@ -376,50 +382,51 @@ const OfficialFormsPanel = ({ user }) => {
             exit={{ opacity: 0 }}
             style={{
               position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-              background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center",
-              justifyContent: "center", zIndex: 1200, padding: "1rem"
+              background: "rgba(23, 25, 28, 0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
+              justifyContent: "center", zIndex: 1200, padding: "1.25rem"
             }}
           >
             <motion.div
-              initial={{ scale: 0.9, y: 20 }}
+              initial={{ scale: 0.94, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
+              exit={{ scale: 0.94, y: 20 }}
               style={{
-                background: "#09090b", borderRadius: "16px", border: "1px solid var(--border)",
+                background: "#ffffff", borderRadius: "var(--radius-cards)", border: "1px solid var(--border)",
                 maxWidth: "750px", width: "100%", maxHeight: "92vh", overflow: "hidden",
-                display: "flex", flexDirection: "column"
+                display: "flex", flexDirection: "column", boxShadow: "var(--shadow-hover)"
               }}
             >
-              <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 10, background: "#0c0e17" }}>
-                <h3 style={{ margin: 0, fontSize: "1.05rem", display: "flex", alignItems: "center", gap: "0.5rem", color: "#fff" }}>
-                  <FileText size={20} color={selectedDoc.color} /> {selectedDoc.title}
+              <div style={{ padding: "1.1rem 1.6rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 10, background: "var(--color-fog-white)" }}>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "0.6rem", color: "var(--color-ink-black)", fontFamily: "var(--font-serif)", fontWeight: 400 }}>
+                  <FileText size={20} color="var(--color-ink-black)" /> {selectedDoc.title}
                 </h3>
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", cursor: "pointer", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  style={{ background: "#ffffff", border: "1px solid var(--border)", color: "var(--color-ink-black)", cursor: "pointer", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
-                  <X size={18} />
+                  <X size={17} />
                 </button>
               </div>
 
-              <div style={{ padding: "1.5rem", overflowY: "auto", flex: 1, background: "#18181b" }}>
+              <div style={{ padding: "1.5rem", overflowY: "auto", flex: 1, background: "var(--surface-canvas)" }}>
                 <div
                   dangerouslySetInnerHTML={{ __html: selectedDoc.content(user) }}
-                  style={{ background: "#ffffff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.5)", overflowX: "auto" }}
+                  style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid var(--border)", boxShadow: "var(--shadow-subtle)", overflowX: "auto" }}
                 />
               </div>
 
-              <div style={{ padding: "0.8rem 1.5rem", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: "1rem", background: "#0c0e17", flexWrap: "wrap" }}>
+              <div style={{ padding: "1rem 1.6rem", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: "1rem", background: "var(--color-fog-white)", flexWrap: "wrap" }}>
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid var(--border)", color: "#fff", padding: "0.6rem 1.2rem", borderRadius: "8px", cursor: "pointer", fontWeight: "600", flex: 1 }}
+                  className="btn-ghost"
+                  style={{ padding: "0.65rem 1.25rem", flex: 1 }}
                 >
                   Cerrar Ventana
                 </button>
                 <button
                   onClick={() => { handleDownloadPDF(selectedDoc); setSelectedDoc(null); }}
                   className="send-btn"
-                  style={{ padding: "0.6rem 1.4rem", background: `linear-gradient(135deg, ${selectedDoc.color}, #3b82f6)`, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", flex: 1 }}
+                  style={{ padding: "0.65rem 1.4rem", flex: 1.2 }}
                 >
                   <Printer size={16} /> Descargar PDF Oficial
                 </button>

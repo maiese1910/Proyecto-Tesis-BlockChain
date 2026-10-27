@@ -210,12 +210,14 @@ const Dashboard = ({ user }) => {
           </motion.h2>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '0.45rem',
-            backgroundColor: 'var(--color-mist-gray)',
+            backgroundColor: '#ffffff',
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius-pill)',
-            padding: '0.25rem 0.8rem',
+            padding: '0.3rem 0.85rem',
             fontSize: '0.78rem',
             color: 'var(--color-ink-black)',
+            fontWeight: 500,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             whiteSpace: 'nowrap',
           }}>
             <div style={{
@@ -225,7 +227,9 @@ const Dashboard = ({ user }) => {
             {wsConnected ? 'WebSocket en vivo' : connected ? 'En vivo' : 'Desconectado'}
           </div>
         </motion.div>
-        <p>Plataforma Descentralizada para la Verificación de Documentos y Ejecución de Procesos Administrativos. Exclusivo para Ingeniería (10mo Semestre).</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', lineHeight: 1.55 }}>
+          Plataforma Descentralizada para la Verificación de Documentos y Ejecución de Procesos Administrativos. Exclusivo para Ingeniería (10mo Semestre).
+        </p>
       </div>
 
       <div className="stats-grid">
@@ -236,6 +240,7 @@ const Dashboard = ({ user }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
+            whileHover={{ y: -6, scale: 1.015 }}
             style={stat.isAccent ? {
               backgroundColor: 'var(--color-blush-peach)',
               color: 'var(--color-sienna-brown)',
@@ -253,10 +258,10 @@ const Dashboard = ({ user }) => {
             </div>
             <div>
               <p style={{
-                color: stat.isAccent ? 'var(--color-sienna-brown)' : 'var(--color-slate-gray)',
+                color: stat.isAccent ? 'var(--color-sienna-brown)' : 'var(--text-secondary)',
                 fontSize: "0.85rem",
                 margin: '0 0 0.2rem 0',
-                fontWeight: stat.isAccent ? 500 : 400
+                fontWeight: stat.isAccent ? 500 : 450
               }}>
                 {stat.title}
               </p>
@@ -310,14 +315,17 @@ const Dashboard = ({ user }) => {
                     key={log + i}
                     initial={{ opacity: 0, y: 4, height: 0 }}
                     animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    whileHover={{ x: 4, backgroundColor: '#ffffff' }}
                     style={{ 
-                      padding: '0.55rem 0', 
+                      padding: '0.55rem 0.5rem', 
+                      borderRadius: '8px',
                       borderBottom: '1px solid var(--border)',
                       color: log.includes('ERROR') ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)',
                       display: 'flex',
                       gap: '0.6rem',
                       alignItems: 'flex-start',
                       wordBreak: 'break-word',
+                      transition: 'background-color 0.15s ease'
                     }}
                   >
                     <span style={{ color: 'var(--color-slate-gray)', opacity: 0.8, flexShrink: 0 }}>❯</span>

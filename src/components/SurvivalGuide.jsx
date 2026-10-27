@@ -174,24 +174,24 @@ const SurvivalGuide = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            <div style={{ marginBottom: '2.5rem', padding: '1.5rem', background: 'rgba(14, 165, 233, 0.05)', borderRadius: '12px', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>
-                <MapPin /> Coordenadas Exactas
+            <div style={{ marginBottom: '2.5rem', padding: '1.75rem', background: 'var(--color-fog-white)', borderRadius: 'var(--radius-cards)', border: '1px solid var(--border)' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.5rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontSize: '1.35rem', fontWeight: 400 }}>
+                <MapPin size={20} color="var(--color-ink-black)" /> Coordenadas Exactas
               </h3>
-              <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>{currentLogic.location}</p>
+              <p style={{ fontSize: '1.05rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>{currentLogic.location}</p>
               
-              <div style={{ position: 'relative', width: '100%', height: '250px', borderRadius: '8px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ position: 'relative', width: '100%', height: '250px', borderRadius: 'var(--radius-inputs)', overflow: 'hidden', marginBottom: '1rem', border: '1px solid var(--border)' }}>
                 <img 
                   src={currentLogic.image} 
                   alt="Fachada de la Sede" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
-                <div style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,0.7)', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <MapPin size={12} color="#fbbf24" /> Foto Referencial de la Sede
+                <div style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(23, 25, 28, 0.85)', color: '#ffffff', padding: '0.35rem 0.85rem', borderRadius: 'var(--radius-pill)', fontSize: '0.75rem', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <MapPin size={12} color="#ffffff" /> Foto Referencial de la Sede
                 </div>
               </div>
 
-              <p style={{ color: 'var(--warning)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <p style={{ color: 'var(--color-sienna-brown)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0, fontWeight: 500 }}>
                 <ShieldAlert size={16} /> {currentLogic.warning}
               </p>
             </div>
@@ -203,18 +203,21 @@ const SurvivalGuide = () => {
                   className="timeline-step"
                   initial={{ opacity: 0, x: -30 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.15 }}
+                  transition={{ delay: index * 0.12 }}
                 >
-                  <div className="step-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                  <motion.div 
+                    className="step-card"
+                    whileHover={{ y: -4, scale: 1.01 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.85rem' }}>
                       {step.icon}
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{step.title}</h3>
-                      <span style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.1)', padding: '0.3rem 1rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.08rem', color: 'var(--color-ink-black)', fontWeight: 500 }}>{step.title}</h3>
+                      <span style={{ marginLeft: 'auto', background: '#ffffff', border: '1px solid var(--border)', padding: '0.25rem 0.9rem', borderRadius: 'var(--radius-pill)', fontSize: '0.8rem', fontWeight: '500', color: 'var(--color-ink-black)', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                         {step.time}
                       </span>
                     </div>
-                    <p style={{ color: 'var(--text-muted)', lineHeight: '1.6' }}>{step.desc}</p>
-                  </div>
+                    <div style={{ color: 'var(--text-secondary)', lineHeight: '1.6', fontSize: '0.92rem' }}>{step.desc}</div>
+                  </motion.div>
                 </motion.div>
               ))}
             </div>

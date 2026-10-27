@@ -225,7 +225,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
   return (
     <div style={{
-      backgroundColor: 'var(--color-paper-white)',
+      backgroundColor: 'var(--surface-canvas)',
       color: 'var(--color-ink-black)',
       minHeight: '100vh',
       width: '100vw',
@@ -238,6 +238,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       <header style={{
         backgroundColor: '#ffffff',
         borderBottom: '1px solid var(--border)',
+        boxShadow: '0 1px 4px rgba(23, 25, 28, 0.03)',
         position: 'sticky',
         top: 0,
         zIndex: 500
@@ -251,7 +252,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           justifyContent: 'space-between',
           alignItems: 'center',
           fontSize: '0.78rem',
-          color: 'var(--color-slate-gray)'
+          color: 'var(--text-secondary)'
         }}>
           <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--color-ink-black)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -291,7 +292,8 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#ffffff'
+              color: '#ffffff',
+              boxShadow: '0 2px 8px rgba(23, 25, 28, 0.15)'
             }}>
               <Award size={20} color="#ffffff" />
             </div>
@@ -307,7 +309,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               }}>
                 Plataforma de Validación USM
               </h1>
-              <p style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', margin: 0 }}>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>
                 Sistema Institucional de Verificación Criptográfica
               </p>
             </div>
@@ -317,19 +319,10 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
               onClick={() => { setRoleTab('student'); scrollToLogin(); }}
+              className="send-btn"
               style={{
                 padding: '0.65rem 1.35rem',
-                borderRadius: 'var(--radius-pill)',
-                border: '1px solid var(--color-ink-black)',
-                cursor: 'pointer',
-                fontWeight: 450,
                 fontSize: '0.85rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: 'var(--color-ink-black)',
-                color: '#ffffff',
-                transition: 'all 0.15s ease'
               }}
             >
               <User size={15} /> Graduando USM
@@ -341,9 +334,6 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               style={{
                 padding: '0.65rem 1.35rem',
                 fontSize: '0.85rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
               }}
             >
               <Shield size={15} /> Ente Auditor (SAREN)
@@ -354,7 +344,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       </header>
 
 
-      {/* ─── HERO SECTION EDITORIAL (SERIF DISPLAY EN PAPEL BLANCO) ─── */}
+      {/* ─── HERO SECTION EDITORIAL (SERIF DISPLAY EN PAPEL CÁLIDO) ─── */}
       <section style={{
         padding: '4.5rem 1.75rem 3rem 1.75rem',
         maxWidth: '1240px',
@@ -372,13 +362,14 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.55rem',
-              backgroundColor: 'var(--color-mist-gray)',
+              backgroundColor: '#ffffff',
               color: 'var(--color-ink-black)',
               padding: '0.45rem 1.25rem',
               borderRadius: 'var(--radius-pill)',
               border: '1px solid var(--border)',
+              boxShadow: '0 1px 4px rgba(23, 25, 28, 0.04)',
               fontSize: '0.84rem',
-              fontWeight: 450,
+              fontWeight: 500,
               marginBottom: '1.75rem'
             }}
           >
@@ -392,7 +383,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               fontFamily: 'var(--font-serif)',
               fontSize: 'clamp(2.4rem, 4.5vw, 3.4rem)',
               fontWeight: 400,
-              lineHeight: 1.12,
+              lineHeight: 1.14,
               maxWidth: '920px',
               margin: '0 auto 1.35rem auto',
               color: 'var(--color-ink-black)',
@@ -402,15 +393,15 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             Plataforma descentralizada para la emisión y verificación de títulos universitarios
           </motion.h1>
 
-          {/* Subtítulo sobrio y reflexivo */}
+          {/* Subtítulo con alto contraste y confort de lectura */}
           <motion.p
             variants={itemVariants}
             style={{
               fontSize: '1.1rem',
-              color: 'var(--color-slate-gray)',
-              maxWidth: '760px',
+              color: 'var(--text-secondary)',
+              maxWidth: '780px',
               margin: '0 auto 2.75rem auto',
-              lineHeight: 1.6,
+              lineHeight: 1.65,
               fontWeight: 400
             }}
           >
@@ -732,47 +723,55 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           {/* Card 1: Graduandos */}
           <motion.div
             variants={itemVariants}
+            whileHover={{ y: -6, scale: 1.015 }}
             style={{
               padding: '1.6rem',
               textAlign: 'center',
-              backgroundColor: 'var(--color-fog-white)',
+              backgroundColor: '#ffffff',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-cards)'
+              borderRadius: 'var(--radius-cards)',
+              boxShadow: 'var(--shadow-subtle)',
+              cursor: 'default'
             }}
           >
-            <User size={22} color="var(--color-slate-gray)" style={{ margin: '0 auto 0.6rem auto' }} />
+            <User size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
             <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
               {stats.graduandos_activos}+
             </h3>
-            <p style={{ fontSize: '0.84rem', color: 'var(--color-slate-gray)', margin: 0 }}>Graduandos Registrados</p>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Graduandos Registrados</p>
           </motion.div>
 
           {/* Card 2: Documentos */}
           <motion.div
             variants={itemVariants}
+            whileHover={{ y: -6, scale: 1.015 }}
             style={{
               padding: '1.6rem',
               textAlign: 'center',
-              backgroundColor: 'var(--color-fog-white)',
+              backgroundColor: '#ffffff',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-cards)'
+              borderRadius: 'var(--radius-cards)',
+              boxShadow: 'var(--shadow-subtle)',
+              cursor: 'default'
             }}
           >
-            <CheckCircle size={22} color="var(--color-slate-gray)" style={{ margin: '0 auto 0.6rem auto' }} />
+            <CheckCircle size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
             <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
               {stats.docs_prevalidados}+
             </h3>
-            <p style={{ fontSize: '0.84rem', color: 'var(--color-slate-gray)', margin: 0 }}>Documentos Pre-validados</p>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Documentos Pre-validados</p>
           </motion.div>
 
           {/* Card 3: THE ACCENT CARD (BLUSH PEACH #fbe1d1 con SIENNA BROWN #5d2a1a) */}
           <motion.div
             variants={itemVariants}
+            whileHover={{ y: -6, scale: 1.015 }}
             className="card-peach"
             style={{
               padding: '1.6rem',
               textAlign: 'center',
-              borderRadius: 'var(--radius-cards)'
+              borderRadius: 'var(--radius-cards)',
+              cursor: 'default'
             }}
           >
             <ShieldCheck size={24} color="var(--color-sienna-brown)" style={{ margin: '0 auto 0.6rem auto' }} />
@@ -787,19 +786,22 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           {/* Card 4: Horas ahorradas */}
           <motion.div
             variants={itemVariants}
+            whileHover={{ y: -6, scale: 1.015 }}
             style={{
               padding: '1.6rem',
               textAlign: 'center',
-              backgroundColor: 'var(--color-fog-white)',
+              backgroundColor: '#ffffff',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-cards)'
+              borderRadius: 'var(--radius-cards)',
+              boxShadow: 'var(--shadow-subtle)',
+              cursor: 'default'
             }}
           >
-            <Clock size={22} color="var(--color-slate-gray)" style={{ margin: '0 auto 0.6rem auto' }} />
+            <Clock size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
             <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
               2.450+ hrs
             </h3>
-            <p style={{ fontSize: '0.84rem', color: 'var(--color-slate-gray)', margin: 0 }}>Horas de Trámite Ahorradas</p>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Horas de Trámite Ahorradas</p>
           </motion.div>
         </motion.div>
       </section>
@@ -808,7 +810,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       {/* ─── PASOS DEL FLUJO OPERATIVO (EDITORIAL STEEP) ─── */}
       <section style={{
         padding: '4.5rem 1.75rem',
-        backgroundColor: 'var(--color-fog-white)',
+        backgroundColor: '#ffffff',
         borderTop: '1px solid var(--border)',
         borderBottom: '1px solid var(--border)'
       }}>
@@ -824,7 +826,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             }}>
               Ciclo operativo del trámite académico
             </h2>
-            <p style={{ color: 'var(--color-slate-gray)', fontSize: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '600px', margin: '0 auto' }}>
               De la captura del título impreso a la apostilla y auditoría gubernamental en 4 etapas verificadas.
             </p>
           </div>
@@ -838,16 +840,17 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             ].map((step) => (
               <motion.div
                 key={step.num}
-                whileHover={{ y: -4 }}
+                whileHover={{ y: -6, scale: 1.015 }}
                 style={{
                   padding: '2rem',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--surface-canvas)',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-cards)',
                   boxShadow: 'var(--shadow-subtle)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '1rem'
+                  gap: '1rem',
+                  cursor: 'default'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -860,14 +863,16 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     {step.num}
                   </span>
                   <div style={{
-                    width: 36,
-                    height: 36,
+                    width: 38,
+                    height: 38,
                     borderRadius: '50%',
-                    backgroundColor: 'var(--color-mist-gray)',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--color-ink-black)'
+                    color: 'var(--color-ink-black)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                   }}>
                     <step.icon size={18} />
                   </div>
@@ -882,7 +887,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                 }}>
                   {step.title}
                 </h3>
-                <p style={{ fontSize: '0.88rem', color: 'var(--color-slate-gray)', margin: 0, lineHeight: 1.55 }}>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55 }}>
                   {step.desc}
                 </p>
               </motion.div>
@@ -899,14 +904,15 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '0.5rem',
-            backgroundColor: 'var(--color-mist-gray)',
+            backgroundColor: '#ffffff',
             color: 'var(--color-ink-black)',
             padding: '0.4rem 1.2rem',
             borderRadius: 'var(--radius-pill)',
             fontSize: '0.82rem',
-            fontWeight: 450,
+            fontWeight: 500,
             marginBottom: '1rem',
-            border: '1px solid var(--border)'
+            border: '1px solid var(--border)',
+            boxShadow: '0 1px 3px rgba(23, 25, 28, 0.04)'
           }}>
             <Server size={14} /> Stack Tecnológico Híbrido Web3
           </div>
@@ -920,7 +926,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           }}>
             Arquitectura de grado institucional
           </h2>
-          <p style={{ color: 'var(--color-slate-gray)', fontSize: '1rem', maxWidth: '640px', margin: '0 auto' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '640px', margin: '0 auto' }}>
             Combinación óptima de computación local en WebAssembly y contratos inteligentes en la red pública descentralizada.
           </p>
         </div>
@@ -932,28 +938,31 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             { title: 'Backend Asíncrono', badge: 'Python FastAPI', desc: 'Motor de reconocimiento de entidades nombradas (NER) y cálculo de aranceles bancarios.', icon: Server },
             { title: 'Almacenamiento Seguro', badge: 'Supabase PostgreSQL', desc: 'Base de datos encriptada para perfiles universitarios e historial de comprobantes.', icon: Database },
           ].map((item, idx) => (
-            <div
+            <motion.div
               key={idx}
+              whileHover={{ y: -6, scale: 1.015 }}
               style={{
                 padding: '1.8rem',
-                backgroundColor: 'var(--color-fog-white)',
+                backgroundColor: '#ffffff',
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-cards)',
+                boxShadow: 'var(--shadow-subtle)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.85rem'
+                gap: '0.85rem',
+                cursor: 'default'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <item.icon size={20} color="var(--color-ink-black)" />
                 <span style={{
                   fontSize: '0.74rem',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--surface-canvas)',
                   padding: '0.25rem 0.65rem',
                   borderRadius: 'var(--radius-pill)',
                   color: 'var(--color-ink-black)',
                   border: '1px solid var(--border)',
-                  fontWeight: 450
+                  fontWeight: 500
                 }}>
                   {item.badge}
                 </span>
@@ -967,10 +976,10 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               }}>
                 {item.title}
               </h3>
-              <p style={{ fontSize: '0.86rem', color: 'var(--color-slate-gray)', lineHeight: 1.55, margin: 0 }}>
+              <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
                 {item.desc}
               </p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
@@ -979,7 +988,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       {/* ─── FUNDAMENTACIÓN CIENTÍFICA Y MARCO LEGAL VENEZOLANO ─── */}
       <section style={{
         padding: '4.5rem 1.75rem',
-        backgroundColor: 'var(--color-fog-white)',
+        backgroundColor: '#ffffff',
         borderTop: '1px solid var(--border)',
         borderBottom: '1px solid var(--border)'
       }}>
@@ -1004,8 +1013,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             <div style={{
               padding: '2rem',
               borderRadius: 'var(--radius-cards)',
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border)'
+              backgroundColor: 'var(--surface-canvas)',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--shadow-subtle)'
             }}>
               <h3 style={{
                 fontFamily: 'var(--font-serif)',
@@ -1016,26 +1026,26 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
               }}>
                 Cumplimiento de la Ley de Simplificación de Trámites
               </h3>
-              <p style={{ fontSize: '0.92rem', color: 'var(--color-slate-gray)', lineHeight: 1.6, margin: '0 0 1.25rem 0' }}>
+              <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 1.25rem 0' }}>
                 Conforme al Artículo 4 y 7 de la <strong>Ley de Simplificación de Trámites Administrativos</strong>, las instituciones del Estado deben adoptar medios electrónicos para eliminar la exigencia repetitiva de documentos físicos cuando su autenticidad pueda ser validada criptográficamente.
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                <div style={{ backgroundColor: 'var(--color-fog-white)', padding: '1.15rem', borderRadius: 'var(--radius-inputs)', border: '1px solid var(--border)' }}>
+                <motion.div whileHover={{ y: -3 }} style={{ backgroundColor: '#ffffff', padding: '1.15rem', borderRadius: 'var(--radius-inputs)', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                   <h4 style={{ color: 'var(--color-ink-black)', fontSize: '0.9rem', margin: '0 0 0.35rem 0', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 500 }}>
                     <Lock size={14} /> Inmutabilidad Criptográfica
                   </h4>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--color-slate-gray)', margin: 0, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
                     Cualquier alteración matemática invalida automáticamente el código de verificación del título.
                   </p>
-                </div>
-                <div style={{ backgroundColor: 'var(--color-fog-white)', padding: '1.15rem', borderRadius: 'var(--radius-inputs)', border: '1px solid var(--border)' }}>
+                </motion.div>
+                <motion.div whileHover={{ y: -3 }} style={{ backgroundColor: '#ffffff', padding: '1.15rem', borderRadius: 'var(--radius-inputs)', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                   <h4 style={{ color: 'var(--color-ink-black)', fontSize: '0.9rem', margin: '0 0 0.35rem 0', display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 500 }}>
                     <Globe size={14} /> Interoperabilidad Estatal
                   </h4>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--color-slate-gray)', margin: 0, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
                     Formato homologado con las normativas de la USM, SAREN y el MPPRE para trámite de apostilla.
                   </p>
-                </div>
+                </motion.div>
               </div>
             </div>
           </div>
@@ -1059,11 +1069,12 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
             <div style={{
               padding: '1.5rem',
               borderRadius: 'var(--radius-cards)',
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--surface-canvas)',
               border: '1px solid var(--border)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.25rem'
+              gap: '1.25rem',
+              boxShadow: 'var(--shadow-subtle)'
             }}>
               {[
                 { date: '25/Feb/2026', title: 'Aviso Importante: Citas SAREN', desc: 'Recuerda llevar la Planilla PUB impresa junto a los timbres fiscales al momento de consignar.' },
@@ -1071,9 +1082,9 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                 { date: '10/Feb/2026', title: 'Resolución MPPRE Legalización', desc: 'Validaciones de títulos firmados por autoridades USM habilitados para apostilla directa.' },
               ].map((news, idx) => (
                 <div key={idx} style={{ borderBottom: idx !== 2 ? '1px solid var(--border)' : 'none', paddingBottom: idx !== 2 ? '1rem' : 0 }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)', fontWeight: 500 }}>{news.date}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{news.date}</span>
                   <h4 style={{ fontSize: '0.92rem', margin: '0.25rem 0', color: 'var(--color-ink-black)', fontWeight: 500 }}>{news.title}</h4>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--color-slate-gray)', margin: 0, lineHeight: 1.45 }}>{news.desc}</p>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>{news.desc}</p>
                 </div>
               ))}
             </div>
@@ -1096,7 +1107,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           }}>
             Preguntas frecuentes de la evaluación
           </h2>
-          <p style={{ color: 'var(--color-slate-gray)', fontSize: '0.96rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.96rem' }}>
             Respuestas clave estructuradas para la defensa del Proyecto de Tesis USM.
           </p>
         </div>
@@ -1105,14 +1116,16 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
           {faqItems.map((item, idx) => {
             const isOpen = activeFaq === idx;
             return (
-              <div
+              <motion.div
                 key={idx}
+                whileHover={{ y: -3 }}
                 style={{
                   borderRadius: 'var(--radius-inputs)',
                   border: '1px solid var(--border)',
-                  backgroundColor: isOpen ? 'var(--color-fog-white)' : '#ffffff',
+                  backgroundColor: isOpen ? '#ffffff' : '#ffffff',
+                  boxShadow: isOpen ? 'var(--shadow-artifact)' : 'var(--shadow-subtle)',
                   overflow: 'hidden',
-                  transition: 'background-color 0.2s, border-color 0.2s'
+                  transition: 'border-color 0.2s, box-shadow 0.2s'
                 }}
               >
                 <button
@@ -1154,7 +1167,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     >
                       <div style={{
                         padding: '0 1.5rem 1.4rem 1.5rem',
-                        color: 'var(--color-slate-gray)',
+                        color: 'var(--text-secondary)',
                         fontSize: '0.9rem',
                         lineHeight: 1.6,
                         borderTop: '1px solid var(--border)'
@@ -1164,7 +1177,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
+              </motion.div>
             );
           })}
         </div>
