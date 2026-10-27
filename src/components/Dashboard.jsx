@@ -172,58 +172,55 @@ const Dashboard = ({ user }) => {
 
   const statCards = [
     {
-      icon: <Activity size={24} color="#10b981" />,
+      icon: <Activity size={22} color="var(--color-ink-black)" />,
       title: "Usuarios en Línea",
       value: stats.usuarios_en_linea || 1,
       suffix: '',
-      bg: "rgba(16, 185, 129, 0.1)",
-      glow: "rgba(16, 185, 129, 0.25)",
+      isAccent: false,
     },
     {
-      icon: <FileCheck size={24} color="#3b82f6" />,
+      icon: <FileCheck size={22} color="var(--color-ink-black)" />,
       title: "Documentos Pre-validados",
       value: stats.docs_prevalidados,
       suffix: '',
-      bg: "rgba(30, 58, 138, 0.2)",
-      glow: "rgba(30, 58, 138, 0.3)",
+      isAccent: false,
     },
     {
-      icon: <Clock size={24} color="#f59e0b" />,
+      icon: <Clock size={22} color="var(--color-ink-black)" />,
       title: "Horas Ahorradas",
       value: stats.tiempo_ahorrado_hrs,
       suffix: ' Hrs',
-      bg: "rgba(245, 158, 11, 0.1)",
-      glow: "rgba(245, 158, 11, 0.25)",
+      isAccent: false,
     },
     {
-      icon: <Award size={24} color="#d97706" />,
+      icon: <Award size={22} color="var(--color-sienna-brown)" />,
       title: "Títulos en Blockchain",
       value: stats.titulos_blockchain,
       suffix: '',
-      bg: "rgba(217, 119, 6, 0.15)",
-      glow: "rgba(217, 119, 6, 0.3)",
+      isAccent: true,
     },
   ];
 
   return (
     <div className="view-container">
       <div className="dashboard-header">
-        <motion.div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-          <motion.h2 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+          <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
             Bienvenido al Portal USM
           </motion.h2>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.4rem',
-            background: connected ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-            border: `1px solid ${connected ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
-            borderRadius: '20px', padding: '0.25rem 0.7rem', fontSize: '0.75rem',
+            display: 'flex', alignItems: 'center', gap: '0.45rem',
+            backgroundColor: 'var(--color-mist-gray)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-pill)',
+            padding: '0.25rem 0.8rem',
+            fontSize: '0.78rem',
+            color: 'var(--color-ink-black)',
             whiteSpace: 'nowrap',
           }}>
             <div style={{
               width: 7, height: 7, borderRadius: '50%',
-              background: connected ? '#10b981' : '#ef4444',
-              boxShadow: connected ? '0 0 8px #10b981' : 'none',
-              animation: connected ? 'pulseGlow 1.5s infinite alternate' : 'none',
+              backgroundColor: connected ? 'var(--color-ink-black)' : 'var(--color-slate-gray)',
             }} />
             {wsConnected ? 'WebSocket en vivo' : connected ? 'En vivo' : 'Desconectado'}
           </div>
@@ -235,18 +232,41 @@ const Dashboard = ({ user }) => {
         {statCards.map((stat, i) => (
           <motion.div
             key={i}
-            className="stat-card glass-panel"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.1 }}
-            style={{ boxShadow: `0 0 20px ${stat.glow}` }}
+            className={`stat-card ${stat.isAccent ? 'card-peach' : ''}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08 }}
+            style={stat.isAccent ? {
+              backgroundColor: 'var(--color-blush-peach)',
+              color: 'var(--color-sienna-brown)',
+              border: '1px solid rgba(93, 42, 26, 0.15)'
+            } : {}}
           >
-            <div className="stat-icon" style={{ backgroundColor: stat.bg }}>
+            <div
+              className="stat-icon"
+              style={{
+                backgroundColor: stat.isAccent ? '#ffffff' : 'var(--color-mist-gray)',
+                border: stat.isAccent ? '1px solid rgba(93, 42, 26, 0.15)' : 'none'
+              }}
+            >
               {stat.icon}
             </div>
             <div>
-              <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>{stat.title}</p>
-              <h3 style={{ fontSize: "1.8rem", fontWeight: "800" }}>
+              <p style={{
+                color: stat.isAccent ? 'var(--color-sienna-brown)' : 'var(--color-slate-gray)',
+                fontSize: "0.85rem",
+                margin: '0 0 0.2rem 0',
+                fontWeight: stat.isAccent ? 500 : 400
+              }}>
+                {stat.title}
+              </p>
+              <h3 style={{
+                fontSize: "1.9rem",
+                fontWeight: "400",
+                fontFamily: "var(--font-serif)",
+                color: stat.isAccent ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)',
+                margin: 0
+              }}>
                 <AnimatedNumber value={stat.value} suffix={stat.suffix} />
               </h3>
             </div>
@@ -257,49 +277,58 @@ const Dashboard = ({ user }) => {
       <div className="dashboard-content-grid">
         <motion.div
           className="glass-panel"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
         >
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={20} color="var(--primary)" /> Feed de Actividad en Vivo
+          <h3 style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: '1.25rem',
+            fontWeight: 400,
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            color: 'var(--color-ink-black)'
+          }}>
+            <Activity size={18} color="var(--color-ink-black)" /> Feed de Actividad en Vivo
           </h3>
           <div className="audit-log-container" style={{ 
-            background: 'rgba(0,0,0,0.3)', 
-            border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: '12px', 
-            padding: '1rem', 
+            backgroundColor: 'var(--color-fog-white)', 
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-inputs)', 
+            padding: '1.15rem', 
             height: '280px', 
             overflowY: 'auto',
             fontFamily: 'monospace',
-            fontSize: '0.85rem'
+            fontSize: '0.84rem'
           }}>
             {stats.audit_log && stats.audit_log.length > 0 ? (
               <AnimatePresence initial={false}>
                 {stats.audit_log.slice().reverse().map((log, i) => (
                   <motion.div 
                     key={log + i}
-                    initial={{ opacity: 0, x: -20, height: 0 }}
-                    animate={{ opacity: 1, x: 0, height: 'auto' }}
+                    initial={{ opacity: 0, y: 4, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
                     style={{ 
-                      padding: '0.6rem 0', 
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      color: log.includes('ERROR') ? '#f87171' : log.includes('IA') ? '#38bdf8' : '#e2e8f0',
+                      padding: '0.55rem 0', 
+                      borderBottom: '1px solid var(--border)',
+                      color: log.includes('ERROR') ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)',
                       display: 'flex',
-                      gap: '0.5rem',
+                      gap: '0.6rem',
                       alignItems: 'flex-start',
                       wordBreak: 'break-word',
                     }}
                   >
-                    <span style={{ color: 'var(--primary)', opacity: 0.7, flexShrink: 0 }}>❯</span>
+                    <span style={{ color: 'var(--color-slate-gray)', opacity: 0.8, flexShrink: 0 }}>❯</span>
                     <span>{log}</span>
                   </motion.div>
                 ))}
               </AnimatePresence>
             ) : (
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
-                <Activity size={32} style={{ marginBottom: '1rem' }} />
-                <p style={{ color: 'var(--text-muted)' }}>Esperando actividad en el ecosistema...</p>
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.6 }}>
+                <Activity size={28} color="var(--color-slate-gray)" style={{ marginBottom: '0.75rem' }} />
+                <p style={{ color: 'var(--color-slate-gray)', fontSize: '0.88rem' }}>Esperando actividad en el ecosistema...</p>
               </div>
             )}
             <div ref={logEndRef} />

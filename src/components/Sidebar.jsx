@@ -18,25 +18,25 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
   return (
     <div className="sidebar">
       <div className="sidebar-brand">
-        <h1>Universidad Santa María<br /><span style={{ fontSize: '0.85rem', color: '#ade2e6', fontWeight: 600 }}>Plataforma de Apostilla</span></h1>
+        <h1>Universidad Santa María<br /><span style={{ fontSize: '0.86rem', color: 'var(--color-slate-gray)', fontWeight: 400 }}>Plataforma de Apostilla</span></h1>
         <p>Sistema Distribuido de Verificación Blockchain</p>
       </div>
 
       {/* Perfil del usuario */}
       {user && (
-        <div className="user-profile" style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
-          <div style={{ background: 'rgba(54,68,134,0.2)', border: '1px solid rgba(173,226,230,0.35)', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #364486, #7286b6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <User size={18} color="#ade2e6" />
+        <div className="user-profile" style={{ padding: '0 1rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border)', borderRadius: 'var(--radius-cards)', padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundColor: 'var(--color-ink-black)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#ffffff' }}>
+              <User size={16} color="#ffffff" />
             </div>
             <div style={{ overflow: 'hidden' }}>
-              <p style={{ fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#ffffff' }}>
+              <p style={{ fontWeight: 500, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--color-ink-black)', margin: 0 }}>
                 {user.nombre.split(' ')[0]} {user.nombre.split(' ').slice(-1)[0]}
               </p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{user.carrera?.split(' ').slice(-1)[0]}</p>
+              <p style={{ color: 'var(--color-slate-gray)', fontSize: '0.75rem', margin: '0.15rem 0 0 0' }}>{user.carrera?.split(' ').slice(-1)[0]}</p>
             </div>
           </div>
-          <div style={{ marginTop: '0.8rem', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'center' }}>
             <WalletConnect />
           </div>
         </div>

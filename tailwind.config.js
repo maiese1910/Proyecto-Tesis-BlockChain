@@ -4,76 +4,83 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // ─── Paleta Huemint Bootstrap-Plus ─────────────────────────────────────
-        // #ade2e6 · #ffffff · #000100 · #322920 · #566262 · #66767f · #364486 · #7286b6 · #9cb3ba
-        huemint: {
-          aqua: '#ade2e6',       // Aqua / Cyan luminoso para acentos y verificación
-          white: '#ffffff',      // Blanco de alto contraste
-          black: '#000100',      // Negro profundo obsidiana base
-          espresso: '#322920',   // Carbón oscuro cálido
-          slateGreen: '#566262', // Gris verdoso sobrio
-          steel: '#66767f',      // Gris acero para bordes y texto secundario
-          navy: '#364486',       // Azul marino / royal profundo para botones y marca
-          periwinkle: '#7286b6', // Azul bígaro para hovers y estados activos
-          ice: '#9cb3ba',        // Hielo grisáceo para textos secundarios y chips
+        // ─── Steep Design System (DESIGN.md) ──────────────────────────────────
+        ink: {
+          DEFAULT: '#17191c',
+          black: '#17191c',
+        },
+        paper: {
+          DEFAULT: '#ffffff',
+          white: '#ffffff',
+        },
+        mist: {
+          DEFAULT: '#f2f2f3',
+          gray: '#f2f2f3',
+        },
+        fog: {
+          DEFAULT: '#fafafb',
+          white: '#fafafb',
+        },
+        slate: {
+          gray: '#777b86',
+        },
+        ash: {
+          gray: '#979799',
+        },
+        smoke: {
+          gray: '#a3a6af',
+        },
+        blush: {
+          DEFAULT: '#fbe1d1',
+          peach: '#fbe1d1',
+        },
+        sienna: {
+          DEFAULT: '#5d2a1a',
+          brown: '#5d2a1a',
         },
 
-        // Mapeo semántico para componentes
+        // Mapeo semántico
         primary: {
-          DEFAULT: '#364486',
-          hover: '#7286b6',
-          active: '#263063',
-          light: '#7286b6',
-          glow: 'rgba(54, 68, 134, 0.45)',
+          DEFAULT: '#17191c',
+          hover: '#2d3036',
+          text: '#ffffff',
         },
-
+        secondary: {
+          DEFAULT: '#f2f2f3',
+          hover: '#e5e5e7',
+          text: '#17191c',
+        },
         accent: {
-          DEFAULT: '#ade2e6',
-          light: '#ffffff',
-          dark: '#7286b6',
-          glow: 'rgba(173, 226, 230, 0.35)',
+          DEFAULT: '#fbe1d1',
+          text: '#5d2a1a',
         },
-
         surface: {
-          dark: '#000100',
-          panel: '#0e131d',
-          card: '#141a26',
-          hover: '#1b2333',
-          border: '#66767f',
-          borderSubtle: '#566262',
+          canvas: '#ffffff',
+          mist: '#f2f2f3',
+          fog: '#fafafb',
+          peach: '#fbe1d1',
         },
-
-        content: {
-          main: '#ffffff',
-          sub: '#9cb3ba',
-          muted: '#66767f',
-          inverse: '#000100',
-        },
-
-        // Estados de validación usando el tono Aqua (#ade2e6)
-        validated: {
-          DEFAULT: '#ade2e6',
-          badge: 'rgba(173, 226, 230, 0.12)',
-          border: 'rgba(173, 226, 230, 0.45)',
-          text: '#ade2e6',
-          glow: 'rgba(173, 226, 230, 0.3)',
+        border: {
+          subtle: '#ececec',
+          hairline: 'rgba(4, 23, 43, 0.06)',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'Outfit', 'system-ui', '-apple-system', 'sans-serif'],
-      },
-      boxShadow: {
-        'huemint-primary': '0 4px 20px -2px rgba(54, 68, 134, 0.5)',
-        'huemint-aqua': '0 0 25px -3px rgba(173, 226, 230, 0.35)',
-        'huemint-card': '0 20px 40px -15px rgba(0, 1, 0, 0.8)',
+        serif: ['Newsreader', 'Signifier', 'Source Serif 4', 'Georgia', 'serif'],
+        sans: ['Inter', 'Sohne', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
       },
       borderRadius: {
-        'corporate': '0.6rem',
-        'corporate-lg': '0.9rem',
+        'cards': '24px',
+        'elevated': '20px',
+        'inputs': '16px',
+        'pill': '9999px',
+      },
+      boxShadow: {
+        'subtle': '0 0 0 1px rgba(4, 23, 43, 0.05), 0 4px 24px 0 rgba(0, 0, 0, 0.04)',
+        'artifact': '0 0 0 1px rgba(4, 23, 43, 0.05), 0 20px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
       },
     },
   },

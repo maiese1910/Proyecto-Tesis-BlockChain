@@ -3,7 +3,7 @@ import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion';
 import { blockchainAPI } from '../services/api';
 
-// Conexión con el backend FastAPI → Blockchain (con timeout rápido de 2.5s para fallback)
+// Conexión con el backend FastAPI → Blockchain (con timeout de 2.5s para fallback)
 const verifyOnChain = async (hash) => {
   try {
     return await Promise.race([
@@ -58,7 +58,6 @@ const BlockchainVerifier = ({ initialHash }) => {
     setLoading(false);
   };
 
-  // Si recibimos un hash inicial (ej: escaneo QR), verificamos automáticamente
   React.useEffect(() => {
     if (initialHash) {
       handleVerify(initialHash);
@@ -76,14 +75,24 @@ const BlockchainVerifier = ({ initialHash }) => {
     <div className="view-container">
       <div className="dashboard-header">
         <h2>Verificador Blockchain de Documentos</h2>
-        <p>Pega el hash de un documento para comprobar su autenticidad e inmutabilidad en la red Ethereum (Sepolia). Cualquier persona en el mundo puede verificarlo.</p>
+        <p>Pega el hash de un documento para comprobar su autenticidad e inmutabilidad en la red Ethereum (Sepolia). Cualquier persona en el mundo puede verificarlo con rigor matemático.</p>
       </div>
 
-      <motion.div className="glass-panel" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+      <motion.div
+        className="glass-panel"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div style={{ display: 'flex', gap: '0.85rem', marginBottom: '2.25rem', flexWrap: 'wrap' }}>
           <input
             className="chat-input"
-            style={{ flex: '1 1 200px', fontFamily: 'monospace', minWidth: '0' }}
+            style={{
+              flex: '1 1 240px',
+              fontFamily: 'monospace',
+              minWidth: '0',
+              padding: '0.85rem 1.15rem',
+              backgroundColor: 'var(--color-fog-white)'
+            }}
             placeholder="Pega aquí el hash del documento (ej: 0XA1B2C3...)"
             value={hashInput}
             onChange={e => setHashInput(e.target.value)}
@@ -91,93 +100,236 @@ const BlockchainVerifier = ({ initialHash }) => {
           />
           <button
             className="send-btn"
-            style={{ padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', whiteSpace: 'nowrap', flexShrink: 0 }}
-            onClick={handleVerify}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+            onClick={() => handleVerify()}
             disabled={loading || !hashInput.trim()}
           >
-            {loading ? 'Verificando...' : <><Search size={18} /> Verificar</>}
+            {loading ? 'Verificando...' : <><Search size={16} /> Verificar Hash</>}
           </button>
         </div>
 
         {/* Estado de carga */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            <div style={{ display: 'inline-block', width: 40, height: 40, border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '1rem' }} />
-            <p>Consultando la red Blockchain (Sepolia)...</p>
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-slate-gray)' }}>
+            <div style={{
+              display: 'inline-block',
+              width: 36,
+              height: 36,
+              border: '2px solid var(--border)',
+              borderTopColor: 'var(--color-ink-black)',
+              borderRadius: '50%',
+              animation: 'spin 0.9s linear infinite',
+              marginBottom: '1rem'
+            }} />
+            <p style={{ fontSize: '0.92rem', margin: 0 }}>Consultando la red descentralizada Ethereum (Sepolia)...</p>
           </div>
         )}
 
         <AnimatePresence>
           {result !== null && !loading && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
               {result.exists ? (
-                <div className="card-validated" style={{ background: 'rgba(14, 19, 29, 0.95)', border: '1px solid rgba(173,226,230,0.5)', borderRadius: '16px', overflow: 'hidden' }}>
-                  {/* Banner Validado (Huemint Aqua & Navy) */}
-                  <div style={{ background: 'linear-gradient(135deg, rgba(173,226,230,0.18), rgba(54,68,134,0.25))', padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid rgba(173,226,230,0.25)' }}>
+                /* ─── STEEP ACCENT CARD: BLUSH PEACH (#fbe1d1) CON SIENNA BROWN (#5d2a1a) ─── */
+                <div
+                  className="card-peach"
+                  style={{
+                    padding: '2.25rem',
+                    borderRadius: 'var(--radius-cards)',
+                    border: '1px solid rgba(93, 42, 26, 0.15)',
+                    backgroundColor: 'var(--color-blush-peach)',
+                    color: 'var(--color-sienna-brown)',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {/* Banner Validado Editorial */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1.25rem',
+                    marginBottom: '1.75rem',
+                    borderBottom: '1px solid rgba(93, 42, 26, 0.15)',
+                    paddingBottom: '1.5rem'
+                  }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(173,226,230,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(173,226,230,0.45)', boxShadow: '0 0 16px rgba(173,226,230,0.35)' }}>
-                        <CheckCircle size={28} color="#ade2e6" />
+                      <div style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid rgba(93, 42, 26, 0.2)'
+                      }}>
+                        <CheckCircle size={24} color="var(--color-sienna-brown)" />
                       </div>
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                          <h3 style={{ color: '#ade2e6', margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Documento Auténtico y Verificado</h3>
-                          <span className="badge-validated">Oficial On-Chain</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          <h3 style={{
+                            fontFamily: 'var(--font-serif)',
+                            color: 'var(--color-sienna-brown)',
+                            margin: 0,
+                            fontSize: '1.45rem',
+                            fontWeight: 400,
+                            letterSpacing: '-0.01em'
+                          }}>
+                            Documento Auténtico y Verificado
+                          </h3>
+                          <span className="badge-validated">
+                            Certificado On-Chain
+                          </span>
                         </div>
-                        <p style={{ color: '#9cb3ba', fontSize: '0.88rem', marginTop: '0.2rem' }}>El hash coincide matemáticamente con el registro inmutable en Ethereum.</p>
+                        <p style={{ color: 'var(--color-sienna-brown)', opacity: 0.85, fontSize: '0.88rem', margin: '0.25rem 0 0 0' }}>
+                          El hash coincide matemáticamente con el registro inmutable en Ethereum Sepolia.
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Detalles (Huemint Surface) */}
-                  <div style={{ padding: '1.5rem 2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', background: '#080c14' }}>
+                  {/* Baldosas de detalles en blanco sobre Peach */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                    gap: '1rem',
+                    marginBottom: '1.5rem'
+                  }}>
                     {[
                       { label: 'Propietario / Titular', value: result.ownerName },
                       { label: 'Cédula de Identidad', value: result.cedula },
                       { label: 'Tipo de Documento', value: result.documentType },
                       { label: 'Fecha de Certificación', value: formatTimestamp(result.timestamp) },
                     ].map(item => (
-                      <div key={item.label} style={{ background: '#0e131d', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(102,118,127,0.35)' }}>
-                        <p style={{ fontSize: '0.72rem', color: '#9cb3ba', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>{item.label}</p>
-                        <p style={{ fontWeight: '600', color: '#ffffff', fontSize: '0.95rem' }}>{item.value}</p>
+                      <div
+                        key={item.label}
+                        style={{
+                          backgroundColor: '#ffffff',
+                          padding: '1.1rem',
+                          borderRadius: 'var(--radius-inputs)',
+                          border: '1px solid rgba(93, 42, 26, 0.12)'
+                        }}
+                      >
+                        <p style={{
+                          fontSize: '0.72rem',
+                          color: 'var(--color-sienna-brown)',
+                          opacity: 0.75,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          fontWeight: 500,
+                          margin: '0 0 0.3rem 0'
+                        }}>
+                          {item.label}
+                        </p>
+                        <p style={{
+                          fontWeight: 500,
+                          color: 'var(--color-sienna-brown)',
+                          fontSize: '0.98rem',
+                          margin: 0
+                        }}>
+                          {item.value}
+                        </p>
                       </div>
                     ))}
 
                     <div style={{ gridColumn: '1 / -1' }}>
-                      <p style={{ fontSize: '0.72rem', color: '#9cb3ba', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '0.3rem' }}>Transaction Hash (Sepolia)</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#0e131d', border: '1px solid rgba(102,118,127,0.35)', padding: '0.8rem 1rem', borderRadius: '10px' }}>
-                        <code style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.82rem', color: '#ade2e6', wordBreak: 'break-all' }}>
+                      <p style={{
+                        fontSize: '0.72rem',
+                        color: 'var(--color-sienna-brown)',
+                        opacity: 0.75,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        fontWeight: 500,
+                        margin: '0 0 0.35rem 0'
+                      }}>
+                        Transaction Hash (Sepolia)
+                      </p>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid rgba(93, 42, 26, 0.12)',
+                        padding: '0.85rem 1.15rem',
+                        borderRadius: 'var(--radius-inputs)',
+                        flexWrap: 'wrap'
+                      }}>
+                        <code style={{
+                          flex: 1,
+                          fontFamily: 'monospace',
+                          fontSize: '0.85rem',
+                          color: 'var(--color-sienna-brown)',
+                          wordBreak: 'break-all'
+                        }}>
                           {result.txHash}
                         </code>
                         <a
                           href={`https://sepolia.etherscan.io/tx/${result.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ color: '#7286b6', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem', whiteSpace: 'nowrap', fontWeight: '700' }}
+                          style={{
+                            color: 'var(--color-sienna-brown)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            fontSize: '0.84rem',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 500,
+                            textDecoration: 'underline'
+                          }}
                         >
-                          Ver en Etherscan <ExternalLink size={14} />
+                          Ver en Etherscan <ExternalLink size={13} />
                         </a>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ padding: '0.9rem 2rem', borderTop: '1px solid rgba(102,118,127,0.3)', display: 'flex', alignItems: 'center', gap: '0.8rem', background: '#000100', flexWrap: 'wrap' }}>
-                    <ShieldCheck size={18} color="#ade2e6" />
-                    <p style={{ fontSize: '0.82rem', color: '#9cb3ba', margin: 0 }}>
-                      Registro validado en la red <strong style={{ color: '#ade2e6' }}>Ethereum Sepolia Testnet</strong> — autenticidad respaldada mediante smart contract.
-                    </p>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.65rem',
+                    fontSize: '0.82rem',
+                    color: 'var(--color-sienna-brown)',
+                    opacity: 0.85
+                  }}>
+                    <ShieldCheck size={16} />
+                    <span>Registro respaldado mediante contrato inteligente verificable en la red Ethereum.</span>
                   </div>
                 </div>
               ) : (
-                <div style={{ border: '1px solid rgba(239,68,68,0.4)', borderRadius: '16px', padding: '2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', background: 'rgba(239,68,68,0.05)' }}>
-                  <XCircle size={40} color="var(--danger)" />
+                /* Estado: Documento No Encontrado */
+                <div style={{
+                  border: '1px solid rgba(93, 42, 26, 0.2)',
+                  borderRadius: 'var(--radius-cards)',
+                  padding: '2rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1.25rem',
+                  backgroundColor: 'var(--color-fog-white)'
+                }}>
+                  <XCircle size={36} color="var(--color-sienna-brown)" />
                   <div>
-                    <h3 style={{ color: 'var(--danger)', marginBottom: '0.5rem' }}>Documento No Encontrado</h3>
-                    <p style={{ color: 'var(--text-muted)' }}>
-                      Este hash no existe en el registro de la Blockchain. Puede ser que el documento no haya sido registrado, o que el hash sea incorrecto.
+                    <h3 style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '1.2rem',
+                      fontWeight: 400,
+                      color: 'var(--color-sienna-brown)',
+                      margin: '0 0 0.35rem 0'
+                    }}>
+                      Documento No Encontrado
+                    </h3>
+                    <p style={{ color: 'var(--color-slate-gray)', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
+                      Este hash no figura en el registro descentralizado. Comprueba que el código hash ingresado esté completo y coincida con el comprobante de liquidación.
                     </p>
                   </div>
                 </div>
@@ -186,19 +338,19 @@ const BlockchainVerifier = ({ initialHash }) => {
           )}
         </AnimatePresence>
 
-        {/* Instrucciones */}
+        {/* Instrucciones cuando no hay búsqueda */}
         {result === null && !loading && (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-            <ShieldCheck size={40} opacity={0.3} style={{ marginBottom: '1rem' }} />
-            <p>Ingresa el hash que fue generado al finalizar el llenado de la Planilla PUB.</p>
-            <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
-              El hash tiene el formato: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>0XA1B2C3...</code>
+          <div style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--color-slate-gray)' }}>
+            <ShieldCheck size={36} color="var(--color-ash-gray)" style={{ margin: '0 auto 1rem auto' }} />
+            <p style={{ fontSize: '0.94rem', margin: '0 0 0.5rem 0' }}>
+              Ingresa el hash que fue generado al finalizar el llenado de la Planilla PUB o expedición del título.
+            </p>
+            <p style={{ fontSize: '0.84rem', margin: 0 }}>
+              El formato de búsqueda es: <code style={{ backgroundColor: 'var(--color-mist-gray)', padding: '0.2rem 0.55rem', borderRadius: '4px', color: 'var(--color-ink-black)', fontFamily: 'monospace' }}>0XA1B2C3...</code>
             </p>
           </div>
         )}
       </motion.div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };
