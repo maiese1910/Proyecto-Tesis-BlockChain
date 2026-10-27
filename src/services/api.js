@@ -72,6 +72,12 @@ export const blockchainAPI = {
   verifyRecord: (hash, auditorData = {}) =>
     apiFetch(`/blockchain/records/${hash}/verify`, { method: 'POST', body: auditorData }),
 
+  mppeuCertifyRecord: (hash, auditorData = {}) =>
+    apiFetch(`/blockchain/records/${hash}/mppeu-certify`, { method: 'POST', body: auditorData }),
+
+  mppreApostilleRecord: (hash, auditorData = {}) =>
+    apiFetch(`/blockchain/records/${hash}/mppre-apostille`, { method: 'POST', body: auditorData }),
+
   rejectRecord: (hash, reason, auditorData = {}) =>
     apiFetch(`/blockchain/records/${hash}/reject`, { method: 'POST', body: { reason, ...auditorData } }),
 

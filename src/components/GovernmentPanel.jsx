@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw, Bell, Wallet, Clipboard, Lock } from 'lucide-react';
+import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw, Bell, Wallet, Clipboard, Lock, Building2, Globe, Award, Stamp } from 'lucide-react';
 import { blockchainAPI, authAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
+import ApostilleCertificate from './ApostilleCertificate';
+import MPPEUCotejoModal from './MPPEUCotejoModal';
 import html2pdf from 'html2pdf.js';
 
-const GovernmentPanel = () => {
+const GovernmentPanel = ({ adminData }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,11 +16,23 @@ const GovernmentPanel = () => {
   const [selectedHashes, setSelectedHashes] = useState([]);
   const [batchVerifying, setBatchVerifying] = useState(false);
 
-  // Obtener datos del auditor actual logueado
-  const storedAdmin = JSON.parse(localStorage.getItem('admin_data') || '{}');
-  const currentAuditorName = storedAdmin.username || 'saren_admin';
-  const currentAuditorCargo = storedAdmin.cargo || 'Registrador Principal';
-  const currentAuditorEnte = storedAdmin.ente || 'SAREN';
+  // Obtener datos del funcionario actual logueado
+  const storedAdmin = adminData || JSON.parse(localStorage.getItem('admin_data') || '{}');
+  const currentAuditorName = storedAdmin.username || 'mppeu_agente';
+  const currentAuditorCargo = storedAdmin.cargo || 'Funcionario Ministerial';
+  const currentAuditorEnte = storedAdmin.ente || 'MPPEU';
+
+  // Modo ministerial de visualización: MPPEU (Taquilla GTU) | MPPRE (Cancillería Apostilla) | ALL (Auditoría Integral)
+  const initialMode = (currentAuditorEnte === 'MPPRE') ? 'MPPRE' : (currentAuditorEnte === 'MPPEU' || currentAuditorEnte === 'GTU') ? 'MPPEU' : 'MPPEU';
+  const [ministerialMode, setMinisterialMode] = useState(initialMode);
+
+  // Modal Cotejo MPPEU
+  const [activeCotejoRecord, setActiveCotejoRecord] = useState(null);
+  const [cotejoLoading, setCotejoLoading] = useState(false);
+
+  // Modal Apostilla MPPRE
+  const [activeApostilleRecord, setActiveApostilleRecord] = useState(null);
+  const [apostilleLoading, setApostilleLoading] = useState(null);
 
   // Modales de previsualización
   const [activePUBRecord, setActivePUBRecord] = useState(null);
@@ -116,6 +130,60 @@ const GovernmentPanel = () => {
       alert("Error al verificar el documento.");
     } finally {
       setVerifying(null);
+    }
+  };
+
+  // Etapa 2: Certificación en Taquilla Presencial MPPEU (Cotejo Físico-Digital)
+  const handleMppeuCertify = async (record) => {
+    setCotejoLoading(true);
+    try {
+      const res = await blockchainAPI.mppeuCertifyRecord(record.hash, {
+        auditor_username: currentAuditorName,
+        auditor_cargo: currentAuditorCargo,
+        auditor_ente: 'MPPEU'
+      });
+      if (res.success) {
+        setRecords(prev => prev.map(r =>
+          r.hash === record.hash
+            ? { ...r, status: 'CERTIFICADO_MPPEU', mppeuVerified: true, mppeuOfficer: currentAuditorName, txHash: res.txHash || r.txHash }
+            : r
+        ));
+        setActiveCotejoRecord(null);
+        setActiveCertHash(record.hash);
+      }
+    } catch (err) {
+      console.error("Error certificando en MPPEU:", err);
+      alert("Error al procesar la certificación en MPPEU.");
+    } finally {
+      setCotejoLoading(false);
+    }
+  };
+
+  // Etapa 3: Emisión de Apostilla Electrónica de La Haya MPPRE (100% Digital)
+  const handleMppreApostille = async (record) => {
+    setApostilleLoading(record.hash);
+    try {
+      const res = await blockchainAPI.mppreApostilleRecord(record.hash, {
+        auditor_username: currentAuditorName,
+        auditor_cargo: currentAuditorCargo,
+        auditor_ente: 'MPPRE'
+      });
+      if (res.success) {
+        const updatedRecord = {
+          ...record,
+          status: 'APOSTILLADO_MPPRE',
+          mppreVerified: true,
+          mppreOfficer: currentAuditorName,
+          apostilleNumber: res.apostilleNumber
+        };
+        setRecords(prev => prev.map(r => r.hash === record.hash ? updatedRecord : r));
+        setActiveApostilleRecord(updatedRecord);
+      }
+    } catch (err) {
+      console.error("Error apostillando en MPPRE:", err);
+      alert("Error al emitir la Apostilla en MPPRE.");
+    } finally {
+      setApostilleLoading(null);
     }
   };
 
@@ -292,15 +360,31 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
     }
   };
 
-  // Filtrado de registros
+  // Filtrado de registros conforme al rol ministerial activo
   const filteredRecords = records.filter(r => {
     const matchesSearch = 
       (r.ownerName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
       (r.cedula || '').includes(searchTerm) ||
-      (r.hash || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (r.hash || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.solicitudCode || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const isVerified = (r.status || '').includes('Verificado');
+    const isVerified = (r.status || '').includes('Verificado') || (r.status || '').includes('CERTIFICADO_MPPEU') || (r.status || '').includes('APOSTILLADO_MPPRE') || Boolean(r.mppeuVerified);
     const isRejected = (r.status || '').includes('Rechazado');
+
+    if (ministerialMode === 'MPPEU') {
+      if (filterStatus === 'PENDING') return matchesSearch && !isVerified && !isRejected;
+      if (filterStatus === 'VERIFIED') return matchesSearch && isVerified;
+      if (filterStatus === 'REJECTED') return matchesSearch && isRejected;
+      return matchesSearch;
+    }
+
+    if (ministerialMode === 'MPPRE') {
+      const hasMppeuSeal = Boolean(r.mppeuVerified || (r.status || '').includes('CERTIFICADO_MPPEU') || (r.status || '').includes('APOSTILLADO_MPPRE'));
+      if (filterStatus === 'PENDING') return matchesSearch && hasMppeuSeal && !r.mppreVerified && !(r.status || '').includes('APOSTILLADO_MPPRE');
+      if (filterStatus === 'VERIFIED') return matchesSearch && (r.mppreVerified || (r.status || '').includes('APOSTILLADO_MPPRE'));
+      if (filterStatus === 'REJECTED') return matchesSearch && isRejected;
+      return matchesSearch && hasMppeuSeal;
+    }
 
     if (filterStatus === 'PENDING') return matchesSearch && !isVerified && !isRejected;
     if (filterStatus === 'VERIFIED') return matchesSearch && isVerified;
@@ -310,13 +394,113 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
   // Métricas calculadas
   const totalCount = records.length;
-  const verifiedCount = records.filter(r => (r.status || '').includes('Verificado')).length;
+  const verifiedCount = records.filter(r => (r.status || '').includes('Verificado') || (r.status || '').includes('CERTIFICADO_MPPEU') || (r.status || '').includes('APOSTILLADO_MPPRE') || r.mppeuVerified).length;
   const rejectedCount = records.filter(r => (r.status || '').includes('Rechazado')).length;
   const pendingCount = totalCount - verifiedCount - rejectedCount;
   const efficiencyRate = totalCount > 0 ? (((verifiedCount + rejectedCount) / totalCount) * 100).toFixed(1) : '100.0';
 
   return (
     <div className="view-container" style={{ maxWidth: '1280px', margin: '0 auto' }}>
+      
+      {/* ─── SELECTOR DE ROL MINISTERIAL (ARQUITECTURA DE TESIS) ─── */}
+      <div style={{
+        display: 'flex',
+        gap: '0.65rem',
+        marginBottom: '1.5rem',
+        background: '#090d16',
+        padding: '0.45rem',
+        borderRadius: '12px',
+        border: '1px solid #1e293b',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={() => setMinisterialMode('MPPEU')}
+          style={{
+            flex: 1,
+            minWidth: '220px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.55rem',
+            padding: '0.8rem 1rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: ministerialMode === 'MPPEU' ? '#0284c7' : 'transparent',
+            color: ministerialMode === 'MPPEU' ? '#ffffff' : '#94a3b8',
+            fontWeight: 600,
+            fontSize: '0.86rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Building2 size={17} />
+          <span>Etapa 2: Taquilla MPPEU (Cotejo GTU)</span>
+          <span style={{
+            fontSize: '0.72rem',
+            background: ministerialMode === 'MPPEU' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
+            padding: '0.15rem 0.5rem',
+            borderRadius: '10px'
+          }}>
+            {records.filter(r => !r.mppeuVerified && !(r.status || '').includes('CERTIFICADO_MPPEU') && !(r.status || '').includes('APOSTILLADO_MPPRE')).length} pendientes
+          </span>
+        </button>
+
+        <button
+          onClick={() => setMinisterialMode('MPPRE')}
+          style={{
+            flex: 1,
+            minWidth: '220px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.55rem',
+            padding: '0.8rem 1rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: ministerialMode === 'MPPRE' ? '#d97706' : 'transparent',
+            color: ministerialMode === 'MPPRE' ? '#ffffff' : '#94a3b8',
+            fontWeight: 600,
+            fontSize: '0.86rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Globe size={17} />
+          <span>Etapa 3: Cancillería MPPRE (Apostilla 100% Digital)</span>
+          <span style={{
+            fontSize: '0.72rem',
+            background: ministerialMode === 'MPPRE' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
+            padding: '0.15rem 0.5rem',
+            borderRadius: '10px'
+          }}>
+            {records.filter(r => (r.mppeuVerified || (r.status || '').includes('CERTIFICADO_MPPEU')) && !r.mppreVerified && !(r.status || '').includes('APOSTILLADO_MPPRE')).length} listos
+          </span>
+        </button>
+
+        <button
+          onClick={() => setMinisterialMode('ALL')}
+          style={{
+            flex: 0.7,
+            minWidth: '180px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.55rem',
+            padding: '0.8rem 1rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: ministerialMode === 'ALL' ? '#334155' : 'transparent',
+            color: ministerialMode === 'ALL' ? '#ffffff' : '#94a3b8',
+            fontWeight: 600,
+            fontSize: '0.86rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <ShieldCheck size={17} />
+          <span>Auditoría General & IA</span>
+        </button>
+      </div>
       
       {/* ─── BANDEROLA NOTIFICACIÓN DE TRÁMITES PENDIENTES POR AUDITAR ─── */}
       {pendingCount > 0 && (
@@ -751,29 +935,115 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                           <ShieldCheck size={14} /> Certificado
                         </button>
 
-                        {/* Acciones Aprobar / Rechazar */}
-                        {!isVerified && !isRejected ? (
+                        {/* Acciones Contextuales por Rol Ministerial */}
+                        {ministerialMode === 'MPPEU' ? (
                           <>
-                            <button 
-                              className="send-btn" 
-                              onClick={() => handleVerify(record.hash)}
-                              disabled={verifying === record.hash}
-                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '800' }}
-                            >
-                              {verifying === record.hash ? 'Auditando...' : 'Aprobar Documento'}
-                            </button>
+                            {!isVerified && !isRejected ? (
+                              <>
+                                <button 
+                                  onClick={() => setActiveCotejoRecord(record)}
+                                  style={{
+                                    padding: '0.45rem 0.85rem',
+                                    fontSize: '0.78rem',
+                                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '700',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
+                                  }}
+                                >
+                                  <Stamp size={14} /> Cotejo Físico-Digital
+                                </button>
 
-                            <button
-                              onClick={() => setRejectingRecord(record)}
-                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}
-                            >
-                              Rechazar Legajo
-                            </button>
+                                <button
+                                  onClick={() => setRejectingRecord(record)}
+                                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}
+                                >
+                                  Rechazar
+                                </button>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: '0.78rem', color: '#0284c7', fontWeight: '800', background: 'rgba(2,132,199,0.15)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>
+                                Sello GTU Listo
+                              </span>
+                            )}
                           </>
-                        ) : isVerified ? (
-                          <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '800', background: 'rgba(16,185,129,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Aprobado</span>
+                        ) : ministerialMode === 'MPPRE' ? (
+                          <>
+                            {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
+                              <button
+                                onClick={() => setActiveApostilleRecord(record)}
+                                style={{
+                                  padding: '0.45rem 0.85rem',
+                                  fontSize: '0.78rem',
+                                  background: 'linear-gradient(135deg, #059669, #10b981)',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  fontWeight: '700',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem'
+                                }}
+                              >
+                                <Globe size={14} /> Ver Apostilla de La Haya
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleMppreApostille(record)}
+                                disabled={apostilleLoading === record.hash}
+                                style={{
+                                  padding: '0.45rem 0.85rem',
+                                  fontSize: '0.78rem',
+                                  background: 'linear-gradient(135deg, #d97706, #b45309)',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  fontWeight: '700',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)'
+                                }}
+                              >
+                                <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Emitir Apostilla 100% Digital'}
+                              </button>
+                            )}
+                          </>
                         ) : (
-                          <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: '800', background: 'rgba(239,68,68,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Rechazado</span>
+                          /* Modo General */
+                          <>
+                            {!isVerified && !isRejected ? (
+                              <>
+                                <button 
+                                  className="send-btn" 
+                                  onClick={() => handleVerify(record.hash)}
+                                  disabled={verifying === record.hash}
+                                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '800' }}
+                                >
+                                  {verifying === record.hash ? 'Auditando...' : 'Aprobar'}
+                                </button>
+
+                                <button
+                                  onClick={() => setRejectingRecord(record)}
+                                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}
+                                >
+                                  Rechazar
+                                </button>
+                              </>
+                            ) : isVerified ? (
+                              <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '800', background: 'rgba(16,185,129,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Aprobado</span>
+                            ) : (
+                              <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: '800', background: 'rgba(239,68,68,0.12)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>Rechazado</span>
+                            )}
+                          </>
                         )}
 
                       </div>
@@ -860,10 +1130,33 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
         )}
       </AnimatePresence>
 
+      {/* ─── MODAL COTEJO FÍSICO-DIGITAL MPPEU ─── */}
+      <AnimatePresence>
+        {activeCotejoRecord && (
+          <MPPEUCotejoModal
+            record={activeCotejoRecord}
+            loading={cotejoLoading}
+            onClose={() => setActiveCotejoRecord(null)}
+            onConfirmCertify={handleMppeuCertify}
+            onReject={(rec) => { setActiveCotejoRecord(null); setRejectingRecord(rec); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─── MODAL APOSTILLA DE LA HAYA MPPRE ─── */}
+      <AnimatePresence>
+        {activeApostilleRecord && (
+          <ApostilleCertificate
+            record={activeApostilleRecord}
+            onClose={() => setActiveApostilleRecord(null)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ─── MODAL CERTIFICADO DIGITAL DE INMUTABILIDAD ─── */}
       {activeCertHash && (
         <DigitalCertificate
-          hash={activeCertHash}
+          docHash={activeCertHash}
           onClose={() => setActiveCertHash(null)}
         />
       )}

@@ -111,10 +111,10 @@ function App() {
             </button>
           </div>
           <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
-            {(adminUser?.ente === 'USM' || adminUser?.ente === 'GTU') ? (
+            {adminUser?.ente === 'USM' ? (
               <AdminDashboard adminData={adminUser} />
             ) : (
-              <GovernmentPanel />
+              <GovernmentPanel adminData={adminUser} />
             )}
           </div>
         </div>
@@ -138,7 +138,7 @@ function App() {
       case 'dashboard':
         return <Dashboard user={user} />;
       case 'ocr':
-        return <OCRExtractor user={user} onDataExtracted={handleOcrDataExtracted} />;
+        return <OCRExtractor user={user} onDataExtracted={handleOcrDataExtracted} onNavigate={setActiveTab} />;
       case 'prevalidation':
         return <PreValidation />;
       case 'survival':

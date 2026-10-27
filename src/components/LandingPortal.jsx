@@ -70,6 +70,24 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
     handleStudentSubmit(null, demoCedula);
   };
 
+  const fillMppeuDemo = () => {
+    setRoleTab('gov');
+    const demoUser = 'mppeu_agente';
+    const demoPass = 'admin123';
+    setGovUsername(demoUser);
+    setGovPassword(demoPass);
+    handleGovSubmit(null, demoUser, demoPass);
+  };
+
+  const fillMppreDemo = () => {
+    setRoleTab('gov');
+    const demoUser = 'mppre_agente';
+    const demoPass = 'admin123';
+    setGovUsername(demoUser);
+    setGovPassword(demoPass);
+    handleGovSubmit(null, demoUser, demoPass);
+  };
+
   const fillGovDemo = () => {
     setRoleTab('gov');
     const demoUser = 'saren_admin';
@@ -440,44 +458,66 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                   onClick={() => { setRoleTab('student'); setStudentError(''); setGovError(''); }}
                   style={{
                     flex: 1,
-                    padding: '0.7rem 1rem',
+                    padding: '0.65rem 0.8rem',
                     borderRadius: 'var(--radius-pill)',
                     border: 'none',
                     cursor: 'pointer',
-                    fontWeight: 450,
-                    fontSize: '0.86rem',
+                    fontWeight: 500,
+                    fontSize: '0.84rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.5rem',
+                    gap: '0.4rem',
                     transition: 'all 0.2s',
                     backgroundColor: roleTab === 'student' ? 'var(--color-ink-black)' : 'transparent',
                     color: roleTab === 'student' ? '#ffffff' : 'var(--color-slate-gray)'
                   }}
                 >
-                  <User size={15} /> Graduando USM
+                  <User size={14} /> Graduando USM
                 </button>
 
                 <button
-                  onClick={() => { setRoleTab('gov'); setStudentError(''); setGovError(''); }}
+                  onClick={() => { setRoleTab('gov'); setGovUsername('mppeu_agente'); setGovPassword('admin123'); setStudentError(''); setGovError(''); }}
                   style={{
                     flex: 1,
-                    padding: '0.7rem 1rem',
+                    padding: '0.65rem 0.8rem',
                     borderRadius: 'var(--radius-pill)',
                     border: 'none',
                     cursor: 'pointer',
-                    fontWeight: 450,
-                    fontSize: '0.86rem',
+                    fontWeight: 500,
+                    fontSize: '0.84rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.5rem',
+                    gap: '0.4rem',
                     transition: 'all 0.2s',
-                    backgroundColor: roleTab === 'gov' ? 'var(--color-ink-black)' : 'transparent',
-                    color: roleTab === 'gov' ? '#ffffff' : 'var(--color-slate-gray)'
+                    backgroundColor: roleTab === 'gov' && govUsername === 'mppeu_agente' ? 'var(--color-ink-black)' : 'transparent',
+                    color: roleTab === 'gov' && govUsername === 'mppeu_agente' ? '#ffffff' : 'var(--color-slate-gray)'
                   }}
                 >
-                  <Shield size={15} /> Auditor SAREN / MPPRE
+                  <Building2 size={14} /> Taquilla MPPEU
+                </button>
+
+                <button
+                  onClick={() => { setRoleTab('gov'); setGovUsername('mppre_agente'); setGovPassword('admin123'); setStudentError(''); setGovError(''); }}
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem 0.8rem',
+                    borderRadius: 'var(--radius-pill)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontSize: '0.84rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    transition: 'all 0.2s',
+                    backgroundColor: roleTab === 'gov' && govUsername === 'mppre_agente' ? 'var(--color-ink-black)' : 'transparent',
+                    color: roleTab === 'gov' && govUsername === 'mppre_agente' ? '#ffffff' : 'var(--color-slate-gray)'
+                  }}
+                >
+                  <Globe size={14} /> Cancillería MPPRE
                 </button>
               </div>
 
@@ -665,17 +705,41 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
                         gap: '0.5rem'
                       }}
                     >
-                      <Lock size={15} /> {govLoading ? 'Autenticando...' : 'Acceso Seguro Auditoría'} <ArrowRight size={15} />
+                      <Lock size={15} /> {govLoading ? 'Autenticando...' : 'Acceso Seguro Funcionario'} <ArrowRight size={15} />
                     </button>
-                    
-                    <button
-                      type="button"
-                      onClick={() => { fillGovDemo(); handleGovSubmit(); }}
-                      className="btn-ghost"
-                      style={{ flex: 1, whiteSpace: 'nowrap' }}
-                    >
-                      Acceso Rápido
-                    </button>
+                  </div>
+
+                  {/* Acceso Rápido por Rol Ministerial */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--color-slate-gray)', fontWeight: 500 }}>
+                      Accesos Directos para Evaluación de Tesis:
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={fillMppeuDemo}
+                        className="btn-ghost"
+                        style={{ fontSize: '0.78rem', padding: '0.45rem 0.6rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      >
+                        <Building2 size={13} color="#0284c7" /> Preset MPPEU
+                      </button>
+                      <button
+                        type="button"
+                        onClick={fillMppreDemo}
+                        className="btn-ghost"
+                        style={{ fontSize: '0.78rem', padding: '0.45rem 0.6rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      >
+                        <Globe size={13} color="#d97706" /> Preset MPPRE
+                      </button>
+                      <button
+                        type="button"
+                        onClick={fillGovDemo}
+                        className="btn-ghost"
+                        style={{ fontSize: '0.78rem', padding: '0.45rem 0.6rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      >
+                        <Shield size={13} color="#64748b" /> Preset SAREN
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{

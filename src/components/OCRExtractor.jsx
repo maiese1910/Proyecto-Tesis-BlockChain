@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check, X } from "lucide-react";
-import { ocrAPI } from "../services/api";
+import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check, X, ShieldCheck, ArrowRight, ExternalLink } from "lucide-react";
+import { ocrAPI, blockchainAPI, hashAPI } from "../services/api";
 
 const ConfidenceBadge = ({ score }) => {
   const pct = Math.round((score || 0) * 100);
@@ -74,7 +74,7 @@ const FIELDS = [
   { key: "fecha", label: "Fecha de Emisión", icon: Calendar },
 ];
 
-const OCRExtractor = ({ user, onDataExtracted }) => {
+const OCRExtractor = ({ user, onDataExtracted, onNavigate }) => {
   const [dragOver, setDragOver] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
@@ -82,12 +82,14 @@ const OCRExtractor = ({ user, onDataExtracted }) => {
   const [currentStep, setCurrentStep] = useState(-1);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [isRegisteringGtu, setIsRegisteringGtu] = useState(false);
+  const [gtuRegistered, setGtuRegistered] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleFile = useCallback((file) => {
     if (!file || !file.type.startsWith("image/")) { setError("Selecciona una imagen (JPG, PNG, WEBP)."); return; }
     if (file.size > 10 * 1024 * 1024) { setError("La imagen no debe superar los 10 MB."); return; }
-    setError(null); setResult(null);
+    setError(null); setResult(null); setGtuRegistered(null);
     const reader = new FileReader();
     reader.onload = (e) => {
       setImagePreview(e.target.result);
@@ -100,7 +102,7 @@ const OCRExtractor = ({ user, onDataExtracted }) => {
 
   const handleProcess = async () => {
     if (!imagePreview) return;
-    setProcessing(true); setResult(null); setError(null);
+    setProcessing(true); setResult(null); setError(null); setGtuRegistered(null);
     try {
       setCurrentStep(0);
       await new Promise(r => setTimeout(r, 300));
@@ -127,6 +129,54 @@ const OCRExtractor = ({ user, onDataExtracted }) => {
       setError(err.message || "Error al procesar el documento.");
     } finally {
       setProcessing(false); setCurrentStep(-1);
+    }
+  };
+
+  const handleRegisterGtu = async () => {
+    if (!result?.fields) return;
+    setIsRegisteringGtu(true);
+    setError(null);
+    try {
+      const ownerName = result.fields.nombre_completo?.value || user?.nombre || "Mauro Daniel Maiese Ferreira";
+      const cedula = result.fields.cedula?.value || user?.cedula || "V-28.315.101";
+      const institucion = result.fields.institucion?.value || "Universidad Santa María";
+      const carrera = result.fields.carrera?.value || user?.carrera || "Ingeniería de Sistemas";
+      const docType = `Título de ${carrera} — ${institucion.includes("USM") ? "USM" : institucion}`;
+
+      // Generar hash SHA-256 canónico del documento
+      const canonicalData = {
+        titular: ownerName,
+        cedula: cedula,
+        institucion: institucion,
+        carrera: carrera,
+        fecha: result.fields.fecha?.value || new Date().toISOString().split("T")[0],
+        timestamp: Date.now()
+      };
+      const docHash = await hashAPI.generateClientHash(canonicalData);
+
+      // Registrar en backend / blockchain
+      const res = await blockchainAPI.register({
+        hash: docHash,
+        ownerName: ownerName,
+        cedula: cedula,
+        documentType: docType
+      });
+
+      if (res.success) {
+        setGtuRegistered({
+          solicitudCode: res.solicitudCode,
+          hash: docHash,
+          txHash: res.txHash,
+          ownerName: ownerName,
+          cedula: cedula,
+          documentType: docType
+        });
+      }
+    } catch (err) {
+      console.error("Error registrando trámite GTU:", err);
+      setError("No se pudo registrar la solicitud en el sistema: " + (err.message || "Error desconocido"));
+    } finally {
+      setIsRegisteringGtu(false);
     }
   };
 
@@ -220,6 +270,71 @@ const OCRExtractor = ({ user, onDataExtracted }) => {
                 <motion.div style={{ height: "100%", background: "linear-gradient(90deg, #a855f7, #0ea5e9)", borderRadius: "2px" }} animate={{ width: `${((currentStep + 1) / 5) * 100}%` }} transition={{ duration: 0.5 }} />
               </div>
             </div>
+          ) : gtuRegistered ? (
+            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ padding: "1.75rem", border: "1px solid var(--success)", backgroundColor: "rgba(16, 185, 129, 0.04)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "rgba(16,185,129,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--success)" }}>
+                  <ShieldCheck size={24} />
+                </div>
+                <div>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--success)" }}>
+                    Etapa 1 Completada
+                  </span>
+                  <h3 style={{ margin: "0.1rem 0 0 0", fontSize: "1.2rem", color: "var(--color-ink-black)", fontFamily: "var(--font-serif)" }}>
+                    Solicitud de Legalización GTU Emitida
+                  </h3>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: "#ffffff", border: "1px solid var(--border)", borderRadius: "var(--radius-inputs)", padding: "1.2rem", marginBottom: "1.2rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", paddingBottom: "0.75rem", borderBottom: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Código de Trámite:</span>
+                  <span style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--color-ink-black)", background: "var(--color-fog-white)", padding: "0.2rem 0.6rem", borderRadius: "4px", border: "1px solid var(--border)" }}>
+                    {gtuRegistered.solicitudCode}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Titular:</span>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-ink-black)" }}>{gtuRegistered.ownerName}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                  <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Cédula:</span>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-ink-black)" }}>{gtuRegistered.cedula}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Huella Digital SHA-256:</span>
+                  <span style={{ fontSize: "0.76rem", fontFamily: "monospace", color: "var(--text-secondary)" }}>
+                    {gtuRegistered.hash.slice(0, 10)}...{gtuRegistered.hash.slice(-8)}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: "var(--color-mist-gray)", borderRadius: "var(--radius-inputs)", padding: "1rem", marginBottom: "1.4rem", border: "1px solid var(--border)" }}>
+                <p style={{ margin: "0 0 0.35rem 0", fontSize: "0.85rem", fontWeight: 600, color: "var(--color-ink-black)" }}>
+                  🏛️ Siguiente Paso (Etapa 2 — MPPEU):
+                </p>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  Tu solicitud ha sido inscrita en la bandeja ministerial. Acude con tu <strong>título físico original (pergamino)</strong> a la taquilla de la Zona Educativa / MPPEU para el cotejo presencial de firmas rectorales y primer anclaje inmutable en Blockchain Sepolia.
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: "0.8rem", flexWrap: "wrap" }}>
+                {onNavigate && (
+                  <button
+                    onClick={() => onNavigate("dashboard")}
+                    style={{ flex: 1, padding: "0.75rem 1rem", backgroundColor: "var(--color-ink-black)", color: "#ffffff", border: "none", borderRadius: "var(--radius-inputs)", fontSize: "0.88rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+                  >
+                    Ver Línea de Tiempo de Trámites <ArrowRight size={16} />
+                  </button>
+                )}
+                <button
+                  onClick={() => setGtuRegistered(null)}
+                  style={{ padding: "0.75rem 1rem", backgroundColor: "#ffffff", color: "var(--color-ink-black)", border: "1px solid var(--border)", borderRadius: "var(--radius-inputs)", fontSize: "0.88rem", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Procesar Otro Documento
+                </button>
+              </div>
+            </motion.div>
           ) : result ? (
             <AnimatePresence>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-panel" style={{ padding: "1.5rem" }}>
@@ -240,11 +355,55 @@ const OCRExtractor = ({ user, onDataExtracted }) => {
                     <pre style={{ marginTop: "0.6rem", padding: "0.8rem", background: "rgba(0,0,0,0.3)", borderRadius: "8px", fontSize: "0.72rem", color: "var(--text-muted)", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: "120px", overflowY: "auto" }}>{result.raw_text_preview}</pre>
                   </details>
                 )}
+
                 {hasAnyField && (
-                  <motion.button initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="send-btn" onClick={handleUsarDatos}
-                    style={{ marginTop: "1.2rem", width: "100%", padding: "0.85rem", background: "linear-gradient(135deg, #10b981, #0ea5e9)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem" }}>
-                    <Zap size={18} /> Usar estos datos en el formulario PUB
-                  </motion.button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1.4rem" }}>
+                    <motion.button
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      disabled={isRegisteringGtu}
+                      className="send-btn"
+                      onClick={handleRegisterGtu}
+                      style={{
+                        width: "100%",
+                        padding: "0.9rem",
+                        background: "var(--color-ink-black)",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "var(--radius-inputs)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.6rem",
+                        fontWeight: 600,
+                        cursor: isRegisteringGtu ? "wait" : "pointer"
+                      }}
+                    >
+                      <ShieldCheck size={18} />
+                      {isRegisteringGtu ? "Generando solicitud y código GTU..." : "Emitir Solicitud de Legalización GTU (Etapa 1)"}
+                    </motion.button>
+
+                    <button
+                      onClick={handleUsarDatos}
+                      style={{
+                        width: "100%",
+                        padding: "0.75rem",
+                        background: "#ffffff",
+                        color: "var(--color-ink-black)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-inputs)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        fontSize: "0.88rem",
+                        fontWeight: 500,
+                        cursor: "pointer"
+                      }}
+                    >
+                      <Zap size={16} /> Usar estos datos en el formulario PUB
+                    </button>
+                  </div>
                 )}
               </motion.div>
             </AnimatePresence>
