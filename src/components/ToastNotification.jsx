@@ -10,33 +10,41 @@ const ToastNotification = () => {
     // Conectar al WebSocket global de estadísticas
     const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
     const websocket = new WebSocket(`${WS_URL}/ws/stats`);
-    let lastLogCount = 0;
+    let isInitialMessage = true;
+    let lastSeenLog = null;
 
     websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.audit_log && data.audit_log.length > 0) {
-          // Detectar nuevos logs comparando tamaños si es la primera vez, 
-          // o simplemente revisando si hay logs diferentes.
-          // Para simplificar, mostraremos el último log si es nuevo.
           const latestLog = data.audit_log[0];
-          
+
+          // Omitir el snapshot inicial histórico para no disparar notificación falsa al entrar
+          if (isInitialMessage) {
+            isInitialMessage = false;
+            lastSeenLog = latestLog;
+            return;
+          }
+
+          if (latestLog === lastSeenLog) return;
+          lastSeenLog = latestLog;
+
           setNotifications(prev => {
             // Evitar duplicados exactos
             if (prev.length > 0 && prev[0].message === latestLog) {
               return prev;
             }
-            
+
             const newNotif = {
               id: Date.now(),
               message: latestLog
             };
-            
+
             // Auto-remover después de 5 segundos
             setTimeout(() => {
               removeNotification(newNotif.id);
             }, 5000);
-            
+
             return [newNotif, ...prev].slice(0, 3); // Máximo 3 visibles
           });
         }
@@ -76,35 +84,35 @@ const ToastNotification = () => {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
             style={{
-              background: 'var(--surface)',
-              border: '1px solid rgba(124, 58, 237, 0.4)',
-              borderRadius: '12px',
+              background: '#ffffff',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-inputs)',
               padding: '1rem',
-              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+              boxShadow: 'var(--shadow-hover)',
               display: 'flex',
               alignItems: 'flex-start',
-              gap: '1rem',
+              gap: '0.85rem',
               maxWidth: '350px',
-              borderLeft: '4px solid var(--primary)'
+              borderLeft: '4px solid var(--color-sienna-brown)'
             }}
           >
-            <div style={{ color: 'var(--primary)', marginTop: '2px' }}>
-              <Bell size={20} />
+            <div style={{ color: 'var(--color-sienna-brown)', background: 'var(--color-blush-peach)', padding: '0.4rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px' }}>
+              <Bell size={18} />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-ink-black)', marginBottom: '0.2rem' }}>
                 Sistema Gubernamental
               </p>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
                 {notif.message}
               </p>
             </div>
-            <button 
+            <button
               onClick={() => removeNotification(notif.id)}
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: 'var(--text-muted)',
+                color: 'var(--text-secondary)',
                 cursor: 'pointer',
                 padding: '2px',
                 display: 'flex'

@@ -267,8 +267,8 @@ const AdminDashboard = ({ adminData }) => {
               {checklist.map(item => (
                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-fog-white)', padding: '1rem 1.25rem', borderRadius: '16px', border: '1px solid var(--border)' }}>
                   <div>
-                    <h4 style={{ margin: '0 0 0.25rem 0', color: 'var(--color-ink-black)', fontWeight: 600, fontSize: '0.94rem' }}>{item.title}</h4>
-                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--color-slate-gray)' }}>{item.description}</p>
+                    <h4 style={{ margin: '0 0 0.25rem 0', color: 'var(--color-ink-black)', fontWeight: 600, fontSize: '0.94rem' }}>{item.title || item.label || 'Requisito Oficial'}</h4>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--color-slate-gray)' }}>{item.description || item.pista || item.pregunta || ''}</p>
                   </div>
                   <button
                     onClick={() => handleDeleteChecklist(item.id)}

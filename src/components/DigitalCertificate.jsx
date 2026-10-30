@@ -46,7 +46,8 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backgroundColor: 'rgba(23, 25, 28, 0.55)',
+        backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -59,15 +60,15 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
         initial={{ y: 50, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         style={{
-          background: '#09090b',
-          borderRadius: '16px',
+          background: '#ffffff',
+          borderRadius: 'var(--radius-cards)',
           padding: '0',
           maxWidth: '800px',
           width: '100%',
           maxHeight: '92vh',
           overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-          border: '1px solid rgba(217, 119, 6, 0.4)',
+          boxShadow: 'var(--shadow-hover)',
+          border: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column'
         }}
@@ -75,8 +76,8 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
         {/* Cabecera Fija / Sticky con Botón Cerrar visible siempre */}
         <div style={{
           padding: '1rem 1.5rem',
-          background: '#0c0e17',
-          borderBottom: '1px solid rgba(217, 119, 6, 0.3)',
+          background: 'var(--color-fog-white)',
+          borderBottom: '1px solid var(--border)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -84,14 +85,14 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
           top: 0,
           zIndex: 100
         }}>
-          <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Shield color="#d97706" size={20} /> Certificado Digital de Inmutabilidad
+          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <Shield color="var(--color-sienna-brown)" size={20} /> Certificado Digital de Inmutabilidad
           </h3>
           <button 
             onClick={onClose}
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: 'none',
+              background: '#ffffff',
+              border: '1px solid var(--border)',
               borderRadius: '50%',
               width: '32px',
               height: '32px',
@@ -99,7 +100,7 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: '#fff'
+              color: 'var(--color-ink-black)'
             }}
           >
             <X size={18} />
@@ -107,10 +108,10 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
         </div>
 
         {/* Cuerpo Desplazable del Certificado */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, background: '#ffffff' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-              <p style={{ color: 'var(--primary)', fontSize: '1.2rem' }}>Generando Certificado Digital...</p>
+              <p style={{ color: 'var(--color-ink-black)', fontSize: '1.1rem' }}>Generando Certificado Digital...</p>
             </div>
           ) : error ? (
             <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--danger)' }}>
@@ -119,14 +120,14 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
           ) : (
             <div id="printable-certificate">
               {/* Header del Certificado */}
-              <div style={{ textAlign: 'center', borderBottom: '2px solid rgba(217, 119, 6, 0.3)', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
-                <p style={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+              <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
+                <p style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.78rem', marginBottom: '0.5rem', fontWeight: 600 }}>
                   {certData.institution}
                 </p>
-                <h2 style={{ fontSize: '1.6rem', color: 'var(--text-main)', margin: '0 0 1rem 0' }}>
+                <h2 style={{ fontSize: '1.6rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, margin: '0 0 1rem 0' }}>
                   {certData.title}
                 </h2>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: '600', fontSize: '0.9rem' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.2)', padding: '0.4rem 1rem', borderRadius: 'var(--radius-pill)', fontWeight: '600', fontSize: '0.88rem' }}>
                   <CheckCircle size={16} /> {certData.blockchain_status}
                 </div>
               </div>
@@ -137,52 +138,52 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                 {/* Datos */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                   <div>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Titular del Documento</p>
-                    <p style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-main)' }}>{certData.owner}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem', fontWeight: 600 }}>Titular del Documento</p>
+                    <p style={{ fontSize: '1.25rem', fontWeight: '600', color: 'var(--color-ink-black)', margin: 0 }}>{certData.owner}</p>
                   </div>
                   
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
                     <div>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Cédula de Identidad</p>
-                      <p style={{ fontSize: '1rem', fontWeight: '500' }}>{certData.id_number}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem', fontWeight: 600 }}>Cédula de Identidad</p>
+                      <p style={{ fontSize: '1rem', fontWeight: '500', color: 'var(--color-ink-black)', margin: 0 }}>{certData.id_number}</p>
                     </div>
                     <div>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Tipo de Trámite</p>
-                      <p style={{ fontSize: '1rem', fontWeight: '500' }}>{certData.document_type}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem', fontWeight: 600 }}>Tipo de Trámite</p>
+                      <p style={{ fontSize: '1rem', fontWeight: '500', color: 'var(--color-ink-black)', margin: 0 }}>{certData.document_type}</p>
                     </div>
                   </div>
 
                   <div>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Fecha de Registro Blockchain</p>
-                    <p style={{ fontSize: '1rem', fontWeight: '500' }}>{certData.registration_date}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem', fontWeight: 600 }}>Fecha de Registro Blockchain</p>
+                    <p style={{ fontSize: '1rem', fontWeight: '500', color: 'var(--color-ink-black)', margin: 0 }}>{certData.registration_date}</p>
                   </div>
                   
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', margin: 0 }}>Hash Criptográfico (SHA-256)</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', margin: 0, fontWeight: 600 }}>Hash Criptográfico (SHA-256)</p>
                       <button 
                         onClick={handleCopy}
-                        style={{ background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--color-sienna-brown)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
                       >
                         {copied ? '¡Copiado!' : 'Copiar'}
                       </button>
                     </div>
-                    <p style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#fbbf24', wordBreak: 'break-all', background: 'rgba(30, 58, 138, 0.25)', padding: '0.5rem', borderRadius: '6px' }}>
+                    <p style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-ink-black)', wordBreak: 'break-all', background: 'var(--color-fog-white)', border: '1px solid var(--border)', padding: '0.6rem 0.75rem', borderRadius: '8px', margin: 0 }}>
                       {certData.document_hash}
                     </p>
                   </div>
                 </div>
 
                 {/* QR Code */}
-                <div className="cert-qr-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', background: '#ffffff', padding: '1.2rem', borderRadius: '12px' }}>
+                <div className="cert-qr-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', padding: '1.2rem', borderRadius: '12px' }}>
                   <QRCodeSVG 
                     value={certData.qr_link} 
                     size={150}
                     bgColor={"#ffffff"}
-                    fgColor={"#000000"}
+                    fgColor={"#17191c"}
                     level={"Q"}
                   />
-                  <p style={{ fontSize: '0.75rem', color: '#666666', textAlign: 'center', fontWeight: '600', maxWidth: '150px' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', fontWeight: '500', maxWidth: '150px', margin: 0 }}>
                     Escanear para verificar en Blockchain
                   </p>
                 </div>
@@ -202,8 +203,8 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                     };
                     html2pdf().set(opt).from(element).save();
                   }}
-                  className="send-btn" 
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', background: 'rgba(255,255,255,0.1)', color: 'var(--text-main)' }}
+                  className="btn-ghost" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.4rem' }}
                 >
                   <Printer size={18} /> Descargar PDF Oficial
                 </button>
@@ -216,7 +217,7 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                     }
                   }}
                   className="send-btn" 
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', color: '#ffffff', cursor: 'pointer', border: 'none', borderRadius: '8px' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.4rem' }}
                 >
                   <Shield size={18} /> Verificar Hash Criptográfico
                 </button>
@@ -227,10 +228,11 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
         </div>
 
         {/* Footer del Modal con botón de Cierre Táctil en Móvil */}
-        <div style={{ padding: '0.8rem 1.5rem', background: '#0c0e17', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ padding: '0.85rem 1.5rem', background: 'var(--color-fog-white)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={onClose}
-            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', width: '100%' }}
+            className="btn-ghost"
+            style={{ padding: '0.6rem 1.5rem', width: '100%' }}
           >
             Cerrar Ventana
           </button>

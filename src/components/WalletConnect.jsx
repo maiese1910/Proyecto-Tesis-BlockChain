@@ -34,17 +34,17 @@ const WalletConnect = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(56,189,248,0.1)', padding: '0.4rem 1rem', borderRadius: '20px', border: '1px solid rgba(56,189,248,0.3)' }}>
-        <Loader size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
-        <span style={{ color: 'var(--primary)', fontWeight: '600', fontSize: '0.85rem' }}>Conectando...</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#ffffff', padding: '0.35rem 0.9rem', borderRadius: 'var(--radius-pill)', border: '1px solid var(--border)' }}>
+        <Loader size={14} color="var(--color-ink-black)" style={{ animation: 'spin 1s linear infinite' }} />
+        <span style={{ color: 'var(--color-ink-black)', fontWeight: 500, fontSize: '0.8rem' }}>Conectando...</span>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.4rem 1rem', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-      <ShieldCheck size={16} color="var(--success)" />
-      <span style={{ color: 'var(--success)', fontWeight: '600', fontSize: '0.85rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--color-blush-peach)', padding: '0.35rem 0.9rem', borderRadius: 'var(--radius-pill)', border: '1px solid rgba(93, 42, 26, 0.2)' }}>
+      <ShieldCheck size={15} color="var(--color-sienna-brown)" />
+      <span style={{ color: 'var(--color-sienna-brown)', fontWeight: 600, fontSize: '0.8rem', fontFamily: 'monospace' }}>
         {formatAddress(address)}
       </span>
     </div>

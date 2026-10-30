@@ -70,48 +70,34 @@ const ApostilleCertificate = ({ record, onClose }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '0.85rem 1.4rem',
-          background: '#0f172a',
-          color: '#ffffff'
+          padding: '0.9rem 1.4rem',
+          background: 'var(--color-fog-white)',
+          borderBottom: '1px solid var(--border)',
+          color: 'var(--color-ink-black)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <Globe size={20} color="#38bdf8" />
-            <span style={{ fontWeight: 600, fontSize: '0.98rem' }}>
+            <Globe size={20} color="var(--color-sienna-brown)" />
+            <span style={{ fontWeight: 400, fontFamily: 'var(--font-serif)', fontSize: '1.08rem', color: 'var(--color-ink-black)' }}>
               Apostilla Electrónica de La Haya (MPPRE / MPPEU)
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <button
               onClick={handleDownloadPDF}
+              className="send-btn"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                background: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                padding: '0.45rem 0.85rem',
-                borderRadius: '6px',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                cursor: 'pointer'
+                padding: '0.45rem 0.9rem',
+                fontSize: '0.82rem'
               }}
             >
               Descargar PDF
             </button>
             <button
               onClick={handlePrint}
+              className="btn-ghost"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                background: 'rgba(255,255,255,0.12)',
-                color: '#ffffff',
-                border: 'none',
                 padding: '0.45rem 0.75rem',
-                borderRadius: '6px',
-                fontSize: '0.82rem',
-                cursor: 'pointer'
+                fontSize: '0.82rem'
               }}
             >
               <Printer size={15} />
@@ -119,12 +105,12 @@ const ApostilleCertificate = ({ record, onClose }) => {
             <button
               onClick={onClose}
               style={{
-                background: 'rgba(255,255,255,0.12)',
-                border: 'none',
-                color: '#ffffff',
+                background: '#ffffff',
+                border: '1px solid var(--border)',
+                color: 'var(--color-ink-black)',
                 borderRadius: '50%',
-                width: '30px',
-                height: '30px',
+                width: '32px',
+                height: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

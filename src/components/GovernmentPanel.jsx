@@ -893,7 +893,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
               {aiLoading ? (
                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-slate-gray)' }}>
-                  <RefreshCw size={32} className="spinning" style={{ margin: '0 auto 1rem auto', color: 'var(--color-ink-black)' }} />
+                  <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 1rem auto', color: 'var(--color-ink-black)' }} />
                   <p style={{ margin: 0, fontSize: '0.9rem' }}>Ejecutando algoritmos de detección de fraude y resumen de ley...</p>
                 </div>
               ) : (
@@ -1207,7 +1207,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
       }}>
         {loading ? (
           <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--color-slate-gray)' }}>
-            <RefreshCw size={24} className="spinning" style={{ margin: '0 auto 0.75rem auto', color: 'var(--color-ink-black)' }} />
+            <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 0.75rem auto', color: 'var(--color-ink-black)' }} />
             <p style={{ margin: 0, fontSize: '0.9rem' }}>Cargando expedientes académicos en la Blockchain...</p>
           </div>
         ) : filteredRecords.length === 0 ? (

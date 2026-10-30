@@ -514,17 +514,45 @@ CHECKLIST_SAREN_DEFAULT = [
     },
 ]
 
+_checklist_memory = [
+    {
+        "id": item["id"],
+        "title": item["label"],
+        "label": item["label"],
+        "description": item["pista"],
+        "pregunta": item["pregunta"],
+        "pista": item["pista"],
+        "orden": item["id"],
+        "activo": True,
+        "icon": "FileText"
+    } for item in CHECKLIST_SAREN_DEFAULT
+]
+
+def normalize_checklist_item(item: dict) -> dict:
+    title = item.get("title") or item.get("label") or "Requisito Oficial"
+    desc = item.get("description") or item.get("pista") or item.get("pregunta") or ""
+    return {
+        "id": item.get("id"),
+        "title": title,
+        "label": title,
+        "description": desc,
+        "pregunta": item.get("pregunta") or f"¿Posee el documento: {title}?",
+        "pista": item.get("pista") or desc,
+        "orden": item.get("orden", 1),
+        "activo": item.get("activo", True),
+        "icon": item.get("icon", "FileText")
+    }
 
 async def get_checklist():
-    """Obtiene el checklist dinámico desde Supabase, o fallback estático."""
+    """Obtiene el checklist dinámico desde Supabase, o fallback en memoria."""
     if supabase:
         try:
             res = supabase.table("checklist_items").select("*").eq("activo", True).order("orden").execute()
             if res.data and len(res.data) > 0:
-                return res.data
+                return [normalize_checklist_item(r) for r in res.data]
         except Exception:
             pass
-    return CHECKLIST_SAREN_DEFAULT
+    return [normalize_checklist_item(r) for r in _checklist_memory]
 
 
 def formato_checklist_resumen(checklist_items: list, estados: dict) -> str:
@@ -564,11 +592,14 @@ class HashDocumentReq(BaseModel):
     data: dict
 
 class ChecklistItemReq(BaseModel):
-    label: str
-    pregunta: str
-    pista: str
-    orden: int
-    activo: bool = True
+    label: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    pregunta: Optional[str] = None
+    pista: Optional[str] = None
+    orden: Optional[int] = 0
+    activo: Optional[bool] = True
+    icon: Optional[str] = "FileText"
 
 class GuiaLogisticaReq(BaseModel):
     ente: str
@@ -917,13 +948,22 @@ async def verify_blockchain_document(doc_hash: str):
                 except Exception:
                     timestamp = int(datetime.datetime.now().timestamp())
                 
+                is_rev = record.get("is_revoked", False) or "Rechazado" in str(record.get("status", "")) or "Revocado" in str(record.get("status", ""))
                 return {
                     "exists": True,
+                    "isRevoked": is_rev,
+                    "status": record.get("status", "VALIDADO E INMUTABLE"),
+                    "rejectionReason": record.get("rejection_reason"),
+                    "verifiedBy": record.get("verified_by"),
                     "ownerName": record.get("owner_name", "Desconocido"),
                     "cedula": record.get("cedula", "N/A"),
                     "documentType": record.get("document_type", "Documento PUB"),
                     "timestamp": timestamp,
-                    "txHash": record.get("tx_hash", "N/A")
+                    "txHash": record.get("tx_hash", "N/A"),
+                    "solicitudCode": record.get("solicitud_code"),
+                    "mppeuVerified": record.get("mppeu_verified", False),
+                    "mppreVerified": record.get("mppre_verified", False),
+                    "apostilleNumber": record.get("apostille_number")
                 }
         except Exception as e:
             print(f"[ERROR] Database verification fallback error: {e}")
@@ -936,13 +976,22 @@ async def verify_blockchain_document(doc_hash: str):
                 ts = int(dt.timestamp())
             except Exception:
                 ts = int(datetime.datetime.now().timestamp())
+            is_rev = r.get("is_revoked", False) or "Rechazado" in str(r.get("status", "")) or "Revocado" in str(r.get("status", ""))
             return {
                 "exists": True,
+                "isRevoked": is_rev,
+                "status": r.get("status", "VALIDADO E INMUTABLE"),
+                "rejectionReason": r.get("rejection_reason"),
+                "verifiedBy": r.get("verified_by"),
                 "ownerName": r.get("owner_name", "Desconocido"),
                 "cedula": r.get("cedula", "N/A"),
                 "documentType": r.get("document_type", "Documento PUB"),
                 "timestamp": ts,
-                "txHash": r.get("tx_hash", "N/A")
+                "txHash": r.get("tx_hash", "N/A"),
+                "solicitudCode": r.get("solicitud_code"),
+                "mppeuVerified": r.get("mppeu_verified", False),
+                "mppreVerified": r.get("mppre_verified", False),
+                "apostilleNumber": r.get("apostille_number")
             }
 
     return {
@@ -1308,6 +1357,8 @@ async def get_digital_certificate(doc_hash: str):
                     doc_type = rec.get("document_type", "Título de Grado USM")
                     tx_hash = rec.get("tx_hash", tx_hash)
                     verified_by = rec.get("verified_by", verified_by)
+                    if rec.get("is_revoked") or "Rechazado" in str(rec.get("status", "")) or "Revocado" in str(rec.get("status", "")):
+                        is_revoked_on_chain = True
                     try:
                         dt = datetime.datetime.fromisoformat(rec.get("created_at").replace('Z', '+00:00'))
                         timestamp = int(dt.timestamp())
@@ -1326,6 +1377,8 @@ async def get_digital_certificate(doc_hash: str):
                 doc_type = r.get("document_type", "Título Universitario USM")
                 tx_hash = r.get("tx_hash", tx_hash)
                 verified_by = r.get("verified_by", verified_by)
+                if r.get("is_revoked") or "Rechazado" in str(r.get("status", "")) or "Revocado" in str(r.get("status", "")):
+                    is_revoked_on_chain = True
                 try:
                     dt = datetime.datetime.fromisoformat(r.get("created_at").replace('Z', '+00:00'))
                     timestamp = int(dt.timestamp())
@@ -1556,33 +1609,57 @@ async def get_checklist_items():
 
 @app.post("/admin/checklist")
 async def create_checklist_item(item: ChecklistItemReq):
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase no configurado")
-    try:
-        supabase.table("checklist_items").insert(item.model_dump()).execute()
-        return {"success": True, "message": "Item creado"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    new_id = int(datetime.datetime.now().timestamp() * 1000) % 1000000
+    item_dict = item.model_dump()
+    norm = normalize_checklist_item({**item_dict, "id": new_id})
+    if supabase:
+        try:
+            supabase.table("checklist_items").insert({
+                "label": norm["label"],
+                "pregunta": norm["pregunta"],
+                "pista": norm["pista"],
+                "orden": norm["orden"],
+                "activo": norm["activo"]
+            }).execute()
+            return {"success": True, "message": "Item creado", "item": norm}
+        except Exception as e:
+            print(f"[WARN] Error insertando en Supabase: {e}")
+    # Fallback en memoria
+    _checklist_memory.append(norm)
+    return {"success": True, "message": "Item creado en memoria", "item": norm}
 
 @app.put("/admin/checklist/{item_id}")
 async def update_checklist_item(item_id: int, item: ChecklistItemReq):
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase no configurado")
-    try:
-        supabase.table("checklist_items").update(item.model_dump()).eq("id", item_id).execute()
-        return {"success": True, "message": "Item actualizado"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    item_dict = item.model_dump()
+    norm = normalize_checklist_item({**item_dict, "id": item_id})
+    if supabase:
+        try:
+            supabase.table("checklist_items").update({
+                "label": norm["label"],
+                "pregunta": norm["pregunta"],
+                "pista": norm["pista"],
+                "orden": norm["orden"],
+                "activo": norm["activo"]
+            }).eq("id", item_id).execute()
+            return {"success": True, "message": "Item actualizado", "item": norm}
+        except Exception as e:
+            print(f"[WARN] Error actualizando en Supabase: {e}")
+    for idx, it in enumerate(_checklist_memory):
+        if it.get("id") == item_id:
+            _checklist_memory[idx] = norm
+            break
+    return {"success": True, "message": "Item actualizado en memoria", "item": norm}
 
 @app.delete("/admin/checklist/{item_id}")
 async def delete_checklist_item(item_id: int):
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase no configurado")
-    try:
-        supabase.table("checklist_items").delete().eq("id", item_id).execute()
-        return {"success": True, "message": "Item eliminado"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    global _checklist_memory
+    if supabase:
+        try:
+            supabase.table("checklist_items").delete().eq("id", item_id).execute()
+        except Exception as e:
+            print(f"[WARN] Error eliminando en Supabase: {e}")
+    _checklist_memory = [it for it in _checklist_memory if it.get("id") != item_id]
+    return {"success": True, "message": "Item eliminado"}
 
 
 # --- Guías Logísticas CRUD ---
@@ -1595,13 +1672,13 @@ async def get_guias_logistica():
                 return {"success": True, "guias": res.data}
         except Exception:
             pass
-    # Fallback estático
+    # Fallback estático con imágenes de fachada oficiales
     return {"success": True, "guias": [
         {
             "ente": "saren",
             "location": "Sede del Registro Principal (Según tu Estado/Municipio)",
             "warning": "Cita previa obligatoria a través de la web del SAREN.",
-            "image_url": "",
+            "image_url": "/images/saren_facade.png",
             "steps": [
                 {"title": "Planificación de Llegada", "time": "6:00 AM", "desc": "Los Registros Principales suelen atender por orden de llegada. Llega temprano porque el sistema suele 'caerse' a media mañana."},
                 {"title": "Documentos Esenciales", "time": "Revisión Previa", "desc": "Debes tener: Título original legalizado por el GTU, la Planilla Única Bancaria (PUB) pagada, Timbres Fiscales del estado y copias de tu Cédula."},
@@ -1613,7 +1690,7 @@ async def get_guias_logistica():
             "ente": "mppre",
             "location": "Oficina del MPPRE o IPOSTEL autorizada (Cita Electrónica)",
             "warning": "Citas asignadas según el terminal de tu cédula.",
-            "image_url": "",
+            "image_url": "/images/mppre_facade.png",
             "steps": [
                 {"title": "Día de Cita", "time": "7:30 AM", "desc": "El sistema de Apostilla Electrónica te da un día específico. Imprime dos copias de la cita."},
                 {"title": "Validación de GTU", "time": "Requisito Estricto", "desc": "Tu título ya debe estar legalizado por el GTU del Ministerio de Educación Universitaria."},
@@ -1633,43 +1710,55 @@ async def create_guia(guia: GuiaLogisticaReq):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- Planillas CRUD ---
+# --- Planillas CRUD con fallback en memoria ---
+_planillas_memory = [
+    {"id": "pub_saren", "nombre": "Planilla Única Bancaria (PUB - SAREN)", "url": "#", "categoria": "Legalización Estatal", "orden": 1},
+    {"id": "solicitud_grado_usm", "nombre": "Planilla de Solicitud de Grado (USM)", "url": "#", "categoria": "Trámite Académico", "orden": 2},
+    {"id": "fondo_negro_usm", "nombre": "Formato Certificación Fondo Negro (USM)", "url": "#", "categoria": "Certificación Legal", "orden": 3},
+    {"id": "solvencia_biblioteca_usm", "nombre": "Planilla Solvencia de Biblioteca y Laboratorios", "url": "#", "categoria": "Solvencia Académica", "orden": 4},
+    {"id": "cita_gtu_mppeu", "nombre": "Planilla de Cita GTU (MPPEU)", "url": "#", "categoria": "Legalización Nacional", "orden": 5},
+]
+
 @app.get("/planillas")
 async def get_planillas():
     if supabase:
         try:
             res = supabase.table("planillas").select("*").order("orden").execute()
-            if res.data:
+            if res.data and len(res.data) > 0:
                 return {"success": True, "planillas": res.data}
         except Exception:
             pass
-    # Fallback
-    return {"success": True, "planillas": [
-        {"nombre": "Planilla de Solicitud de Grado.pdf", "url": "#", "categoria": "Grado"},
-        {"nombre": "Formato Fondo Negro.pdf", "url": "#", "categoria": "Grado"},
-        {"nombre": "Planilla Solvencia de Biblioteca.pdf", "url": "#", "categoria": "Grado"},
-        {"nombre": "Planilla Única Bancaria (PUB).pdf", "url": "#", "categoria": "SAREN"},
-    ]}
+    return {"success": True, "planillas": _planillas_memory}
 
 @app.post("/admin/planillas")
 async def create_planilla(planilla: PlanillaReq):
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase no configurado")
-    try:
-        supabase.table("planillas").insert(planilla.model_dump()).execute()
-        return {"success": True, "message": "Planilla creada"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    global _planillas_memory
+    new_p = {
+        "id": f"pla_{secrets.token_hex(4)}",
+        "nombre": planilla.nombre,
+        "url": planilla.url,
+        "categoria": planilla.categoria or "Oficial",
+        "orden": planilla.orden or len(_planillas_memory) + 1
+    }
+    if supabase:
+        try:
+            supabase.table("planillas").insert(new_p).execute()
+            return {"success": True, "message": "Planilla creada", "planilla": new_p}
+        except Exception as e:
+            print(f"[WARN] Error insertando en Supabase: {e}")
+    _planillas_memory.append(new_p)
+    return {"success": True, "message": "Planilla creada", "planilla": new_p}
 
 @app.delete("/admin/planillas/{planilla_id}")
 async def delete_planilla(planilla_id: str):
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase no configurado")
-    try:
-        supabase.table("planillas").delete().eq("id", planilla_id).execute()
-        return {"success": True, "message": "Planilla eliminada"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    global _planillas_memory
+    if supabase:
+        try:
+            supabase.table("planillas").delete().eq("id", planilla_id).execute()
+        except Exception as e:
+            print(f"[WARN] Error eliminando en Supabase: {e}")
+    _planillas_memory = [p for p in _planillas_memory if str(p.get("id")) != str(planilla_id) and p.get("nombre") != str(planilla_id)]
+    return {"success": True, "message": "Planilla eliminada"}
 
 
 # --- Carreras (dinámicas) ---
@@ -1866,14 +1955,16 @@ async def get_pub_fields():
                 return {"success": True, "fields": res.data}
         except Exception:
             pass
-    # Fallback con los campos estáticos
+    # Fallback con los 10 campos oficiales
     return {"success": True, "fields": [
-        {"id": "nombre_completo", "label": "Nombre Completo del Solicitante", "placeholder": "Ej: Juan Carlos Pérez García", "pregunta": "¡Comencemos! 📝\n\n**Campo 1 — Nombre Completo**\n\n¿Cuál es tu nombre completo tal como aparece en tu cédula de identidad?", "ayuda": "Escribe **todos tus nombres y ambos apellidos**, exactamente como aparecen en tu cédula laminada.", "validacion_regex": "", "validacion_mensaje": "", "orden": 1},
-        {"id": "cedula", "label": "Cédula de Identidad", "placeholder": "Ej: V-12.345.678", "pregunta": "**Campo 2 — Cédula de Identidad**\n\n¿Cuál es tu número de cédula? (Incluye el prefijo V- o E-)", "ayuda": "Usa el formato: **V-12.345.678** (venezolano) o **E-12.345.678** (extranjero).", "validacion_regex": "", "validacion_mensaje": "", "orden": 2},
-        {"id": "telefono", "label": "Teléfono de Contacto", "placeholder": "Ej: 0414-1234567", "pregunta": "**Campo 3 — Teléfono de Contacto**\n\n¿Cuál es tu número de teléfono venezolano activo?", "ayuda": "Escribe tu número con la operadora incluida: **0414-1234567**", "validacion_regex": "", "validacion_mensaje": "", "orden": 3},
-        {"id": "correo", "label": "Correo Electrónico", "placeholder": "Ej: juan.perez@gmail.com", "pregunta": "**Campo 4 — Correo Electrónico**\n\n¿Cuál es tu correo electrónico activo?", "ayuda": "Usa un correo que revises con frecuencia.", "validacion_regex": "", "validacion_mensaje": "", "orden": 4},
-        {"id": "tramite", "label": "Tipo de Trámite", "placeholder": "Registro de Título Universitario", "pregunta": "**Campo 5 — Tipo de Trámite**\n\nEscribe el tipo de trámite.", "ayuda": "Escribe exactamente **\"Registro de Título Universitario\"**.", "validacion_regex": "", "validacion_mensaje": "", "orden": 5},
-        {"id": "institucion", "label": "Institución Educativa", "placeholder": "Universidad Santa María (USM)", "pregunta": "**Campo 6 — Institución Educativa**\n\n¿En qué universidad obtuviste tu título?", "ayuda": "Escribe el nombre oficial completo: **\"Universidad Santa María\"**.", "validacion_regex": "", "validacion_mensaje": "", "orden": 6},
-        {"id": "banco", "label": "Banco Receptor del Pago", "placeholder": "Ej: Banco de Venezuela", "pregunta": "**Campo 7 — Banco Receptor**\n\n¿En qué banco realizaste el pago del arancel del SAREN?", "ayuda": "Indica el banco donde hiciste el pago del arancel.", "validacion_regex": "", "validacion_mensaje": "", "orden": 7},
-        {"id": "monto", "label": "Monto Pagado (Bs.)", "placeholder": "Ej: 150.00", "pregunta": "**Campo 8 — Monto del Arancel (último campo)**\n\n¿Cuál fue el monto exacto pagado en el banco? (en Bs.)", "ayuda": "Usa el monto exacto del comprobante bancario.", "validacion_regex": "", "validacion_mensaje": "", "orden": 8},
+        {"id": "nombre_completo", "label": "Nombre Completo del Solicitante", "placeholder": "Ej: Juan Carlos Pérez García", "pregunta": "Formulario Oficial — Planilla Única Bancaria (PUB)\n\n**Campo 1 — Nombre Completo**\n\n¿Cuál es su nombre completo tal como aparece en su cédula de identidad?", "ayuda": "Escribe **todos tus nombres y ambos apellidos**, exactamente como aparecen en tu cédula laminada. Ejemplo: *Juan Carlos Pérez García*. No uses abreviaciones ni apodos.", "validacion_regex": "", "validacion_mensaje": "", "orden": 1},
+        {"id": "cedula", "label": "Cédula de Identidad", "placeholder": "Ej: V-12.345.678", "pregunta": "**Campo 2 — Cédula de Identidad**\n\n¿Cuál es tu número de cédula? (Incluye el prefijo V- o E-)", "ayuda": "Usa el formato: **V-12.345.678** (venezolano) o **E-12.345.678** (extranjero). El formato incorrecto causa rechazo inmediato en el SAREN.", "validacion_regex": "", "validacion_mensaje": "", "orden": 2},
+        {"id": "telefono", "label": "Teléfono de Contacto", "placeholder": "Ej: 0414-1234567", "pregunta": "**Campo 3 — Teléfono de Contacto**\n\n¿Cuál es tu número de teléfono venezolano activo?", "ayuda": "Escribe tu número con la operadora incluida: **0414-1234567**, **0212-5551234**, etc. El SAREN lo usa para notificaciones del trámite.", "validacion_regex": "", "validacion_mensaje": "", "orden": 3},
+        {"id": "correo", "label": "Correo Electrónico", "placeholder": "Ej: juan.perez@gmail.com", "pregunta": "**Campo 4 — Correo Electrónico**\n\n¿Cuál es tu correo electrónico activo?", "ayuda": "Usa un correo que revises con frecuencia. El SAREN envía confirmaciones y estados del trámite a este correo.", "validacion_regex": "", "validacion_mensaje": "", "orden": 4},
+        {"id": "tramite", "label": "Tipo de Trámite", "placeholder": "Registro de Título Universitario", "pregunta": "**Campo 5 — Tipo de Trámite**\n\nEscribe el tipo de trámite. Ejemplos:\n• *Registro de Título Universitario*\n• *Apostilla de Documento Educativo*\n• *Legalización*", "ayuda": "Escribe exactamente el nombre del trámite. La IA calculará el costo basado en esto.", "validacion_regex": "", "validacion_mensaje": "", "orden": 5},
+        {"id": "institucion", "label": "Institución Educativa", "placeholder": "Universidad Santa María (USM)", "pregunta": "**Campo 6 — Institución Educativa**\n\n¿En qué universidad obtuviste tu título?", "ayuda": "Escribe el nombre oficial completo: **\"Universidad Santa María\"**. No uses variantes informales.", "validacion_regex": "", "validacion_mensaje": "", "orden": 6},
+        {"id": "pago_cedula", "label": "Cédula del Pagador (Pago Móvil)", "placeholder": "Ej: V-12.345.678", "pregunta": "**Campo 7 — Cédula del Pagador**\n\n¿Cuál es la cédula de identidad asociada al pago móvil?", "ayuda": "Escribe la cédula de la persona que realizará el pago móvil, en formato **V-12.345.678** o **E-12.345.678**.", "validacion_regex": "", "validacion_mensaje": "", "orden": 7},
+        {"id": "pago_telefono", "label": "Teléfono del Pagador (Pago Móvil)", "placeholder": "Ej: 0414-1234567", "pregunta": "**Campo 8 — Teléfono del Pagador**\n\n¿Cuál es el número de teléfono asociado al pago móvil?", "ayuda": "Escribe el número de teléfono registrado en tu banco para pago móvil. Formato: **0414-1234567**.", "validacion_regex": "", "validacion_mensaje": "", "orden": 8},
+        {"id": "pago_banco", "label": "Banco del Pagador", "placeholder": "Ej: Banco de Venezuela", "pregunta": "**Campo 9 — Banco del Pagador**\n\n¿Desde qué banco realizarás el pago móvil?", "ayuda": "Escribe el nombre completo del banco desde el cual harás la transferencia o pago móvil.", "validacion_regex": "", "validacion_mensaje": "", "orden": 9},
+        {"id": "confirmacion_pago", "label": "Confirmación de Pago", "placeholder": "Escribe \"listo\"", "pregunta": "**Campo 10 — Confirmación de Pago**\n\nRealice la transferencia al número de cuenta indicado y escriba \"listo\".", "ayuda": "Realiza la transferencia al número de cuenta indicado y escribe \"listo\".", "validacion_regex": "", "validacion_mensaje": "", "orden": 10}
     ]}

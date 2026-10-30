@@ -70,68 +70,86 @@ const QRScanner = () => {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '1rem', background: '#f7fafc', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '1.5rem 1rem', background: 'var(--surface-canvas)', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem', paddingTop: '1rem' }}>
-        <h2 style={{ color: '#1a365d', marginBottom: '0.5rem', fontSize: '1.5rem', fontWeight: 'bold' }}>Portal de Autoridades</h2>
-        <p style={{ color: '#4a5568', fontSize: '0.9rem' }}>Sistema de Verificación Blockchain (SAREN)</p>
+        <h2 style={{ color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, marginBottom: '0.5rem', fontSize: '1.85rem' }}>Portal de Autoridades</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Sistema de Verificación Blockchain (SAREN / MPPEU / MPPRE)</p>
       </div>
 
       {!scanResult ? (
-        <div style={{ padding: '1rem', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+        <div className="glass-panel" style={{ padding: '1.5rem' }}>
           <div id="reader" style={{ width: '100%' }}></div>
-          <p style={{ textAlign: 'center', marginTop: '1rem', color: '#718096', fontSize: '0.85rem' }}>
-            Apunta la cámara al código QR de la Planilla PUB para verificar su autenticidad.
+          <p style={{ textAlign: 'center', marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            Apunta la cámara al código QR de la Planilla PUB o Apostilla para verificar su autenticidad.
           </p>
         </div>
       ) : (
-        <div style={{ padding: '2rem', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+        <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-              <Loader2 size={48} color="#3182ce" className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
-              <p style={{ color: '#2b6cb0', fontWeight: 'bold' }}>Consultando Nodo Ethereum...</p>
+              <Loader2 size={48} color="var(--color-sienna-brown)" className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
+              <p style={{ color: 'var(--color-ink-black)', fontWeight: 600 }}>Consultando Nodo Ethereum...</p>
             </div>
           ) : verificationData ? (
-            <div style={{ animation: 'fadeIn 0.5s ease-in' }}>
-              <ShieldCheck size={80} color="#38a169" style={{ margin: '0 auto 1rem auto' }} />
-              <h3 style={{ color: '#276749', fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 'bold' }}>DOCUMENTO AUTÉNTICO</h3>
-              
-              <div style={{ background: '#f0fff4', border: '1px solid #9ae6b4', borderRadius: '8px', padding: '1.5rem', textAlign: 'left', marginBottom: '1.5rem' }}>
-                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#4a5568', fontWeight: 'bold' }}>TITULAR:</p>
-                <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold', color: '#1a202c' }}>{verificationData.ownerName}</p>
-                
-                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#4a5568', fontWeight: 'bold' }}>CÉDULA:</p>
-                <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold', color: '#1a202c' }}>{verificationData.cedula}</p>
-                
-                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#4a5568', fontWeight: 'bold' }}>TRÁMITE REGISTRADO:</p>
-                <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold', color: '#1a202c' }}>{verificationData.documentType}</p>
-                
-                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#4a5568', fontWeight: 'bold' }}>FECHA DE REGISTRO:</p>
-                <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold', color: '#1a202c' }}>
-                  {new Date(verificationData.timestamp * 1000).toLocaleString()}
-                </p>
-                
-                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', color: '#4a5568', fontWeight: 'bold' }}>HASH (SHA-256):</p>
-                <p style={{ margin: 0, fontSize: '0.65rem', fontFamily: 'monospace', wordBreak: 'break-all', color: '#718096' }}>
-                  {scanResult}
-                </p>
-              </div>
+            (() => {
+              const isRevoked = Boolean(verificationData.isRevoked || (verificationData.status || '').includes('Rechazado') || (verificationData.status || '').includes('Revocado'));
+              return (
+                <div style={{ animation: 'fadeIn 0.5s ease-in' }}>
+                  {isRevoked ? (
+                    <XCircle size={72} color="var(--danger)" style={{ margin: '0 auto 1rem auto' }} />
+                  ) : (
+                    <ShieldCheck size={72} color="var(--color-sienna-brown)" style={{ margin: '0 auto 1rem auto' }} />
+                  )}
 
-              <button 
-                onClick={resetScanner}
-                style={{ width: '100%', padding: '1rem', background: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}
-              >
-                Escanear Nuevo Documento
-              </button>
-            </div>
+                  <h3 style={{ color: isRevoked ? 'var(--danger)' : 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.6rem', marginBottom: '0.4rem' }}>
+                    {isRevoked ? 'Documento Rechazado / Revocado' : 'Documento Auténtico'}
+                  </h3>
+
+                  <p style={{ color: isRevoked ? 'var(--danger)' : 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                    {isRevoked ? (verificationData.rejectionReason || 'Este documento fue formalmente revocado por la autoridad ministerial.') : 'Huella criptográfica validada contra contrato inteligente en Ethereum Sepolia.'}
+                  </p>
+                  
+                  <div style={{ background: isRevoked ? 'rgba(185, 28, 28, 0.05)' : 'var(--color-fog-white)', border: isRevoked ? '1px solid rgba(185, 28, 28, 0.2)' : '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', padding: '1.5rem', textAlign: 'left', marginBottom: '1.5rem' }}>
+                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TITULAR:</p>
+                    <p style={{ margin: '0 0 1rem 0', fontWeight: 600, color: 'var(--color-ink-black)' }}>{verificationData.ownerName}</p>
+                    
+                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>CÉDULA:</p>
+                    <p style={{ margin: '0 0 1rem 0', fontWeight: 600, color: 'var(--color-ink-black)' }}>{verificationData.cedula}</p>
+                    
+                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TRÁMITE REGISTRADO:</p>
+                    <p style={{ margin: '0 0 1rem 0', fontWeight: 600, color: 'var(--color-ink-black)' }}>{verificationData.documentType}</p>
+                    
+                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>FECHA DE REGISTRO:</p>
+                    <p style={{ margin: '0 0 1rem 0', fontWeight: 600, color: 'var(--color-ink-black)' }}>
+                      {new Date(verificationData.timestamp * 1000).toLocaleString()}
+                    </p>
+                    
+                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>HASH (SHA-256):</p>
+                    <p style={{ margin: 0, fontSize: '0.72rem', fontFamily: 'monospace', wordBreak: 'break-all', color: 'var(--text-secondary)' }}>
+                      {scanResult}
+                    </p>
+                  </div>
+
+                  <button 
+                    onClick={resetScanner}
+                    className="send-btn"
+                    style={{ width: '100%', padding: '0.9rem' }}
+                  >
+                    Escanear Nuevo Documento
+                  </button>
+                </div>
+              );
+            })()
           ) : (
             <div style={{ animation: 'fadeIn 0.5s ease-in' }}>
-              <XCircle size={80} color="#e53e3e" style={{ margin: '0 auto 1rem auto' }} />
-              <h3 style={{ color: '#c53030', fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 'bold' }}>DOCUMENTO INVÁLIDO</h3>
-              <p style={{ color: '#742a2a', marginBottom: '1.5rem' }}>{error}</p>
-              
-              <button 
+              <XCircle size={72} color="var(--danger)" style={{ margin: '0 auto 1rem auto' }} />
+              <h3 style={{ color: 'var(--danger)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.6rem', marginBottom: '1rem' }}>Documento Inválido</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>{error}</p>
+
+              <button
                 onClick={resetScanner}
-                style={{ width: '100%', padding: '1rem', background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}
+                className="send-btn"
+                style={{ width: '100%', padding: '0.9rem', background: 'var(--danger)' }}
               >
                 Intentar Nuevamente
               </button>
@@ -142,9 +160,9 @@ const QRScanner = () => {
       <style>{`
         @keyframes spin { 100% { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Sobrescribir estilos feos de html5-qrcode */
-        #reader button { background: #3182ce; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin: 0.5rem; font-weight: bold; }
-        #reader a { color: #3182ce; text-decoration: none; display: none; }
+        /* Sobrescribir estilos de html5-qrcode con tokens Steep */
+        #reader button { background: var(--color-ink-black); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; margin: 0.5rem; font-weight: 500; }
+        #reader a { color: var(--color-sienna-brown); text-decoration: none; display: none; }
       `}</style>
     </div>
   );

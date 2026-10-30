@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ClipboardList, ShieldCheck, Download, X, Copy, Check, Clock, AlertCircle, FileText } from 'lucide-react';
+import { Search, ClipboardList, ShieldCheck, Download, X, Copy, Check, Clock, AlertCircle, FileText, Award } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import html2pdf from 'html2pdf.js';
 import { blockchainAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
+import ApostilleCertificate from './ApostilleCertificate';
 
 // Modal de previsualización de la Planilla PUB con escala responsiva
 const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
@@ -78,20 +79,20 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
   };
 
   return (
-    <div className="cert-modal-overlay" style={{ zIndex: 1100, padding: '1rem', backgroundColor: 'rgba(0,0,0,0.85)' }}>
+    <div className="cert-modal-overlay" style={{ zIndex: 1100, padding: '1rem', backgroundColor: 'rgba(23, 25, 28, 0.55)', backdropFilter: 'blur(4px)' }}>
       <motion.div
         initial={{ y: 50, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         style={{
-          background: '#09090b',
-          borderRadius: '16px',
+          background: '#ffffff',
+          borderRadius: 'var(--radius-cards)',
           padding: '0',
           maxWidth: '840px',
           width: '100%',
           maxHeight: '92vh',
           overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-          border: '1px solid rgba(14, 165, 233, 0.4)',
+          boxShadow: 'var(--shadow-hover)',
+          border: '1px solid var(--border)',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column'
@@ -99,11 +100,11 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
       >
         {/* Cabecera Sticky Fija */}
         <div style={{
-          padding: '0.8rem 1.2rem',
-          background: '#0c0e17',
+          padding: '0.9rem 1.4rem',
+          background: 'var(--color-fog-white)',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           position: 'sticky',
           top: 0,
@@ -111,23 +112,23 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
           flexWrap: 'wrap',
           gap: '0.5rem'
         }}>
-          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', color: '#fff' }}>
-            <ClipboardList color="var(--primary)" size={18} />
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400 }}>
+            <ClipboardList color="var(--color-sienna-brown)" size={18} />
             Previsualización Oficial — Planilla PUB
           </h3>
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
             <button
               onClick={handleExportPDF}
               className="send-btn"
-              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
               <Download size={14} /> Descargar PDF
             </button>
             <button
               onClick={onClose}
               style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: 'none',
+                background: '#ffffff',
+                border: '1px solid var(--border)',
                 borderRadius: '50%',
                 width: '32px',
                 height: '32px',
@@ -135,7 +136,7 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: '#fff'
+                color: 'var(--color-ink-black)'
               }}
             >
               <X size={18} />
@@ -305,21 +306,23 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
         </div>
 
         {/* Footer del Modal con Cierre Táctil en Móvil */}
-        <div style={{ padding: '0.8rem 1.2rem', background: '#0c0e17', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem' }}>
+        <div style={{ padding: '0.85rem 1.4rem', background: 'var(--color-fog-white)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.8rem' }}>
           {onVerifyHash && (
             <button
               onClick={() => {
                 onVerifyHash(hash);
                 onClose && onClose();
               }}
-              style={{ background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', border: 'none', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}
+              className="send-btn"
+              style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}
             >
               Verificar Hash Criptográfico
             </button>
           )}
           <button
             onClick={onClose}
-            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border)', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', flex: 1 }}
+            className="btn-ghost"
+            style={{ padding: '0.6rem 1.2rem', flex: 1 }}
           >
             Cerrar Ventana
           </button>
@@ -336,6 +339,7 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
   const [search, setSearch] = useState('');
   const [activeCertHash, setActiveCertHash] = useState(null);
   const [activePUBRecord, setActivePUBRecord] = useState(null);
+  const [activeApostilleRecord, setActiveApostilleRecord] = useState(null);
   const [copiedHash, setCopiedHash] = useState(null);
 
   // Normaliza cualquier formato de cédula a solo letras+números en mayúsculas
@@ -380,7 +384,10 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
           document_type: rec.document_type || rec.documentType,
           tx_hash: rec.tx_hash || rec.txHash,
           status: rec.status,
-          created_at: rec.timestamp,
+          created_at: rec.timestamp || rec.created_at,
+          apostilleNumber: rec.apostilleNumber || rec.apostille_number,
+          mppreVerified: rec.mppreVerified,
+          mppeuVerified: rec.mppeuVerified,
           formData: null
         });
       });
@@ -396,8 +403,11 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
           cedula: rec.cedula,
           document_type: rec.document_type || existing.document_type,
           tx_hash: existing.tx_hash || 'Pendiente',
-          status: existing.status || 'Registrado en Blockchain (Local)',
+          status: existing.status || rec.status || 'Registrado en Blockchain (Local)',
           created_at: rec.created_at || existing.created_at,
+          apostilleNumber: existing.apostilleNumber || rec.apostilleNumber,
+          mppreVerified: existing.mppreVerified || rec.mppreVerified,
+          mppeuVerified: existing.mppeuVerified || rec.mppeuVerified,
           formData: rec.formData
         });
       });
@@ -497,34 +507,36 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
                 {/* Detalles del Trámite */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: '1 1 300px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase', padding: '0.2rem 0.6rem', background: 'rgba(14, 165, 233, 0.1)', color: 'var(--primary)', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', padding: '0.2rem 0.65rem', background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.2)', borderRadius: 'var(--radius-pill)' }}>
                       {record.document_type || 'Documento'}
                     </span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <Clock size={14} />
                       {record.created_at ? `${new Date(record.created_at).toLocaleDateString()} ${new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
                     </span>
                   </div>
 
-                  <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <strong>Document Hash:</strong>
-                    <code style={{ background: 'rgba(255,255,255,0.05)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                  <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <strong style={{ color: 'var(--color-ink-black)' }}>Document Hash:</strong>
+                    <code style={{ background: 'var(--color-fog-white)', border: '1px solid var(--border)', color: 'var(--color-ink-black)', padding: '0.15rem 0.45rem', borderRadius: '6px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
                       {record.hash ? `${record.hash.substring(0, 22)}...${record.hash.substring(record.hash.length - 8)}` : 'N/A'}
                     </code>
                     <button
                       onClick={() => handleCopy(record.hash)}
-                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'inline-flex', padding: '2px', borderRadius: '4px' }}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-ink-black)', display: 'inline-flex', padding: '2px', borderRadius: '4px' }}
                       title="Copiar Hash Completo"
                     >
-                      {copiedHash === record.hash ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
+                      {copiedHash === record.hash ? <Check size={14} color="var(--color-sienna-brown)" /> : <Copy size={14} />}
                     </button>
                   </p>
 
-                  <p style={{ margin: '0.1rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    <strong>Estado en Blockchain:</strong>{' '}
+                  <p style={{ margin: '0.1rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--color-ink-black)' }}>Estado en Blockchain:</strong>{' '}
                     <span style={{
-                      fontWeight: 'bold',
-                      color: (record.status || '').includes('Verificado') ? 'var(--success)' : 'var(--accent)'
+                      fontWeight: 600,
+                      color: (record.status || '').includes('Rechazado') || (record.status || '').includes('Revocado')
+                        ? 'var(--danger)'
+                        : 'var(--color-sienna-brown)'
                     }}>
                       {record.status}
                     </span>
@@ -532,31 +544,39 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
                 </div>
 
                 {/* Acciones */}
-                <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => setActivePUBRecord(record)}
-                    className="send-btn"
-                    style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-                  >
-                    <FileText size={16} /> Ver Planilla PUB
-                  </button>
+                <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {(record.formData || (record.document_type || '').includes('PUB') || (record.document_type || '').includes('Planilla')) && (
+                    <button
+                      onClick={() => setActivePUBRecord(record)}
+                      className="btn-ghost"
+                      style={{ padding: '0.5rem 0.95rem', fontSize: '0.82rem' }}
+                    >
+                      <FileText size={16} /> Ver Planilla PUB
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setActiveCertHash(record.hash)}
                     className="send-btn"
-                    style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                    style={{ padding: '0.5rem 0.95rem', fontSize: '0.82rem' }}
                   >
-                    <ShieldCheck size={16} /> Ver Certificado
+                    <ShieldCheck size={16} /> Certificado Digital (GTU)
                   </button>
-                  <button
-                    onClick={() => setActivePUBRecord(record)}
-                    style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#34d399', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                  >
-                    <Download size={16} /> Expediente Digital (PDF)
-                  </button>
+
+                  {(record.apostilleNumber || (record.status || '').includes('APOSTILLADO') || record.mppreVerified) && (
+                    <button
+                      onClick={() => setActiveApostilleRecord(record)}
+                      style={{ background: 'var(--color-blush-peach)', border: '1px solid rgba(93, 42, 26, 0.25)', color: 'var(--color-sienna-brown)', padding: '0.5rem 0.95rem', borderRadius: 'var(--radius-inputs)', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      <Award size={16} /> Apostilla de La Haya
+                    </button>
+                  )}
+
                   {onVerifyHash && (
                     <button
                       onClick={() => onVerifyHash(record.hash)}
-                      style={{ background: 'rgba(30,58,138,0.2)', border: '1px solid rgba(217,119,6,0.3)', color: '#fbbf24', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                      className="btn-ghost"
+                      style={{ padding: '0.5rem 0.95rem', fontSize: '0.82rem' }}
                     >
                       Verificar Hash
                     </button>
@@ -583,6 +603,14 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
           record={activePUBRecord}
           onClose={() => setActivePUBRecord(null)}
           onVerifyHash={onVerifyHash}
+        />
+      )}
+
+      {/* Modal de Apostilla de La Haya */}
+      {activeApostilleRecord && (
+        <ApostilleCertificate
+          record={activeApostilleRecord}
+          onClose={() => setActiveApostilleRecord(null)}
         />
       )}
     </div>

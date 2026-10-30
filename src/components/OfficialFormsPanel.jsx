@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, FileText, Printer, CheckCircle, Shield, ExternalLink, X, Eye } from "lucide-react";
 import html2pdf from "html2pdf.js";
+import { dynamicDataAPI } from "../services/api";
 
 const OFFICIAL_DOCS = [
   {
@@ -11,7 +12,7 @@ const OFFICIAL_DOCS = [
     category: "Legalización Estatal",
     desc: "Formato oficial de liquidación de aranceles para el registro de títulos universitarios ante el Registro Principal.",
     filename: "Planilla_Unica_Bancaria_PUB_SAREN.pdf",
-    color: "#d97706",
+    color: "#5d2a1a",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.4;">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
@@ -88,7 +89,7 @@ const OFFICIAL_DOCS = [
     category: "Trámite Académico",
     desc: "Formato oficial de la Facultad de Ingeniería para la solicitud del título profesional ante Control de Estudios (Módulo 4).",
     filename: "Solicitud_de_Grado_USM_Ingenieria.pdf",
-    color: "#2563eb",
+    color: "#17191c",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.4;">
         <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 15px;">
@@ -141,7 +142,7 @@ const OFFICIAL_DOCS = [
     category: "Certificación Legal",
     desc: "Formato oficial para la autenticación de la copia fotostática en fondo negro del título universitario a vista del original.",
     filename: "Certificacion_Fondo_Negro_USM.pdf",
-    color: "#10b981",
+    color: "#5d2a1a",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.5;">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
@@ -185,7 +186,7 @@ const OFFICIAL_DOCS = [
     category: "Solvencia Académica",
     desc: "Constancia oficial de no adeudo de material bibliográfico ni equipos en la USM expedida por la Dirección de Biblioteca.",
     filename: "Solvencia_Biblioteca_Laboratorios_USM.pdf",
-    color: "#b45309",
+    color: "#5d2a1a",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.5;">
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
@@ -199,7 +200,7 @@ const OFFICIAL_DOCS = [
         </p>
 
         <div style="border: 1px dashed #000; padding: 10px; margin: 20px 0; font-size: 8.5pt; text-align: center;">
-          <p style="margin: 0; font-weight: bold;">CÓDIGO DE VALIDACIÓN BIBLIOTECARIA: USM-SOLV-${Math.floor(Math.random()*1000000)}</p>
+          <p style="margin: 0; font-weight: bold;">CÓDIGO DE VALIDACIÓN BIBLIOTECARIA: USM-SOLV-${Math.floor(Math.random() * 1000000)}</p>
           <p style="margin: 0;">Válido exclusivamente para trámites de Grado y Legalización GTU.</p>
         </div>
 
@@ -223,7 +224,7 @@ const OFFICIAL_DOCS = [
     category: "Legalización Nacional",
     desc: "Formato oficial para la solicitud de cita electrónica de legalización de títulos ante el MPPEU.",
     filename: "Planilla_Cita_GTU_MPPEU.pdf",
-    color: "#1e3a8a",
+    color: "#17191c",
     content: (user) => `
       <div style="font-family: 'Times New Roman', serif; padding: 25px; color: #000; background: #fff; line-height: 1.4;">
         <div style="text-align: center; border-bottom: 2px solid #b91c1c; padding-bottom: 10px; margin-bottom: 15px;">
@@ -238,7 +239,7 @@ const OFFICIAL_DOCS = [
             <th colspan="2" style="border: 1px solid #b91c1c; padding: 5px; text-align: left; color: #b91c1c;">DATOS DE LA CITA</th>
           </tr>
           <tr>
-            <td style="border: 1px solid #ccc; padding: 5px;"><strong>Fecha de Cita:</strong> ${new Date(Date.now() + 86400000*5).toLocaleDateString('es-VE')}</td>
+            <td style="border: 1px solid #ccc; padding: 5px;"><strong>Fecha de Cita:</strong> ${new Date(Date.now() + 86400000 * 5).toLocaleDateString('es-VE')}</td>
             <td style="border: 1px solid #ccc; padding: 5px;"><strong>Horario de Atención:</strong> 8:00 AM - 11:30 AM</td>
           </tr>
           <tr>
@@ -274,6 +275,42 @@ const OFFICIAL_DOCS = [
 const OfficialFormsPanel = ({ user }) => {
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [downloading, setDownloading] = useState(null);
+  const [dynamicDocs, setDynamicDocs] = useState([]);
+
+  useEffect(() => {
+    dynamicDataAPI.getPlanillas()
+      .then(res => {
+        if (res && res.planillas && Array.isArray(res.planillas) && res.planillas.length > 0) {
+          const mapped = res.planillas.map((p, idx) => ({
+            id: `dynamic_${p.id || idx}`,
+            title: p.nombre,
+            ente: p.categoria || "Gubernamental / USM",
+            category: p.categoria || "Oficial",
+            desc: `Documento oficial registrado en la base institucional: ${p.nombre}`,
+            filename: `${p.nombre.replace(/\s+/g, '_')}.pdf`,
+            url: p.url,
+            isDynamicUrl: Boolean(p.url),
+            color: "#5d2a1a",
+            content: (u) => `
+              <div style="font-family: Arial, sans-serif; padding: 30px;">
+                <h2 style="color: #17191c; border-bottom: 2px solid #5d2a1a; padding-bottom: 8px;">${p.nombre}</h2>
+                <p><strong>Titular:</strong> ${u?.nombre || 'Graduando USM'}</p>
+                <p><strong>Cédula:</strong> ${u?.cedula || 'V-00.000.000'}</p>
+                <p><strong>Ente Emisor:</strong> ${p.categoria || 'Universidad Santa María / Entes Oficiales'}</p>
+                <p><strong>Enlace Institucional:</strong> <a href="${p.url || '#'}" target="_blank">${p.url || 'Repositorio central'}</a></p>
+                <div style="margin-top: 40px; border-top: 1px dashed #ccc; padding-top: 15px; font-size: 11px; color: #666;">
+                  Documento sincronizado dinámicamente con el Panel de Administración de Tesis USM-ApostillaBot.
+                </div>
+              </div>
+            `
+          }));
+          setDynamicDocs(mapped);
+        }
+      })
+      .catch(() => { });
+  }, []);
+
+  const allDocs = [...OFFICIAL_DOCS, ...dynamicDocs];
 
   const handleDownloadPDF = (doc) => {
     setDownloading(doc.id);
@@ -306,10 +343,10 @@ const OfficialFormsPanel = ({ user }) => {
 
   return (
     <div className="view-container">
-      <div className="dashboard-header" style={{ borderLeftColor: "#d97706" }}>
+      <div className="dashboard-header">
         <div>
           <h2 style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
-            <FileText size={28} style={{ color: "#d97706" }} />
+            <FileText size={26} style={{ color: "var(--color-sienna-brown)" }} />
             Planillas y Formularios Oficiales
           </h2>
           <p>
@@ -319,57 +356,59 @@ const OfficialFormsPanel = ({ user }) => {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem" }}>
-        {OFFICIAL_DOCS.map((doc) => (
-          <motion.div
-            key={doc.id}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -5, scale: 1.012 }}
-            className="glass-panel"
-            style={{
-              display: "flex", flexDirection: "column", justifyContent: "space-between",
-              padding: "1.6rem",
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-cards)',
-              boxShadow: 'var(--shadow-subtle)'
-            }}
-          >
-            <div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.9rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.74rem", fontWeight: "600", textTransform: "uppercase", color: "var(--color-ink-black)", background: "var(--color-mist-gray)", padding: "0.25rem 0.65rem", borderRadius: "var(--radius-pill)", border: "1px solid var(--border)", whiteSpace: "nowrap" }}>
-                    {doc.category}
-                  </span>
-                  <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: "500" }}>
-                    {doc.ente}
-                  </span>
+        {
+          allDocs.map((doc) => (
+            <motion.div
+              key={doc.id}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -5, scale: 1.012 }}
+              className="glass-panel"
+              style={{
+                display: "flex", flexDirection: "column", justifyContent: "space-between",
+                padding: "1.6rem",
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-cards)',
+                boxShadow: 'var(--shadow-subtle)'
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.9rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "0.74rem", fontWeight: "600", textTransform: "uppercase", color: "var(--color-sienna-brown)", background: "var(--color-blush-peach)", padding: "0.25rem 0.65rem", borderRadius: "var(--radius-pill)", border: "1px solid rgba(93, 42, 26, 0.2)", whiteSpace: "nowrap" }}>
+                      {doc.category}
+                    </span>
+                    <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: "500" }}>
+                      {doc.ente}
+                    </span>
+                  </div>
                 </div>
+                <h3 style={{ fontSize: "1.1rem", margin: "0 0 0.5rem 0", color: "var(--color-ink-black)", fontWeight: 500 }}>{doc.title}</h3>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "0 0 1.2rem 0", lineHeight: "1.45" }}>{doc.desc}</p>
               </div>
-              <h3 style={{ fontSize: "1.1rem", margin: "0 0 0.5rem 0", color: "var(--color-ink-black)", fontWeight: 500 }}>{doc.title}</h3>
-              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "0 0 1.2rem 0", lineHeight: "1.45" }}>{doc.desc}</p>
-            </div>
 
-            <div style={{ display: "flex", gap: "0.65rem", marginTop: "1rem", flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setSelectedDoc(doc)}
-                className="btn-ghost"
-                style={{ flex: 1, padding: "0.6rem 0.9rem", fontSize: "0.82rem" }}
-              >
-                <Eye size={15} /> Ver Modelo
-              </button>
+              <div style={{ display: "flex", gap: "0.65rem", marginTop: "1rem", flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setSelectedDoc(doc)}
+                  className="btn-ghost"
+                  style={{ flex: 1, padding: "0.6rem 0.9rem", fontSize: "0.82rem" }}
+                >
+                  <Eye size={15} /> Ver Modelo
+                </button>
 
-              <button
-                onClick={() => handleDownloadPDF(doc)}
-                disabled={downloading === doc.id}
-                className="send-btn"
-                style={{ flex: 1.2, padding: "0.6rem 1rem", fontSize: "0.82rem" }}
-              >
-                <Download size={15} /> {downloading === doc.id ? "Generando..." : "Descargar PDF"}
-              </button>
-            </div>
-          </motion.div>
-        ))}
+                <button
+                  onClick={() => handleDownloadPDF(doc)}
+                  disabled={downloading === doc.id}
+                  className="send-btn"
+                  style={{ flex: 1.2, padding: "0.6rem 1rem", fontSize: "0.82rem" }}
+                >
+                  <Download size={15} /> {downloading === doc.id ? "Generando..." : "Descargar PDF"}
+                </button>
+              </div>
+            </motion.div>
+          ))
+        }
       </div>
 
       {/* Modal de Previsualización de Planilla Oficial */}

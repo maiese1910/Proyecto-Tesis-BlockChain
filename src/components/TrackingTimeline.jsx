@@ -39,25 +39,69 @@ const TrackingTimeline = ({ user }) => {
       setRequestingApostille(false);
     }
   };
-  
+
   useEffect(() => {
     const fetchRecords = async () => {
       if (!user?.cedula) return;
       try {
-        const data = await blockchainAPI.getRecordsByCedula(user.cedula);
-        if (data.success) {
-          setRecords(data.records);
+          let combined = [];
+          try {
+            const data = await blockchainAPI.getRecordsByCedula(user.cedula);
+            if (data && data.success && Array.isArray(data.records)) {
+              combined = [...data.records];
+            }
+          } catch (e) {
+            console.warn("Backend records offline, checking local records:", e);
+          }
+
+          // Cargar registros locales de PUB history por cédula
+          try {
+            const localHistoryStr = localStorage.getItem('usm_pub_history');
+            if (localHistoryStr) {
+              const localList = JSON.parse(localHistoryStr);
+              if (Array.isArray(localList)) {
+                const userCedulaNorm = user.cedula.replace(/\D/g, '');
+                const userLocal = localList.filter(item => {
+                  const itemCedulaNorm = (item.cedula || item.formData?.cedula || '').replace(/\D/g, '');
+                  return !itemCedulaNorm || !userCedulaNorm || itemCedulaNorm === userCedulaNorm;
+                }).map(item => ({
+                  hash: item.hash || item.blockchainHash || `0x${Math.random().toString(16).substring(2, 10)}`,
+                  ownerName: item.nombre || item.formData?.nombre_completo || user.nombre || 'Egresado USM',
+                  cedula: item.cedula || item.formData?.cedula || user.cedula,
+                  documentType: item.tramite || item.documentType || 'Planilla Única Bancaria (PUB) SAREN',
+                  solicitudCode: item.solicitudCode || item.stablePubCode || 'PUB-2026-REG',
+                  timestamp: item.timestamp || item.fecha || new Date().toISOString(),
+                  status: item.status || 'Registrado en Blockchain',
+                  mppeuVerified: Boolean(item.mppeuVerified),
+                  mppreVerified: Boolean(item.mppreVerified),
+                  apostilleNumber: item.apostilleNumber || null
+                }));
+
+                const existingHashes = new Set(combined.map(r => r.hash));
+                for (const loc of userLocal) {
+                  if (loc.hash && !existingHashes.has(loc.hash)) {
+                    combined.push(loc);
+                    existingHashes.add(loc.hash);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Error merging local pub history:', e);
+          }
+
+          combined.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+          setRecords(combined);
+        } catch (err) {
+          console.error("Error fetching user records:", err);
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        console.error("Error fetching user records:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRecords();
-    const interval = setInterval(fetchRecords, 10000);
-    return () => clearInterval(interval);
-  }, [user]);
+      };
+      fetchRecords();
+      const interval = setInterval(fetchRecords, 10000);
+      return () => clearInterval(interval);
+    }, [user]);
 
   if (loading) {
     return (
@@ -135,7 +179,7 @@ const TrackingTimeline = ({ user }) => {
       }}>
         <Clock size={18} color="var(--color-ink-black)" /> Tracking de Trámite Híbrido (MPPEU / MPPRE)
       </h3>
-      
+
       {/* Banner de Trámite con estilo Steep */}
       <motion.div
         whileHover={{ scale: 1.01 }}
@@ -154,7 +198,7 @@ const TrackingTimeline = ({ user }) => {
               <p style={{ fontWeight: 600, fontSize: '0.96rem', color: 'var(--color-ink-black)', margin: 0 }}>
                 Trámite: {docTypeDisplay}
               </p>
-              <span style={{ fontSize: '0.74rem', background: '#e2e8f0', color: '#334155', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.74rem', background: 'var(--color-mist-gray)', color: 'var(--color-ink-black)', border: '1px solid var(--border)', padding: '0.15rem 0.55rem', borderRadius: 'var(--radius-pill)', fontWeight: 600 }}>
                 {solicitudDisplay}
               </span>
             </div>
@@ -162,20 +206,15 @@ const TrackingTimeline = ({ user }) => {
               Última actualización: {timestampDisplay} · Hash: {hashDisplay}...
             </p>
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             {isMppeuDone && (
               <button
                 onClick={() => setActiveCertHash(latestRecord.hash)}
+                className="btn-ghost"
                 style={{
-                  background: '#0284c7',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '0.4rem 0.8rem',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
+                  padding: '0.4rem 0.85rem',
+                  fontSize: '0.78rem'
                 }}
               >
                 Certificado GTU
@@ -227,9 +266,9 @@ const TrackingTimeline = ({ user }) => {
               fontWeight: 500,
               padding: '0.25rem 0.75rem',
               borderRadius: 'var(--radius-pill)',
-              backgroundColor: isMppreDone ? 'var(--color-blush-peach)' : isMppeuDone ? '#e0f2fe' : '#ffffff',
-              color: isMppreDone ? 'var(--color-sienna-brown)' : isMppeuDone ? '#0369a1' : 'var(--color-ink-black)',
-              border: isMppreDone ? '1px solid rgba(93, 42, 26, 0.2)' : isMppeuDone ? '1px solid #bae6fd' : '1px solid var(--border)'
+              backgroundColor: isMppreDone || isMppeuDone ? 'var(--color-blush-peach)' : '#ffffff',
+              color: isMppreDone || isMppeuDone ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)',
+              border: isMppreDone || isMppeuDone ? '1px solid rgba(93, 42, 26, 0.2)' : '1px solid var(--border)'
             }}>
               {isMppreDone ? 'Apostillado 100%' : isMppeuDone ? 'Certificado MPPEU' : 'En Cotejo MPPEU'}
             </span>
@@ -244,7 +283,7 @@ const TrackingTimeline = ({ user }) => {
           let iconBorder = 'var(--border)';
           let isCurrent = step.status === 'current';
           let isDone = step.status === 'completed';
-          
+
           if (isDone) {
             iconColor = '#ffffff';
             iconBg = 'var(--color-ink-black)';
@@ -256,8 +295,8 @@ const TrackingTimeline = ({ user }) => {
           }
 
           return (
-            <motion.div 
-              key={idx} 
+            <motion.div
+              key={idx}
               initial={{ opacity: 0, x: -15 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.08 }}
@@ -285,7 +324,7 @@ const TrackingTimeline = ({ user }) => {
                   zIndex: 0
                 }} />
               )}
-              
+
               <div style={{
                 width: '34px',
                 height: '34px',
@@ -302,7 +341,7 @@ const TrackingTimeline = ({ user }) => {
               }}>
                 {step.icon}
               </div>
-              
+
               <div style={{ paddingTop: '0.2rem' }}>
                 <h4 style={{
                   margin: 0,

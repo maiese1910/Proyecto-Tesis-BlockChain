@@ -229,7 +229,10 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
 
   const handleStart = () => {
     setCurrentFieldIndex(0);
-    setFormData({});
+    const startingData = { ...(initialData || {}) };
+    if (user?.nombre && !startingData.nombre_completo) startingData.nombre_completo = user.nombre;
+    if (user?.cedula && !startingData.cedula) startingData.cedula = user.cedula;
+    setFormData(startingData);
     setFieldErrors({});
     setIsComplete(false);
     setBlockchainHash(null);
@@ -478,24 +481,24 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
         {/* ── Chatbot Guiador ──────────────────────────────────────────── */}
         <div className="chat-container" style={{ minHeight: '520px' }}>
           <div className="chat-header">
-            <div className="status-dot" style={{ backgroundColor: currentFieldIndex >= 0 ? '#22c55e' : isComplete ? '#a78bfa' : '#f59e0b' }} />
-            <h2 style={{ fontSize: '1rem' }}>
+            <div className="status-dot" style={{ backgroundColor: 'var(--color-sienna-brown)' }} />
+            <h2 style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--color-ink-black)' }}>
               Asistente PUB
               {currentFieldIndex >= 0 && (
-                <small style={{ marginLeft: '0.8rem', opacity: 0.6, fontSize: '0.8rem' }}>
+                <small style={{ marginLeft: '0.8rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                   Campo {currentFieldIndex + 1} de {PUB_FIELDS.length}
                 </small>
               )}
-              {isComplete && <small style={{ marginLeft: '0.8rem', color: 'var(--success)', fontSize: '0.8rem' }}>Completado</small>}
+              {isComplete && <small style={{ marginLeft: '0.8rem', color: 'var(--color-sienna-brown)', fontSize: '0.8rem', fontWeight: 600 }}>Completado</small>}
             </h2>
           </div>
 
           {/* Barra de progreso */}
           {(currentFieldIndex >= 0 || isComplete) && (
-            <div style={{ padding: '0 1.5rem', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '4px', height: '4px', margin: '0.8rem 0' }}>
+            <div style={{ padding: '0 1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--color-fog-white)' }}>
+              <div style={{ background: 'var(--border)', borderRadius: '4px', height: '4px', margin: '0.8rem 0' }}>
                 <motion.div
-                  style={{ background: isComplete ? 'var(--success)' : 'var(--primary)', height: '100%', borderRadius: '4px' }}
+                  style={{ background: isComplete ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)', height: '100%', borderRadius: '4px' }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.5 }}
                 />
@@ -505,13 +508,13 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
 
           <div className="chat-messages">
             {messages.length === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <FileText size={48} opacity={0.3} />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <FileText size={48} opacity={0.35} color="var(--color-ink-black)" />
                 <div>
-                  <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Planilla PUB — SAREN</h3>
-                  <p>Validación asistida del trámite.<br />Escriba <strong style={{ color: '#d97706' }}>"ayuda"</strong> si requiere orientación en cualquier momento.</p>
+                  <h3 style={{ color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.35rem', marginBottom: '0.5rem' }}>Planilla PUB — SAREN</h3>
+                  <p>Validación asistida del trámite.<br />Escriba <strong style={{ color: 'var(--color-sienna-brown)' }}>"ayuda"</strong> si requiere orientación en cualquier momento.</p>
                 </div>
-                <button className="send-btn" style={{ padding: '0.8rem 2rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)' }} onClick={handleStart}>
+                <button className="send-btn" style={{ padding: '0.8rem 2rem' }} onClick={handleStart}>
                   Iniciar Registro de Planilla
                 </button>
               </div>
@@ -520,13 +523,13 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
               <div
                 key={idx}
                 className={`message ${msg.sender}`}
-                style={msg.isError ? { borderLeft: '3px solid var(--danger)', background: 'rgba(239,68,68,0.08)' } : {}}
+                style={msg.isError ? { borderLeft: '3px solid var(--danger)', background: 'rgba(185, 28, 28, 0.06)' } : {}}
               >
                 <span dangerouslySetInnerHTML={{
                   __html: msg.text
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1);padding:0.1rem 0.4rem;border-radius:4px;font-family:monospace;font-size:0.8rem;word-break:break-all">$1</code>')
+                    .replace(/`(.*?)`/g, '<code style="background:var(--color-fog-white);border:1px solid var(--border);padding:0.1rem 0.4rem;border-radius:4px;font-family:monospace;font-size:0.8rem;word-break:break-all">$1</code>')
                     .replace(/\n/g, '<br/>')
                 }} />
               </div>
@@ -539,7 +542,7 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
               <div style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.5rem' }}>
                 <button
                   onClick={handleAyudaRapida}
-                  style={{ background: 'rgba(217,119,6,0.15)', color: '#fbbf24', border: '1px solid rgba(217,119,6,0.3)', borderRadius: '8px', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
+                  style={{ background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.25)', borderRadius: 'var(--radius-inputs)', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600' }}
                 >
                   Ver Instrucciones del Campo
                 </button>
@@ -548,7 +551,7 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
             {isComplete && !blockchainHash && (
               <button
                 className="send-btn"
-                style={{ width: '100%', padding: '0.9rem', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', background: 'linear-gradient(135deg, #1e3a8a, #2563eb)', fontSize: '0.95rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                style={{ width: '100%', padding: '0.9rem', marginBottom: '0.8rem', fontSize: '0.95rem' }}
                 onClick={handleBlockchain}
                 disabled={isHashing}
               >
@@ -580,8 +583,8 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
           style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-              <FileText size={20} color="var(--primary)" />
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.25rem', color: 'var(--color-ink-black)', margin: 0 }}>
+              <FileText size={20} color="var(--color-sienna-brown)" />
               Vista Previa — Planilla PUB
             </h3>
             {isComplete && (
@@ -758,10 +761,10 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                style={{ marginTop: '1.5rem', padding: '1.2rem', background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.1))', border: '1px solid rgba(124,58,237,0.4)', borderRadius: '12px' }}
+                style={{ marginTop: '1.5rem', padding: '1.25rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)' }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <p style={{ color: '#a78bfa', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <p style={{ color: 'var(--color-sienna-brown)', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <ShieldCheck size={18} /> Huella Digital Blockchain Registrada
                   </p>
                   <button
@@ -770,29 +773,25 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
                       setCopiedHash(true);
                       setTimeout(() => setCopiedHash(false), 2000);
                     }}
+                    className="btn-ghost"
                     style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '0.2rem 0.5rem',
-                      color: 'white',
-                      fontSize: '0.7rem',
-                      cursor: 'pointer',
-                      fontWeight: 'bold'
+                      padding: '0.25rem 0.65rem',
+                      fontSize: '0.75rem'
                     }}
                   >
                     {copiedHash ? '¡Copiado!' : 'Copiar'}
                   </button>
                 </div>
-                <p style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-muted)', wordBreak: 'break-all', lineHeight: '1.6' }}>
+                <p style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-ink-black)', background: '#ffffff', border: '1px solid var(--border)', padding: '0.5rem 0.75rem', borderRadius: '6px', wordBreak: 'break-all', lineHeight: '1.6', margin: '0.4rem 0' }}>
                   {blockchainHash}
                 </p>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>
                   Cualquier modificación al documento invalidará este hash.
                 </p>
                 <button
                   onClick={() => setShowCert(true)}
-                  style={{ marginTop: '1rem', width: '100%', padding: '0.8rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                  className="send-btn"
+                  style={{ marginTop: '1rem', width: '100%', padding: '0.8rem' }}
                 >
                   <ShieldCheck size={18} /> Ver Certificado Digital
                 </button>
@@ -804,9 +803,9 @@ const PUBForm = ({ user, initialData, onVerifyHash }) => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px', textAlign: 'center' }}
+              style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--color-blush-peach)', border: '1px solid rgba(93, 42, 26, 0.25)', borderRadius: 'var(--radius-inputs)', textAlign: 'center' }}
             >
-              <p style={{ color: 'var(--success)', fontWeight: '700' }}>Planilla Válida — Lista para Registro Criptográfico</p>
+              <p style={{ color: 'var(--color-sienna-brown)', fontWeight: '600', margin: 0 }}>Planilla Válida — Lista para Registro Criptográfico</p>
             </motion.div>
           )}
         </motion.div>

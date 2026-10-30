@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Sun, Navigation, Info, ShieldAlert, ChevronRight, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import html2pdf from 'html2pdf.js';
 import { dynamicDataAPI } from '../services/api';
 
 const SurvivalGuide = () => {
@@ -23,10 +24,10 @@ const SurvivalGuide = () => {
               steps: (turno) => {
                 // Map steps with icons based on index
                 const icons = [
-                  <Clock color="var(--primary)" />,
+                  <Clock color="var(--color-sienna-brown)" />,
                   <ShieldAlert color="var(--danger)" />,
                   <Navigation color="var(--warning)" />,
-                  <MapPin color="var(--success)" />,
+                  <MapPin color="var(--color-ink-black)" />,
                 ];
                 return (g.steps || []).map((s, i) => ({
                   ...s,
@@ -38,8 +39,47 @@ const SurvivalGuide = () => {
           setGuiasDB(db);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
+
+  const handleDownloadBlankPUB = () => {
+    const el = document.createElement('div');
+    el.style.padding = '25px';
+    el.style.fontFamily = 'Arial, sans-serif';
+    el.innerHTML = `
+      <div style="border: 2px solid #17191c; padding: 20px; border-radius: 6px;">
+        <div style="text-align: center; border-bottom: 2px solid #17191c; padding-bottom: 12px; margin-bottom: 18px;">
+          <h2 style="margin: 0; font-size: 16px; color: #17191c;">REPÚBLICA BOLIVARIANA DE VENEZUELA</h2>
+          <h3 style="margin: 4px 0; font-size: 14px; color: #5d2a1a;">SERVICIO AUTÓNOMO DE REGISTROS Y NOTARÍAS (SAREN)</h3>
+          <h4 style="margin: 4px 0; font-size: 13px; color: #64748b;">PLANILLA ÚNICA BANCARIA (PUB) — FORMATO OFICIAL</h4>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;" border="1" cellpadding="6">
+          <tr><td style="font-weight: bold; width: 35%; background: #f8fafc;">N° Planilla:</td><td>PUB-${new Date().getFullYear()}-000000</td></tr>
+          <tr><td style="font-weight: bold; background: #f8fafc;">Nombre del Solicitante:</td><td>__________________________________________________</td></tr>
+          <tr><td style="font-weight: bold; background: #f8fafc;">Cédula de Identidad:</td><td>V- ___________________</td></tr>
+          <tr><td style="font-weight: bold; background: #f8fafc;">Trámite a Realizar:</td><td>Registro de Título Universitario</td></tr>
+          <tr><td style="font-weight: bold; background: #f8fafc;">Institución Educativa:</td><td>Universidad Santa María (USM)</td></tr>
+          <tr><td style="font-weight: bold; background: #f8fafc;">Monto del Arancel:</td><td>8.729,40 Bs. (0.50 UT)</td></tr>
+          <tr><td style="font-weight: bold; background: #f8fafc;">Banco Receptor:</td><td>Banco de Venezuela / Cuenta Oficial SAREN</td></tr>
+        </table>
+        <div style="margin-top: 45px; display: flex; justify-content: space-around; text-align: center; font-size: 11px;">
+          <div style="border-top: 1px solid #17191c; width: 220px; padding-top: 6px;">Firma del Solicitante</div>
+          <div style="border-top: 1px solid #17191c; width: 220px; padding-top: 6px;">Sello y Firma del Banco Receptor</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(el);
+    const opt = {
+      margin: 10,
+      filename: `Planilla_PUB_Oficial_Blanco_SAREN.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(el).save().then(() => {
+      document.body.removeChild(el);
+    });
+  };
 
   // Base de datos de logística de supervivencia (Entes Gubernamentales)
   const logicDB = {
@@ -50,7 +90,7 @@ const SurvivalGuide = () => {
       steps: (turno) => [
         {
           title: "Planificación de Llegada",
-          icon: <Clock color="var(--primary)" />,
+          icon: <Clock color="var(--color-sienna-brown)" />,
           time: turno === 'mañana' ? "6:00 AM" : "12:00 PM",
           desc: "Los Registros Principales suelen atender por orden de llegada a las personas citadas para el día. Llega temprano porque el sistema suele 'caerse' a media mañana."
         },
@@ -61,9 +101,9 @@ const SurvivalGuide = () => {
           desc: (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
               <span>Debes tener: Título original legalizado por el GTU, la Planilla Única Bancaria (PUB) pagada, Timbres Fiscales del estado y copias de tu Cédula.</span>
-              <button 
-                onClick={() => alert("Simulando descarga de Planilla Única Bancaria (PUB) oficial...")}
-                style={{ alignSelf: 'flex-start', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)', border: '1px solid var(--success)', padding: '0.4rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}
+              <button
+                onClick={handleDownloadBlankPUB}
+                style={{ alignSelf: 'flex-start', background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.25)', padding: '0.45rem 1rem', borderRadius: 'var(--radius-inputs)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.84rem', fontWeight: 600 }}
               >
                 <Download size={14} /> Descargar Formato PUB en Blanco
               </button>
@@ -78,7 +118,7 @@ const SurvivalGuide = () => {
         },
         {
           title: "Proceso de Registro",
-          icon: <MapPin color="var(--success)" />,
+          icon: <MapPin color="var(--color-ink-black)" />,
           time: "Paso 2 en sede",
           desc: "Entregarás el título físico. Deberás regresar luego (a veces días después) para retirarlo ya con el certificado del SAREN adherido en la parte posterior."
         }
@@ -91,7 +131,7 @@ const SurvivalGuide = () => {
       steps: (turno) => [
         {
           title: "Día de Cita",
-          icon: <Clock color="var(--primary)" />,
+          icon: <Clock color="var(--color-sienna-brown)" />,
           time: turno === 'mañana' ? "7:30 AM" : "1:00 PM",
           desc: "El sistema de Apostilla Electrónica te da un día específico. Imprime obligatoriamente dos (2) copias de la cita que llega a tu correo electrónico."
         },
@@ -103,7 +143,7 @@ const SurvivalGuide = () => {
         },
         {
           title: "Entrega Física",
-          icon: <MapPin color="var(--success)" />,
+          icon: <MapPin color="var(--color-ink-black)" />,
           time: "Durante la atención",
           desc: "El funcionario verificará el código QR de legalización previa. Si está correcto, te retendrán el documento o te emitirán la Apostilla electrónica validada internacionalmente."
         }
@@ -129,10 +169,10 @@ const SurvivalGuide = () => {
       <div className="glass-panel" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', alignItems: 'end' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>¿Qué ente visitarás?</label>
-            <select 
-              className="chat-input" 
-              value={tramite} 
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.88rem', fontWeight: 500 }}>¿Qué ente visitarás?</label>
+            <select
+              className="chat-input"
+              value={tramite}
               onChange={(e) => { setTramite(e.target.value); setShowGuide(false); }}
               style={{ width: '100%', cursor: 'pointer' }}
             >
@@ -142,10 +182,10 @@ const SurvivalGuide = () => {
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>Turno / Hora de Cita</label>
-            <select 
-              className="chat-input" 
-              value={turno} 
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.88rem', fontWeight: 500 }}>Turno / Hora de Cita</label>
+            <select
+              className="chat-input"
+              value={turno}
               onChange={(e) => { setTurno(e.target.value); setShowGuide(false); }}
               style={{ width: '100%', cursor: 'pointer' }}
             >
@@ -154,8 +194,8 @@ const SurvivalGuide = () => {
               <option value="tarde">Tarde (1:00 PM - 4:00 PM)</option>
             </select>
           </div>
-          <button 
-            className="send-btn" 
+          <button
+            className="send-btn"
             style={{ height: '43px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             onClick={handleGenerate}
             disabled={!tramite || !turno}
@@ -167,8 +207,8 @@ const SurvivalGuide = () => {
 
       <AnimatePresence>
         {showGuide && currentLogic && (
-          <motion.div 
-            className="glass-panel" 
+          <motion.div
+            className="glass-panel"
             style={{ padding: '3rem' }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -179,11 +219,11 @@ const SurvivalGuide = () => {
                 <MapPin size={20} color="var(--color-ink-black)" /> Coordenadas Exactas
               </h3>
               <p style={{ fontSize: '1.05rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>{currentLogic.location}</p>
-              
+
               <div style={{ position: 'relative', width: '100%', height: '250px', borderRadius: 'var(--radius-inputs)', overflow: 'hidden', marginBottom: '1rem', border: '1px solid var(--border)' }}>
-                <img 
-                  src={currentLogic.image} 
-                  alt="Fachada de la Sede" 
+                <img
+                  src={currentLogic.image}
+                  alt="Fachada de la Sede"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
                 <div style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(23, 25, 28, 0.85)', color: '#ffffff', padding: '0.35rem 0.85rem', borderRadius: 'var(--radius-pill)', fontSize: '0.75rem', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -198,14 +238,14 @@ const SurvivalGuide = () => {
 
             <div className="timeline">
               {currentLogic.steps(turno).map((step, index) => (
-                <motion.div 
-                  key={index} 
+                <motion.div
+                  key={index}
                   className="timeline-step"
                   initial={{ opacity: 0, x: -30 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.12 }}
                 >
-                  <motion.div 
+                  <motion.div
                     className="step-card"
                     whileHover={{ y: -4, scale: 1.01 }}
                   >

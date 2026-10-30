@@ -7,6 +7,7 @@ const ChatBotWidget = ({ user }) => {
   const [inputVal, setInputVal] = useState('');
   const [status, setStatus] = useState('Conectando...');
   const [isConnected, setIsConnected] = useState(false);
+  const [auditStep, setAuditStep] = useState(0);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -19,7 +20,7 @@ const ChatBotWidget = ({ user }) => {
     if (user?.cedula) return user.cedula;
     const stored = localStorage.getItem('usm_user');
     if (stored) {
-      try { return JSON.parse(stored).cedula; } catch(_) {}
+      try { return JSON.parse(stored).cedula; } catch (_) { }
     }
     return 'default';
   };
@@ -30,19 +31,50 @@ const ChatBotWidget = ({ user }) => {
   }, []);
 
   const getInstitutionalFallback = (text, isFile = false) => {
-    const cleanText = text.toLowerCase();
+    const cleanText = text.toLowerCase().trim();
 
     if (isFile) {
       return `<strong>[Documento Recibido]</strong><br/>El documento fue cargado correctamente para inspección. Los datos extraídos han sido validados preliminarmente contra los registros institucionales de la Universidad Santa María.`;
     }
 
-    if (cleanText.includes('auditar') || cleanText.includes('expediente') || cleanText.includes('/start')) {
-      return `<strong>Diagnóstico del Expediente Académico USM:</strong><br/>
-• <strong>Título Universitario:</strong> Registrado en Libro de Actas (Tomo XIV).<br/>
-• <strong>Fondo Negro Certificado:</strong> Verificado a vista del original.<br/>
-• <strong>Planilla PUB (SAREN):</strong> Lista para liquidación de aranceles.<br/>
-• <strong>Estado de Integridad Blockchain:</strong> Válido (Hash SHA-256 verificado).<br/><br/>
-<em>Su expediente cumple con los requisitos para la solicitud de cita GTU (MPPREU).</em>`;
+    if (cleanText.includes('auditar') || cleanText.includes('auditor') || cleanText.includes('/start')) {
+      setAuditStep(1);
+      return `<strong>Iniciando Auditoría Interactiva del Expediente USM:</strong><br/><br/>
+<strong>Requisito 1 de 3:</strong> ¿Posee la certificación original de su título y fondo negro emitida por Secretaría General USM?<br/>
+<em>(Responda <strong>"sí"</strong> o <strong>"no"</strong>)</em>`;
+    }
+
+    if (auditStep === 1) {
+      if (cleanText.includes('s') || cleanText.includes('si') || cleanText.includes('sí') || cleanText.includes('listo')) {
+        setAuditStep(2);
+        return `✅ <strong>Título y Fondo Negro Verificado.</strong><br/><br/>
+<strong>Requisito 2 de 3:</strong> ¿Cuenta con la <strong>Planilla Única Bancaria (PUB) SAREN</strong> generada y con comprobante de pago de aranceles?<br/>
+<em>(Responda <strong>"sí"</strong> o <strong>"no"</strong>)</em>`;
+      } else {
+        return `⚠️ <strong>Atención:</strong> Debe solicitar la certificación y fondo negro en el Edificio Administrativo USM antes de acudir a los entes externos. ¿Desea continuar con el siguiente paso?`;
+      }
+    }
+
+    if (auditStep === 2) {
+      if (cleanText.includes('s') || cleanText.includes('si') || cleanText.includes('sí') || cleanText.includes('listo')) {
+        setAuditStep(3);
+        return `✅ <strong>Arancel SAREN Validado.</strong><br/><br/>
+<strong>Requisito 3 de 3:</strong> ¿Tiene los <strong>Timbres Fiscales Regionales (0.5 UT)</strong> y copia de cédula laminada y vigente?<br/>
+<em>(Responda <strong>"sí"</strong> o <strong>"no"</strong>)</em>`;
+      } else {
+        return `⚠️ Puede generar su <strong>Planilla PUB</strong> en este portal en la sección del menú lateral. Ingrésela y luego responda <strong>"listo"</strong>.`;
+      }
+    }
+
+    if (auditStep === 3) {
+      setAuditStep(0);
+      if (cleanText.includes('s') || cleanText.includes('si') || cleanText.includes('sí') || cleanText.includes('listo')) {
+        return `🎉 <strong>¡Auditoría Institucional Aprobada al 100%!</strong><br/><br/>
+Su expediente cuenta con todos los recaudos para la cita <strong>GTU (MPPEU)</strong> y posterior <strong>Apostilla MPPRE</strong>.<br/>
+• <strong>Siguiente recomendación:</strong> Solicite su cita en el portal GTU y presente su título en pergamino original en taquilla.`;
+      } else {
+        return `🔴 Adquiera los timbres de 0.5 UT en expendios autorizados cerca del Registro Principal antes de su cita.`;
+      }
     }
 
     if (cleanText.includes('pub') || cleanText.includes('saren') || cleanText.includes('arancel')) {
@@ -65,13 +97,14 @@ const ChatBotWidget = ({ user }) => {
 
     try {
       const data = await chatAPI.sendMessage(getSessionId(), text, isFile);
-      let formattedText = data.reply
+      let formattedText = (data.reply || '')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br/>');
       setMessages((prev) => [...prev, { text: formattedText, sender: 'bot' }]);
       setStatus('En línea');
       setIsConnected(true);
-    } catch(err) {
+    } catch (err) {
       // Si falla la API del backend, activar modo de respuesta institucional local
       const fallbackReply = getInstitutionalFallback(text, isFile);
       setMessages((prev) => [...prev, { text: fallbackReply, sender: 'bot' }]);
@@ -101,14 +134,14 @@ const ChatBotWidget = ({ user }) => {
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <div className="status-dot" style={{ backgroundColor: isConnected ? '#22c55e' : '#ef4444' }}></div>
-        <h2>Asistente Institucional <small style={{ fontWeight: 300, opacity: 0.7, fontSize: '0.8rem' }}>({status})</small></h2>
+        <div className="status-dot" style={{ backgroundColor: isConnected ? 'var(--color-ink-black)' : 'var(--color-sienna-brown)' }}></div>
+        <h2>Asistente Institucional <small style={{ fontWeight: 400, color: 'var(--color-slate-gray)', fontSize: '0.82rem' }}>({status})</small></h2>
       </div>
 
       <div className="chat-messages">
         {messages.map((msg, idx) => (
-          <div key={idx} className={`message ${msg.sender}`} style={msg.isFile ? { border: '1px dashed rgba(255,255,255,0.4)' } : {}}>
-             <span dangerouslySetInnerHTML={{ __html: msg.text }} />
+          <div key={idx} className={`message ${msg.sender}`} style={msg.isFile ? { border: '1px dashed var(--border)' } : {}}>
+            <span dangerouslySetInnerHTML={{ __html: msg.text }} />
           </div>
         ))}
         <div ref={messagesEndRef} />
@@ -122,14 +155,14 @@ const ChatBotWidget = ({ user }) => {
             onClick={handleAudit}
             disabled={!isConnected}
             style={{
-              background: 'rgba(30, 58, 138, 0.2)',
-              color: '#fbbf24',
-              border: '1px solid rgba(217, 119, 6, 0.3)',
-              borderRadius: '8px',
+              background: 'var(--color-blush-peach)',
+              color: 'var(--color-sienna-brown)',
+              border: '1px solid rgba(93, 42, 26, 0.2)',
+              borderRadius: 'var(--radius-pill)',
               padding: '0.4rem 1rem',
               cursor: 'pointer',
-              fontSize: '0.85rem',
-              fontWeight: '600',
+              fontSize: '0.82rem',
+              fontWeight: 600,
               transition: 'all 0.2s'
             }}
           >
@@ -147,12 +180,12 @@ const ChatBotWidget = ({ user }) => {
           />
           <button
             type="button"
-            className="send-btn"
-            style={{ padding: '0 1rem', background: 'rgba(255,255,255,0.1)', color: 'var(--text-muted)' }}
+            className="btn-ghost"
+            style={{ padding: '0.7rem 0.9rem' }}
             onClick={() => fileInputRef.current.click()}
             title="Adjuntar documento para verificación"
           >
-            <Paperclip size={20} />
+            <Paperclip size={18} />
           </button>
 
           <input
