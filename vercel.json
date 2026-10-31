@@ -18,7 +18,23 @@
       "dest": "/api/main.py"
     },
     {
+      "src": "/ocr/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
       "src": "/blockchain/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/stats/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/prevalidation/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/health",
       "dest": "/api/main.py"
     },
     {

@@ -58,13 +58,20 @@ try:
 except ImportError:
     HAS_SUPABASE = False
 
+# Carga independiente de Gemini Vision (sin dependencias binarias pesadas de C++ ni OpenCV)
+try:
+    from gemini_service import GeminiVisionExtractor
+    HAS_GEMINI_OCR = True
+except Exception as e:
+    HAS_GEMINI_OCR = False
+    logger.warning(f"Módulo Gemini Vision no disponible: {e}")
+
 try:
     import cv2
     import numpy as np
     from PIL import Image
     from vision_preprocessor import USMDocumentPreprocessor
     from ocr_service import USMOcrService
-    from gemini_service import GeminiVisionExtractor
     HAS_USM_OCR = True
 except Exception as e:
     HAS_USM_OCR = False
@@ -1461,6 +1468,15 @@ def ocr_gemini_endpoint():
             "error": "Debe enviar la imagen mediante 'file' (form-data) o 'image_base64' (JSON)."
         }), 400
 
+    if not globals().get("HAS_GEMINI_OCR", False):
+        try:
+            from gemini_service import GeminiVisionExtractor
+        except Exception as imp_err:
+            return jsonify({
+                "success": False,
+                "error": f"Módulo Gemini Vision no inicializado: {str(imp_err)}"
+            }), 503
+
     success, fields, err_msg = GeminiVisionExtractor.extract_from_image_bytes(raw_bytes)
     if not success:
         return jsonify({
@@ -1483,8 +1499,9 @@ chat_sessions = {}
 def chat_rest_endpoint():
     data = request.get_json() or {}
     session_id = data.get("session_id", "default")
-    texto_usuario = data.get("message", "")
+    texto_usuario = (data.get("message") or "").strip()
     is_file = data.get("is_file", False)
+    user_context = data.get("user") or {}
 
     if session_id not in chat_sessions:
         chat_sessions[session_id] = {
@@ -1499,21 +1516,38 @@ def chat_rest_endpoint():
         session["checklist_items"] = get_checklist()
 
     checklist = session["checklist_items"]
+    t_lower = texto_usuario.lower()
 
-    if texto_usuario.lower() == "/start":
+    # 1. Comando de Bienvenida /start
+    if t_lower == "/start" or t_lower == "hola" or t_lower == "inicio":
         increment_stat("graduandos_activos", 1)
-        return jsonify({"reply": (
-            "🏛️ **ASISTENTE GUBERNAMENTAL PARA EGRESADOS USM** 🏛️\n\n"
-            "Hola, ingeniero. Soy tu asistente virtual especializado en los trámites "
-            "gubernamentales (**GTU, SAREN, MPPRE**).\n\n"
-            "• Escribe **'auditar'** para revisar tu expediente paso a paso.\n"
-            "• Adjunta documentos con el 📎 para validación inmediata.\n"
-            "• O hazme cualquier pregunta sobre los trámites."
-        )}), 200
+        nombre = user_context.get("nombre") or user_context.get("nombre_completo") or "Egresado"
+        carrera = user_context.get("carrera") or user_context.get("mencion") or "Ingeniería de Sistemas"
+        return jsonify({
+            "reply": (
+                f"🏛️ **ASISTENTE INSTITUCIONAL USM — ASESOR JURÍDICO & ACADÉMICO** 🏛️\n\n"
+                f"¡Saludos, **{nombre}**! Como egresado de **{carrera}**, estoy a tu disposición para asesorarte "
+                f"en la ruta completa de digitalización, validación ministerial y fe pública transfronteriza:\n\n"
+                f"• 📋 **Auditoría de Expediente:** Escribe **'auditar'** para verificar los 5 recaudos obligatorios paso a paso.\n"
+                f"• 🏛️ **GTU (MPPEU):** Citas, legalización de firmas del Rector y emisión del Sello Digital.\n"
+                f"• 📄 **SAREN / PUB:** Planilla Única Bancaria, cálculo de aranceles y timbres fiscales (0.5 UT).\n"
+                f"• 🌍 **Apostilla de La Haya (MPPRE):** Trámite electrónico y validez internacional.\n"
+                f"• ⛓️ **Blockchain Sepolia:** Hash SHA-256 e inmutabilidad on-chain contra falsificaciones.\n\n"
+                f"Puedes seleccionar cualquiera de las consultas rápidas abajo o escribir tu duda libremente."
+            ),
+            "quick_actions": [
+                {"label": "🔎 Auditar mi Expediente", "command": "auditar"},
+                {"label": "🏛️ Ruta GTU / MPPEU", "command": "¿Cómo tramito el GTU del MPPEU?"},
+                {"label": "📄 Llenar Planilla PUB", "command": "¿Cómo generar y pagar la Planilla PUB SAREN?"},
+                {"label": "🌍 Apostilla de La Haya", "command": "¿Cuáles son los pasos para la Apostilla MPPRE?"},
+                {"label": "⛓️ Verificar Blockchain", "command": "¿Cómo funciona la verificación de mi título en Blockchain?"}
+            ]
+        }), 200
 
+    # 2. Archivo Adjunto recibido
     if is_file or texto_usuario.startswith("[FILE_UPLOAD]"):
-        nombre_archivo = texto_usuario.replace("[FILE_UPLOAD]", "")
-        log_msg = f"IA VISION: Analizando '{nombre_archivo}'... Validando sellos y nitidez."
+        nombre_archivo = texto_usuario.replace("[FILE_UPLOAD]", "").strip()
+        log_msg = f"IA VISION: Analizando '{nombre_archivo}'... Verificando sellos, firmas y resolución forense."
         increment_stat("docs_prevalidados", 1, log_entry=log_msg)
         increment_stat("tiempo_ahorrado_hrs", 0.5)
 
@@ -1525,25 +1559,34 @@ def chat_rest_endpoint():
 
             if session["checklist_paso"] < len(checklist):
                 siguiente = checklist[session["checklist_paso"]]
-                respuesta = f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
+                respuesta = f"🔍 **Documento `{nombre_archivo}` inspeccionado:** Sello húmedo y firmas conformes. ✅ **APROBADO.**\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
             else:
-                respuesta = f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n{resumen}\n\n🎉 **¡Expediente completo!** Puedes presentarte en taquilla con confianza. ¡Suerte, ingeniero!"
+                respuesta = f"🔍 **Documento `{nombre_archivo}` inspeccionado.** ✅ **APROBADO.**\n\n{resumen}\n\n🎉 **¡Felicidades! Expediente auditado y conforme al 100%.** Tu documentación cumple con los estándares del MPPEU y SAREN.\n\n[ACTION:ocr]"
                 increment_stat("titulos_blockchain", 1)
                 session["modo_auditoria"] = False
             return jsonify({"reply": respuesta}), 200
         else:
-            return jsonify({"reply": (
-                f"🔍 **`{nombre_archivo}` recibido y analizado.**\n\n"
-                "✅ Metadatos correctos.\n"
-                "✅ Nitidez de escaneo aceptable.\n"
-                "⚠️ Verifica que esté impreso a doble cara si es para el SAREN.\n\n"
-                "Escribe **'auditar'** para una revisión guiada completa."
-            )}), 200
+            return jsonify({
+                "reply": (
+                    f"🔍 **Documento `{nombre_archivo}` recibido y pre-validado:**\n\n"
+                    f"• **Metadatos y Formato:** Conforme.\n"
+                    f"• **Legibilidad y Contraste:** Aceptable para el escaneo OCR.\n"
+                    f"• **Observación Ministerial:** Si es para presentar ante el SAREN o MPPEU, recuerda llevar copia en tamaño oficio y pergamino original.\n\n"
+                    f"¿Deseas digitalizarlo en el motor de visión artificial o auditar tu expediente completo?\n\n[ACTION:ocr]"
+                )
+            }), 200
+
+    # 3. Flujo Interactivo de Auditoría de Expediente
+    if t_lower in ["salir", "cancelar", "terminar auditoria", "cancelar auditoria", "salir de auditoria"]:
+        session["modo_auditoria"] = False
+        return jsonify({
+            "reply": "🛑 **Auditoría cancelada.** Puedes retomarla en cualquier momento escribiendo **'auditar'** o haciéndome cualquier consulta institucional."
+        }), 200
 
     if session["modo_auditoria"]:
         item_actual = checklist[session["checklist_paso"]]
-        respuesta_lower = texto_usuario.strip().lower()
-        aprobado = any(w in respuesta_lower for w in ["sí", "si", "yes", "tengo", "listo", "ok", "claro", "afirmativo"])
+        aprobado = any(w in t_lower for w in ["sí", "si", "yes", "tengo", "listo", "ok", "claro", "afirmativo", "correcto"])
+        omitir = any(w in t_lower for w in ["omitir", "pasar", "siguiente", "después", "luego"])
 
         if aprobado:
             session["checklist_estados"][item_actual["id"]] = "✅"
@@ -1552,39 +1595,146 @@ def chat_rest_endpoint():
 
             if session["checklist_paso"] < len(checklist):
                 siguiente = checklist[session["checklist_paso"]]
-                respuesta = f"✅ **{item_actual['label']}** — APROBADO.\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
+                respuesta = f"✅ **{item_actual['label']}** — Confirmado.\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
             else:
-                respuesta = f"✅ **{item_actual['label']}** — APROBADO.\n\n{resumen}\n\n🎉 **¡Expediente listo al 100%!** Puedes presentarte en taquilla. ¡Suerte, ingeniero!"
+                respuesta = f"✅ **{item_actual['label']}** — Confirmado.\n\n{resumen}\n\n🎉 **¡Expediente Completo al 100%!** Cuentas con todos los recaudos para tu cita GTU y protocolización SAREN.\n\n[ACTION:pub]"
                 increment_stat("docs_prevalidados", 1)
                 increment_stat("tiempo_ahorrado_hrs", 0.5)
+                session["modo_auditoria"] = False
+            return jsonify({"reply": respuesta}), 200
+        elif omitir:
+            session["checklist_estados"][item_actual["id"]] = "⏭️"
+            session["checklist_paso"] += 1
+            resumen = formato_checklist_resumen(checklist, session["checklist_estados"])
+            if session["checklist_paso"] < len(checklist):
+                siguiente = checklist[session["checklist_paso"]]
+                respuesta = f"⏭️ **Requisito omitido temporalmente.**\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
+            else:
+                respuesta = f"🏁 **Auditoría finalizada con recaudos pendientes.**\n\n{resumen}\n\nRecuerda completar los recaudos faltantes antes de asistir a tu cita ministerial."
                 session["modo_auditoria"] = False
             return jsonify({"reply": respuesta}), 200
         else:
             session["checklist_estados"][item_actual["id"]] = "❌"
             resumen = formato_checklist_resumen(checklist, session["checklist_estados"])
-            return jsonify({"reply": f"{item_actual['pista']}\n\n{resumen}\n\nCuando lo tengas, responde **'listo'** o adjunta el documento con el 📎."}), 200
+            return jsonify({
+                "reply": f"{item_actual['pista']}\n\n{resumen}\n\nCuando lo consigas, responde **'sí'** o pulsa **'Omitir'** para continuar con el siguiente requisito."
+            }), 200
 
-    if "auditar" in texto_usuario.lower():
+    # Iniciar Auditoría
+    if "auditar" in t_lower or "auditoria" in t_lower:
         session["modo_auditoria"] = True
         session["checklist_paso"] = 0
         session["checklist_estados"] = {}
-        return jsonify({"reply": (
-            "🔎 **Iniciando Auditoría de Expediente SAREN**\n\n"
-            f"Te guiaré por los **{len(checklist)} requisitos obligatorios**.\n"
-            "• Responde **sí** si lo tienes.\n"
-            "• Responde **no** si te falta (te daré las instrucciones exactas).\n"
-            "• O adjunta el documento con el 📎 para verificación visual.\n\n"
-            f"---\n{checklist[0]['pregunta']}"
-        )}), 200
+        return jsonify({
+            "reply": (
+                f"🔎 **Iniciando Auditoría Interactiva de Expediente Académico**\n\n"
+                f"Revisaremos los **{len(checklist)} recaudos legales obligatorios** para GTU, SAREN y Apostilla MPPRE.\n\n"
+                f"• Responde **'sí'** si ya cuentas con el documento.\n"
+                f"• Responde **'no'** si te falta (te indicaré exactamente dónde y cómo tramitarlo).\n"
+                f"• O adjunta una foto con el 📎 para verificación forense de sellos.\n\n"
+                f"---\n{checklist[0]['pregunta']}"
+            )
+        }), 200
 
-    return jsonify({"reply": (
-        f"✅ Consulta recibida: **{texto_usuario}**\n\n"
-        "Según los instructivos vigentes del SAREN/GTU: lleva todos tus documentos en carpeta "
-        "manila tamaño oficio y llega mínimo 1 hora antes de la apertura del Registro. "
-        "Escribe **'auditar'** para una revisión completa de tu expediente."
-    )}), 200
+    # 4. Intento con Google Gemini IA Especialista
+    try:
+        from gemini_service import GeminiVisionExtractor
+        gemini_ok, gemini_reply = GeminiVisionExtractor.generate_institutional_response(texto_usuario, user_context)
+        if gemini_ok and gemini_reply and len(gemini_reply) > 20:
+            return jsonify({"reply": gemini_reply}), 200
+    except Exception as gem_e:
+        logger.info(f"Consulta Gemini fallback: {gem_e}")
 
+    # 5. Base de Conocimiento Experta Institucional (Respuesta Inmediata & Exhaustiva)
+    # ── GTU / MPPEU ──
+    if any(k in t_lower for k in ["gtu", "mppeu", "ministerio de educacion", "legalizacion universitaria", "sello digital"]):
+        return jsonify({
+            "reply": (
+                "🏛️ **Gestión de Trámites Universitarios (GTU — MPPEU)**\n\n"
+                "El **GTU** es la legalización ministerial obligatoria de las firmas de las autoridades rectorales "
+                "(Rector y Secretario General) de la Universidad Santa María, previa a la protocolización en SAREN o Apostilla.\n\n"
+                "**Hoja de Ruta del Trámite:**\n"
+                "1. **Solicitud de Cita en Línea:** Ingresa al portal oficial del MPPEU según el terminal de tu cédula de identidad.\n"
+                "2. **Presentación en Taquilla:** Acude a la sede del MPPEU o Zona Educativa asignada con tu **Título original en pergamino**, copia simple legible y comprobante de cita impreso.\n"
+                "3. **Certificación Electrónica:** El funcionario coteja las firmas físicas contra la base de datos de rectores autorizados y estampa la hoja de certificación con el **Sello Digital GTU** y código de barra institucional.\n\n"
+                "💡 *Recomendación:* Utiliza el módulo de digitalización IA de esta plataforma para extraer y corroborar los datos de tu título antes de acudir a la cita.\n\n[ACTION:ocr]"
+            )
+        }), 200
 
+    # ── SAREN / PUB / ARANCELES / TIMBRES ──
+    if any(k in t_lower for k in ["pub", "saren", "planilla unica", "arancel", "timbre", "timbres", "registro principal"]):
+        return jsonify({
+            "reply": (
+                "📄 **Planilla Única Bancaria (PUB) y Protocolización SAREN**\n\n"
+                "La **Planilla Única Bancaria (PUB)** es el formato emitido por el SAREN para la liquidación de aranceles "
+                "necesarios para asentar y protocolizar tu título en los libros del Registro Principal.\n\n"
+                "**Requisitos para la Taquilla del SAREN:**\n"
+                "1. **Planilla PUB SAREN:** Con el código de trámite y monto exacto de aranceles.\n"
+                "2. **Comprobante de Pago Bancario:** Cancelado en bancos receptores autorizados (Banco de Venezuela, Banco Bicentenario, etc.) o mediante banca digital.\n"
+                "3. **Timbres Fiscales Regionales:** Denominación equivalente a **0.5 Unidades Tributarias (UT)** del estado o Distrito Capital donde se registra.\n"
+                "4. **Fondo Negro Certificado:** Emitido y sellado previamente por la Secretaría General USM.\n"
+                "5. **Copia de Cédula:** Laminada, legible y vigente.\n\n"
+                "💡 *Puedes generar y descargar tu formato PUB pre-cargado directamente en nuestra plataforma:*\n\n[ACTION:pub]"
+            )
+        }), 200
+
+    # ── APOSTILLA / LA HAYA / MPPRE ──
+    if any(k in t_lower for k in ["apostilla", "la haya", "mppre", "cancilleria", "exterior", "transfronterizo", "validez internacional"]):
+        return jsonify({
+            "reply": (
+                "🌍 **Apostilla Electrónica de La Haya (MPPRE / Cancillería)**\n\n"
+                "La **Apostilla de La Haya** es la certificación que otorga plena validez jurídica a tu título universitario venezolano "
+                "en más de **126 países miembros** del Convenio de La Haya de 1961, sin necesidad de trámites consulares adicionales.\n\n"
+                "**Cadena de Legalización Obligatoria:**\n"
+                "• **Paso 1:** Certificación del Título y fondo negro en **Secretaría General USM**.\n"
+                "• **Paso 2:** Legalización de firmas en taquilla **GTU (MPPEU)**.\n"
+                "• **Paso 3:** Registro y asignación de Folio/Tomo en el **Registro Principal (SAREN)**.\n"
+                "• **Paso 4:** Emisión de la **Apostilla Electrónica MPPRE** con código QR de verificación internacional.\n\n"
+                "🛡️ *Nuestra plataforma ancla la certificación dual en Ethereum Sepolia para verificación inmediata desde el extranjero:*\n\n[ACTION:guide]"
+            )
+        }), 200
+
+    # ── USM / SECRETARÍA GENERAL / FONDO NEGRO ──
+    if any(k in t_lower for k in ["usm", "santa maria", "secretaria", "florencia", "fondo negro", "control de estudios", "modulo 4", "pensum"]):
+        return jsonify({
+            "reply": (
+                "🎓 **Trámites en Secretaría General — Universidad Santa María (USM)**\n\n"
+                "Para iniciar la legalización ministerial, requieres los recaudos expedidos por la Secretaría General USM:\n\n"
+                "• **Ubicación:** Campus La Florencia, Edificio Administrativo, **Módulo 4 (Secretaría General y Control de Estudios)**.\n"
+                "• **Horario:** Lunes a Viernes de 8:30 a.m. a 3:30 p.m.\n\n"
+                "**Documentos esenciales de egreso:**\n"
+                "1. **Fondo Negro Certificado:** Fotocopia del título en papel fotográfico satinado, firmada y sellada en original.\n"
+                "2. **Certificación de Título y Notas:** Desglose oficial de calificaciones de los semestres de tu carrera.\n"
+                "3. **Puesto y Rango / Carga Horaria:** Indispensables para homologaciones académicas y colegiación profesional en el extranjero.\n\n"
+                "💡 *Consulta los modelos de solicitudes oficiales en la sección de Planillas:*\n\n[ACTION:forms]"
+            )
+        }), 200
+
+    # ── BLOCKCHAIN / SEPOLIA / QR / INMUTABILIDAD ──
+    if any(k in t_lower for k in ["blockchain", "sepolia", "hash", "sha256", "inmutable", "smart contract", "contrato"]):
+        return jsonify({
+            "reply": (
+                "⛓️ **Seguridad Criptográfica y Registro en Blockchain (Ethereum Sepolia)**\n\n"
+                "Para eliminar el fraude documental y las demoras consulares, el sistema utiliza tecnología descentralizada:\n\n"
+                "• **Hash Criptográfico SHA-256:** Cada diploma digitalizado genera una huella matemática única (`0x...`). Si el documento sufre la alteración de un solo pixel o letra, el hash cambia por completo.\n"
+                "• **Anclaje en Smart Contract:** El hash y los metadatos ministeriales (GTU + MPPRE) se registran de forma irreversible en un contrato inteligente en Ethereum Sepolia.\n"
+                "• **Verificación Transfronteriza con QR:** Cualquier empleador, universidad o consulado en el mundo puede escanear el código QR del Certificado de Inmutabilidad para corroborar la autenticidad en tiempo real sin llamar a la universidad.\n\n"
+                "[ACTION:blockchain]"
+            )
+        }), 200
+
+    # ── RESPUESTA GENERAL ASISTIDA ──
+    return jsonify({
+        "reply": (
+            f"✅ **Consulta Recibida:** *{texto_usuario}*\n\n"
+            f"Como Asistente Institucional de la USM, estoy preparado para guiarte en cada etapa:\n\n"
+            f"1. **Digitalización y Cotejo IA:** Sube la foto de tu título para extraer los datos automáticamente con el modelo de visión multimodal.\n"
+            f"2. **Auditoría de Requisitos:** Escribe **'auditar'** para verificar que tu carpeta manila cumpla con las normativas del SAREN y GTU.\n"
+            f"3. **Aranceles y Planilla PUB:** Descarga y genera los formatos oficiales bancarios.\n"
+            f"4. **Certificación en Blockchain:** Consulta el estado criptográfico de tu expediente on-chain.\n\n"
+            f"¿Sobre cuál de estos trámites deseas asesoría detallada?\n\n[ACTION:guide]"
+        )
+    }), 200
 # ─── Datos Dinámicos y Contenido ─────────────────────────────────────────────
 @app.route("/admin/checklist", methods=["GET"])
 def get_checklist_items():

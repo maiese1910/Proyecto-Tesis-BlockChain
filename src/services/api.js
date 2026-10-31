@@ -132,30 +132,35 @@ export const statsAPI = {
 
 // ─── Chat ───────────────────────────────────────────────────────────────────
 export const chatAPI = {
-  sendMessage: (sessionId, message, isFile = false) =>
-    apiFetch('/chat/message', {
+  sendMessage: (sessionId, message, isFile = false, user = null) =>
+    apiFetch('/api/chat/message', {
       method: 'POST',
-      body: { session_id: sessionId, message, is_file: isFile }
-    }),
+      body: { session_id: sessionId, message, is_file: isFile, user }
+    }).catch(() =>
+      apiFetch('/chat/message', {
+        method: 'POST',
+        body: { session_id: sessionId, message, is_file: isFile, user }
+      })
+    ),
 };
 
 // ─── OCR ─────────────────────────────────────────────────────────────────────
 export const ocrAPI = {
   /**
    * Envía una imagen en base64 al motor OCR (EasyOCR: CRAFT + CRNN + NER)
-   * y recibe los campos del documento académico extraídos automáticamente.
-   * @param {string} imageBase64 - Imagen en base64 puro (sin el prefijo data:...)
+   * con soporte dual de ruta (/api/ocr/extract y /ocr/extract).
    */
   extractDocument: (imageBase64, rawText = null, userCedula = null) =>
-    apiFetch('/ocr/extract', { method: 'POST', body: { image_base64: imageBase64, raw_text: rawText, user_cedula: userCedula } }),
+    apiFetch('/api/ocr/extract', { method: 'POST', body: { image_base64: imageBase64, raw_text: rawText, user_cedula: userCedula } })
+      .catch(() => apiFetch('/ocr/extract', { method: 'POST', body: { image_base64: imageBase64, raw_text: rawText, user_cedula: userCedula } })),
 
   /**
-   * Envía la imagen al modelo multimodal Google Gemini 1.5 Flash vía API oficial.
-   * Diseñado para superar fuentes góticas complejas (Old English Text MT / Diploma)
-   * y garantizar JSON puro estructurado.
+   * Envía la imagen al modelo multimodal Google Gemini vía API oficial Flask
+   * con soporte dual de ruta (/api/ocr/gemini y /ocr/gemini).
    */
   extractGemini: (imageBase64) =>
-    apiFetch('/ocr/gemini', { method: 'POST', body: { image_base64: imageBase64 } }),
+    apiFetch('/api/ocr/gemini', { method: 'POST', body: { image_base64: imageBase64 } })
+      .catch(() => apiFetch('/ocr/gemini', { method: 'POST', body: { image_base64: imageBase64 } })),
 };
 
 // ─── Datos Dinámicos ────────────────────────────────────────────────────────

@@ -192,7 +192,7 @@ function App() {
       case 'chat':
         return (
           <div className="view-container" style={{ padding: '2rem 0' }}>
-            <ChatBotWidget user={user} />
+            <ChatBotWidget user={user} onNavigate={setActiveTab} />
           </div>
         );
       case 'forms':

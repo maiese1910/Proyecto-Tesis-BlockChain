@@ -1058,6 +1058,42 @@ select.chat-input option {
 }
 
 /* ==========================================================================
+   Global Certificate Modal Styles (Full Screen & Anti-Containment)
+   ========================================================================== */
+.cert-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  padding: 1.25rem !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
+}
+
+.cert-modal-content {
+  position: relative !important;
+  max-width: 840px !important;
+  width: 100% !important;
+  max-height: 92vh !important;
+  margin: auto !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(93, 42, 26, 0.15) !important;
+  background: #ffffff !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* ==========================================================================
    Responsive — DigitalCertificate Modal
    ========================================================================== */
 @media (max-width: 900px) {

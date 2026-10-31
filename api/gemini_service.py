@@ -150,3 +150,71 @@ class GeminiVisionExtractor:
 
         return False, {}, f"Error en API de Gemini: {last_error}"
 
+    @classmethod
+    def generate_institutional_response(cls, user_message: str, user_info: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
+        """
+        Genera una respuesta contextual e inteligente sobre trámites académicos y gubernamentales (USM, GTU, SAREN, MPPRE, Blockchain).
+        """
+        load_dotenv(override=True)
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key or not genai:
+            return False, ""
+
+        try:
+            genai.configure(api_key=api_key)
+        except Exception:
+            return False, ""
+
+        user_context_str = ""
+        if user_info:
+            nombre = user_info.get("nombre") or user_info.get("nombre_completo") or "Egresado"
+            carrera = user_info.get("carrera") or user_info.get("mencion") or "Ingeniería"
+            cedula = user_info.get("cedula") or "No indicada"
+            user_context_str = f"\nContexto del usuario: Nombre: {nombre}, Carrera: {carrera}, Cédula: {cedula}."
+
+        prompt_assistant = f"""Eres el Asistente Institucional Inteligente de la plataforma USM-ApostillaBot (Universidad Santa María, MPPEU, MPPRE, SAREN).
+Tu objetivo es asesorar a egresados y profesionales universitarios venezolanos sobre la digitalización, legalización, apostilla y registro de sus documentos académicos en Blockchain.
+
+Normativa y procesos clave que dominas con maestría:
+1. UNIVERSIDAD SANTA MARÍA (USM):
+   - Secretaría General / Control de Estudios (Edificio Administrativo, Módulo 4, Sede La Florencia, Caracas).
+   - Recaudos de egreso: Fondo negro de título debidamente autenticado/certificado, certificación de título, notas certificadas, puesto y rango, pensum de estudios y constancia de buena conducta.
+2. GESTIÓN DE TRÁMITES UNIVERSITARIOS (GTU - MPPEU):
+   - Legalización obligatoria previa de firmas de autoridades universitarias (Rector y Secretario General) antes del SAREN y de la Apostilla.
+   - Cita electrónica en el portal del MPPEU. Se presenta el pergamino del título original. La plataforma emite la certificación GTU con sello digital.
+3. REGISTRO PRINCIPAL (SAREN):
+   - Protocolización del título universitario.
+   - Requisitos: Título original legalizado en GTU, Planilla Única Bancaria (PUB) con arancel pagado, timbres fiscales regionales (0.5 UT), copia de cédula laminada y fondo negro certificado.
+4. APOSTILLA DE LA HAYA (MPPRE / Cancillería):
+   - Trámite 100% digital e interoperable una vez completado el GTU y Registro Principal.
+   - Certificación electrónica con código de verificación QR y firma digital conforme a la Ley sobre Mensajes de Datos y Convenio de La Haya.
+5. REGISTRO Y VERIFICACIÓN EN BLOCKCHAIN (Ethereum Sepolia):
+   - La plataforma calcula el hash SHA-256 inmutable del título y lo ancla en la red descentralizada Ethereum Sepolia.
+   - Permite a universidades, empleadores y consulados extranjeros verificar la autenticidad del diploma escaneando el código QR sin intermediarios ni riesgo de falsificación.
+
+Instrucciones de formato y tono:
+- Sé conciso, profesional, empático y estructurado (utiliza viñetas, negritas y pasos numerados).
+- Si la respuesta amerita que el usuario use un módulo de la aplicación, incluye al final una de estas etiquetas exactas:
+  [ACTION:ocr] si recomiendas escanear el título con IA.
+  [ACTION:pub] si recomiendas generar o consultar la Planilla PUB SAREN.
+  [ACTION:blockchain] si recomiendas verificar el hash en Blockchain.
+  [ACTION:forms] si recomiendas descargar planillas o formatos oficiales.
+  [ACTION:guide] si recomiendas ver la guía de trámites completa.
+{user_context_str}
+
+Pregunta del usuario: {user_message}"""
+
+        candidates = cls.get_candidate_models()
+        for model_name in candidates:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    generation_config={"temperature": 0.25, "top_p": 0.8}
+                )
+                response = model.generate_content(prompt_assistant)
+                if response and response.text:
+                    return True, response.text.strip()
+            except Exception:
+                continue
+
+        return False, ""
