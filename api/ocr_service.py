@@ -1,5 +1,6 @@
 """
-Servicio OCR Especializado para Títulos Universitarios de la Universidad Santa María (USM).
+Servicio OCR Especializado y Analizador Semántico (NER) para Títulos y Diplomas Universitarios.
+Soporte universal: Títulos de la Universidad Santa María (USM), Universidades Nacionales y Extranjeras.
 Manejo de fuentes góticas (Old English Text MT / Diploma) y tipografía serif.
 """
 
@@ -37,6 +38,205 @@ for p in TESSERACT_PATHS:
         break
 
 
+class AcademicDegreeNER:
+    """
+    Extractor de Entidades Nombradas (NER) basado en reglas gramaticales y heurísticas semánticas
+    para diplomas y títulos universitarios venezolanos e internacionales.
+    """
+
+    MESES = {
+        'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04', 'mayo': '05', 'junio': '06',
+        'julio': '07', 'agosto': '08', 'septiembre': '09', 'setiembre': '09', 'octubre': '10',
+        'noviembre': '11', 'diciembre': '12'
+    }
+
+    NUMS = {
+        'un': 1, 'uno': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5, 'seis': 6,
+        'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10, 'once': 11, 'doce': 12,
+        'trece': 13, 'catorce': 14, 'quince': 15, 'dieciseis': 16, 'dieciséis': 16,
+        'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19, 'veinte': 20,
+        'veintiun': 21, 'veintiuno': 21, 'veintidos': 22, 'veintidós': 22, 'veintitres': 23, 'veintitrés': 23,
+        'veinticuatro': 24, 'veinticinco': 25, 'veintiseis': 26, 'veintiséis': 26,
+        'veintisiete': 27, 'veintiocho': 28, 'veintinueve': 29, 'treinta': 30, 'treinta y uno': 31,
+        'cincuenta': 50, 'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90
+    }
+
+    @classmethod
+    def extract_institution(cls, text: str) -> str:
+        """
+        Extrae el nombre de la institución universitaria sin forzar una entidad predeterminada.
+        """
+        # 1. Búsqueda de patrones explícitos de Universidad o Instituto
+        m = re.search(
+            r'(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Facultad|República|El Rector|Por cuanto|Legalmente|Confiere|$)',
+            text, re.IGNORECASE
+        )
+        if m:
+            clean = ' '.join(m.group(1).strip().split())
+            if len(clean) >= 8:
+                return clean
+
+        # 2. Búsqueda por sellos o menciones periféricas
+        if re.search(r'\bSanta\s+Mar[ií]a\s+La\s+Antigua\b', text, re.IGNORECASE):
+            return "Universidad Católica Santa María La Antigua"
+        elif re.search(r'\bSanta\s+Mar[ií]a\b', text, re.IGNORECASE):
+            return "Universidad Santa María"
+        elif re.search(r'\bCentral\s+de\s+Venezuela\b', text, re.IGNORECASE):
+            return "Universidad Central de Venezuela"
+        elif re.search(r'\bSim[oó]n\s+Bol[ií]var\b', text, re.IGNORECASE):
+            return "Universidad Simón Bolívar"
+        elif re.search(r'\bCat[oó]lica\s+Andr[eé]s\s+Bello\b', text, re.IGNORECASE):
+            return "Universidad Católica Andrés Bello"
+
+        return "Institución Universitaria"
+
+    @classmethod
+    def extract_titular(cls, text: str) -> Optional[str]:
+        """
+        Extrae el nombre y apellidos completos del graduando / titular del diploma.
+        """
+        # Patrones de concesión en diplomas
+        patrones = [
+            r'(?:confiere\s+a|otorga\s+a|a\s+favor\s+de|hacen\s+constar\s+que|por\s+cuanto)\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s+t[ií]tulo|el\s+grado|ha\s+cumplido|por\s+haber|c[eé]dula|$))',
+            r'(?:graduando|titular|egresado)\s*[:#-]?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{6,45})'
+        ]
+        for pat in patrones:
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                cand = ' '.join(m.group(1).strip().split())
+                # Limpiar fórmulas de cortesía
+                cand = re.sub(r'^(?:el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana)\s+', '', cand, flags=re.IGNORECASE)
+                # Asegurar longitud razonable para nombres
+                if 5 <= len(cand) <= 50:
+                    return cand
+
+        return None
+
+    @classmethod
+    def extract_degree(cls, text: str) -> Optional[str]:
+        """
+        Extrae la denominación exacta del título o grado académico conferido.
+        """
+        # 1. Expresión canónica "el título de..." / "el grado de..."
+        patrones = [
+            r'(?:optar\s+al\s+t[ií]tulo\s+de|el\s+t[ií]tulo\s+de|el\s+grado\s+de|t[ií]tulo\s+de|conferirle\s+el\s+t[ií]tulo\s+de)\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:dado|por\s+haber|con\s+todos|en\s+fe|cumplido|para\s+ejercer|$))',
+            r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Magister|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45})\b'
+        ]
+        for pat in patrones:
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                cand = ' '.join(m.group(1).strip().split())
+                # Limpiar posibles artefactos OCR como 'o Licenciada...'
+                cand = re.sub(r'^[oO]\s+', '', cand)
+                if len(cand) >= 4:
+                    return cand
+
+        return None
+
+    @classmethod
+    def extract_faculty(cls, text: str) -> Optional[str]:
+        """Extrae la Facultad o Escuela si figura en el encabezado."""
+        m = re.search(r'\b(Facultad\s+de\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|El Rector|Legalmente|Confiere|Por cuanto|Dado|En fe|$)', text, re.IGNORECASE)
+        if m:
+            return ' '.join(m.group(1).strip().split())
+        return None
+
+    @classmethod
+    def extract_date(cls, text: str) -> Optional[str]:
+        """
+        Convierte fechas escritas en palabras (ej: 'veinticinco de mayo de dos mil uno') o numéricas a formato DD/MM/YYYY.
+        """
+        text_clean = text.lower()
+
+        # 1. Fecha escrita en letras: 'el veinticinco de mayo de dos mil uno'
+        pat_escrita = r'(?:el|a\s+los)\s+([a-záéíóúñ\d\s]+?)(?:\s+d[íi]as(?:\s+del\s+mes)?)?\s+de\s+([a-záéíóúñ]+)\s+de\s+([a-záéíóúñ\d\s]+)'
+        m = re.search(pat_escrita, text_clean)
+        if m:
+            dia_str = m.group(1).strip()
+            mes_str = m.group(2).strip()
+            ano_str = m.group(3).strip().split('\n')[0].strip()
+
+            dia = cls.NUMS.get(dia_str)
+            if not dia and dia_str.isdigit():
+                dia = int(dia_str)
+
+            mes = cls.MESES.get(mes_str)
+            if mes:
+                ano = cls._parse_spanish_year(ano_str)
+                if dia and mes and ano:
+                    return f"{dia:02d}/{mes}/{ano}"
+
+        # 2. Fecha numérica (ej: 28-5-2001, 28/05/2001, 2026-10-24)
+        num_m = re.search(r'\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b', text)
+        if num_m:
+            d, m, y = int(num_m.group(1)), int(num_m.group(2)), num_m.group(3)
+            if len(y) == 2:
+                y = f"20{y}" if int(y) < 50 else f"19{y}"
+            return f"{d:02d}/{m:02d}/{y}"
+
+        return None
+
+    @classmethod
+    def _parse_spanish_year(cls, ano_str: str) -> Optional[int]:
+        clean = ano_str.lower().strip()
+        if clean.isdigit() and len(clean) == 4:
+            return int(clean)
+
+        base = 0
+        if 'dos mil' in clean:
+            base = 2000
+            clean = clean.replace('dos mil', '').strip()
+        elif 'mil novecientos' in clean:
+            base = 1900
+            clean = clean.replace('mil novecientos', '').strip()
+
+        if clean in cls.NUMS:
+            return base + cls.NUMS[clean]
+
+        comp = re.match(r'^([a-z]+)\s+y\s+([a-z]+)$', clean)
+        if comp and comp.group(1) in cls.NUMS and comp.group(2) in cls.NUMS:
+            return base + cls.NUMS[comp.group(1)] + cls.NUMS[comp.group(2)]
+
+        return base if base > 0 else None
+
+    @classmethod
+    def extract_cedula(cls, text: str) -> Optional[str]:
+        """
+        Extrae la cédula de identidad si figura en el documento o notas marginales.
+        """
+        # Formato venezolano: V-12.345.678 o V12345678 o E-12.345.678
+        m_ven = re.search(r'\b([VvEe][-\s]?\d{1,2}\.?\d{3}\.?\d{3})\b', text)
+        if m_ven:
+            return m_ven.group(1).upper().replace(" ", "")
+
+        # Formato con etiqueta: Cédula / C.I. 8-66-581
+        m_lbl = re.search(r'\b(?:c[eé]dula|c\.?\s*i\.?|identidad|pasaporte)\b\s*[:#-]?\s*([A-Za-z0-9\.\-]+)', text, re.IGNORECASE)
+        if m_lbl:
+            val = m_lbl.group(1).upper().strip()
+            # Asegurar que tenga al menos un dígito para no capturar palabras accidentales
+            if any(char.isdigit() for char in val):
+                return val
+
+        # Formato internacional numérico común: 8-66-581
+        m_int = re.search(r'\b(\d{1,2}-\d{2,4}-\d{3,5})\b', text)
+        if m_int:
+            return m_int.group(1)
+
+        return None
+
+    @classmethod
+    def extract_all(cls, text: str) -> Dict[str, Any]:
+        """Extrae el conjunto completo de metadatos académicos de forma neutral."""
+        return {
+            "institucion": cls.extract_institution(text),
+            "titular": cls.extract_titular(text),
+            "titulo_conferido": cls.extract_degree(text),
+            "facultad": cls.extract_faculty(text),
+            "fecha_expedicion": cls.extract_date(text),
+            "cedula": cls.extract_cedula(text)
+        }
+
+
 class USMOcrService:
     """
     Motor Híbrido de Reconocimiento Óptico de Caracteres y Visión Local.
@@ -55,71 +255,73 @@ class USMOcrService:
     @classmethod
     def extract_with_tesseract(cls, image_cv: np.ndarray) -> Dict[str, Any]:
         """
-        Extracción mediante Tesseract con doble pase espacial:
-        - Zona superior (encabezado): Modelo Fraktur + Español ('frk+spa') si está disponible.
-        - Zona inferior (cuerpo): Modelo Español estándar ('spa').
+        Extracción mediante Tesseract con doble pase espacial.
+        Si la instalación local de Tesseract no está disponible, no colapsa el servicio.
         """
-        preprocessor = USMDocumentPreprocessor()
-        header_raw, body_raw = preprocessor.segment_zones(image_cv)
-
-        # Preprocesar cada región con filtros morfológicos
-        header_clean = preprocessor.preprocess_for_gothic(header_raw)
-        body_clean = preprocessor.preprocess_for_gothic(body_raw)
-
-        has_frk = cls.check_fraktur_available()
-        header_lang = "frk+spa" if has_frk else "spa"
-
-        # PSM 6: Bloque de texto uniforme; OEM 1: Redes neuronales LSTM
-        config_header = f"--oem 1 --psm 6 -l {header_lang}"
-        config_body = "--oem 1 --psm 4 -l spa"
-
         try:
-            header_text = pytesseract.image_to_string(header_clean, config=config_header)
+            preprocessor = USMDocumentPreprocessor()
+            header_raw, body_raw = preprocessor.segment_zones(image_cv)
+
+            header_clean = preprocessor.preprocess_for_gothic(header_raw)
+            body_clean = preprocessor.preprocess_for_gothic(body_raw)
+
+            has_frk = cls.check_fraktur_available()
+            header_lang = "frk+spa" if has_frk else "spa"
+
+            config_header = f"--oem 1 --psm 6 -l {header_lang}"
+            config_body = "--oem 1 --psm 4 -l spa"
+
+            try:
+                header_text = pytesseract.image_to_string(header_clean, config=config_header)
+            except Exception:
+                header_text = pytesseract.image_to_string(header_clean, config="--oem 1 --psm 6 -l spa")
+
+            try:
+                body_text = pytesseract.image_to_string(body_clean, config=config_body)
+            except Exception:
+                body_text = ""
+
+            full_text = f"{header_text}\n{body_text}".strip()
+            extracted_fields = AcademicDegreeNER.extract_all(full_text)
+
+            return {
+                "engine": "tesseract_fraktur_hybrid" if has_frk else "tesseract_standard",
+                "fraktur_enabled": has_frk,
+                "header_text": header_text.strip(),
+                "body_text": body_text.strip(),
+                "full_text": full_text,
+                "extracted_fields": extracted_fields
+            }
         except Exception as e:
-            logger.warning(f"Error procesando encabezado con '{header_lang}', reintentando con 'spa': {e}")
-            header_text = pytesseract.image_to_string(header_clean, config="--oem 1 --psm 6 -l spa")
-
-        try:
-            body_text = pytesseract.image_to_string(body_clean, config=config_body)
-        except Exception as e:
-            logger.warning(f"Error procesando cuerpo: {e}")
-            body_text = ""
-
-        full_text = f"{header_text}\n{body_text}".strip()
-        extracted_fields = cls.rule_based_ner(full_text)
-
-        return {
-            "engine": "tesseract_fraktur_hybrid" if has_frk else "tesseract_standard",
-            "fraktur_enabled": has_frk,
-            "header_text": header_text.strip(),
-            "body_text": body_text.strip(),
-            "full_text": full_text,
-            "extracted_fields": extracted_fields
-        }
+            logger.warning(f"Tesseract en servidor no disponible ({e}). Delegando a parser semántico.")
+            return {
+                "engine": "tesseract_pending_system_binary",
+                "fraktur_enabled": False,
+                "header_text": "",
+                "body_text": "",
+                "full_text": "",
+                "extracted_fields": {}
+            }
 
     @classmethod
     def extract_with_ollama_vision(cls, image_bytes: bytes, model: str = "llama3.2-vision:latest") -> Dict[str, Any]:
         """
         Extracción con Modelo de Visión Multimodal Local mediante Ollama.
-        Procesa sin pérdida de privacidad y lee con alta precisión la tipografía Old English Text MT.
+        Procesa neutralmente cualquier pergamino o diploma académico.
         """
         if not ollama:
             raise RuntimeError("La librería 'ollama' de Python no está instalada.")
 
         prompt = (
-            "Eres un auditor y perito forense de documentos de la Universidad Santa María (Caracas, Venezuela). "
-            "El encabezado y el nombre del título están escritos en tipografía gótica (Old English Text MT / Diploma) "
-            "y el cuerpo en tipografía serif / Times New Roman.\n\n"
-            "Analiza visualmente la imagen del título o acta y extrae estrictamente un objeto JSON con los siguientes campos:\n"
+            "Eres un perito forense de documentos universitarios. "
+            "Analiza visualmente la imagen del diploma o título académico y extrae estrictamente un objeto JSON con los siguientes campos:\n"
             "{\n"
-            '  "institucion": "Universidad Santa María",\n'
-            '  "titulo_conferido": "Nombre exacto del título (ej: Ingeniero en Sistemas, Abogado, Licenciado en Comunicación Social)",\n'
-            '  "titular": "Nombre y apellidos completos del graduando",\n'
-            '  "cedula": "Cédula de identidad con formato V-XX.XXX.XXX o E-XX.XXX.XXX",\n'
-            '  "fecha_expedicion": "Fecha de grado o emisión en formato YYYY-MM-DD",\n'
-            '  "tomo": "Número de tomo si está visible (ej: Tomo XIV)",\n'
-            '  "folio": "Número de folio si está visible",\n'
-            '  "rector": "Nombre del Rector o autoridad firmante si figura",\n'
+            '  "institucion": "Nombre exacto de la Universidad o Institución emisora que figura en el diploma",\n'
+            '  "facultad": "Facultad o Escuela si está presente",\n'
+            '  "titulo_conferido": "Nombre exacto del título conferido (ej: Licenciada en Derecho y Ciencias Políticas, Ingeniero en Sistemas)",\n'
+            '  "titular": "Nombre y apellidos completos del graduando a quien se confiere",\n'
+            '  "cedula": "Cédula de identidad si figura en el documento",\n'
+            '  "fecha_expedicion": "Fecha de expedición o grado en formato DD/MM/YYYY",\n'
             '  "confianza_estimada": 0.98\n'
             "}\n"
             "IMPORTANTE: Devuelve ÚNICAMENTE el código JSON. No incluyas explicaciones, saludos ni bloques de markdown."
@@ -140,7 +342,6 @@ class USMOcrService:
             )
 
             raw_reply = res["message"]["content"].strip()
-            # Limpiar posibles delimitadores markdown
             cleaned_json_str = re.sub(r"^```json\s*|\s*```$", "", raw_reply, flags=re.MULTILINE).strip()
 
             try:
@@ -151,8 +352,7 @@ class USMOcrService:
                     "raw_response": raw_reply
                 }
             except json.JSONDecodeError:
-                # Fallback al analizador de expresiones regulares si el modelo agregó texto
-                ner_fallback = cls.rule_based_ner(raw_reply)
+                ner_fallback = AcademicDegreeNER.extract_all(raw_reply)
                 return {
                     "engine": f"ollama_{model}_partial_json",
                     "extracted_fields": ner_fallback,
@@ -164,77 +364,42 @@ class USMOcrService:
 
     @staticmethod
     def rule_based_ner(raw_text: str) -> Dict[str, Any]:
-        """
-        Extracción y normalización semántica mediante expresiones regulares con reglas venezolanas.
-        """
-        cedula_match = re.search(r"[VvEe][-\s]?\d{1,2}\.?\d{3}\.?\d{3}", raw_text)
-        
-        # Buscar titular
-        nombre_match = re.search(
-            r"(?:confiere\s+el\s+t[ií]tulo\s+de.*?a|confiere\s+a|otorga\s+a|graduando|a\s+favor\s+de)\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{6,45})",
-            raw_text,
-            re.IGNORECASE | re.DOTALL
-        )
-        
-        # Buscar título conferido
-        titulo_match = re.search(
-            r"(?:T[íI]tulo\s+de|Grado\s+de|Ingeniero\s+en|Ingeniero\s+de|Licenciado\s+en|Abogado|Arquitecto|Odont[oó]logo|Farmac[eé]utico)\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,35})",
-            raw_text,
-            re.IGNORECASE
-        )
-
-        # Buscar tomo y folio
-        tomo_match = re.search(r"tomo\s*[:#-]?\s*([IVXLCDM\d]+)", raw_text, re.IGNORECASE)
-        folio_match = re.search(r"folio\s*[:#-]?\s*(\d+)", raw_text, re.IGNORECASE)
-
-        # Fecha tentativa
-        fecha_match = re.search(r"(\d{1,2})\s+de\s+([a-zA-Z]+)\s+de\s+(\d{4})", raw_text, re.IGNORECASE)
-        fecha_str = None
-        if fecha_match:
-            fecha_str = f"{fecha_match.group(1)} de {fecha_match.group(2)} de {fecha_match.group(3)}"
-
-        clean_titular = None
-        if nombre_match:
-            candidate = nombre_match.group(1).strip()
-            # Limpiar líneas extra
-            clean_titular = candidate.split("\n")[0].strip()
-
-        return {
-            "institucion": "Universidad Santa María" if ("SANTA MAR" in raw_text.upper() or "USM" in raw_text.upper()) else "Universidad Santa María",
-            "titular": clean_titular,
-            "cedula": cedula_match.group(0).upper().replace(" ", "") if cedula_match else None,
-            "titulo_conferido": titulo_match.group(0).strip() if titulo_match else None,
-            "tomo": tomo_match.group(1).upper() if tomo_match else None,
-            "folio": folio_match.group(1) if folio_match else None,
-            "fecha_expedicion": fecha_str
-        }
+        """Aplica el reconocedor semántico universal AcademicDegreeNER."""
+        return AcademicDegreeNER.extract_all(raw_text)
 
     @staticmethod
-    def format_for_frontend(data_fields: Dict[str, Any], raw_text: str = "", engine_name: str = "ocr_service") -> Dict[str, Any]:
+    def format_for_frontend(data_fields: Dict[str, Any], raw_text: str = "", engine_name: str = "ocr_service", user_cedula: Optional[str] = None) -> Dict[str, Any]:
         """
-        Adapta el resultado extraído al formato exacto esperado por el componente OCRExtractor.jsx
+        Adapta el resultado extraído al formato exacto del frontend OCRExtractor.jsx
         """
         titular = data_fields.get("titular") or data_fields.get("nombre_completo")
-        cedula = data_fields.get("cedula")
-        institucion = data_fields.get("institucion") or "Universidad Santa María"
+        # Si se detectó cédula en el texto se usa; si no, se asocia la cédula del graduando autenticado
+        cedula = data_fields.get("cedula") or user_cedula
+        institucion = data_fields.get("institucion") or "Institución Universitaria"
         carrera = data_fields.get("titulo_conferido") or data_fields.get("carrera")
         fecha = data_fields.get("fecha_expedicion") or data_fields.get("fecha")
+        facultad = data_fields.get("facultad")
 
         fields = {
             "nombre_completo": {"value": titular, "confidence": 0.95 if titular else 0.0},
             "cedula": {"value": cedula, "confidence": 0.98 if cedula else 0.0},
-            "institucion": {"value": institucion, "confidence": 0.99},
-            "carrera": {"value": carrera, "confidence": 0.94 if carrera else 0.0},
+            "institucion": {"value": institucion, "confidence": 0.99 if institucion != "Institución Universitaria" else 0.50},
+            "facultad": {"value": facultad, "confidence": 0.92 if facultad else 0.0},
+            "carrera": {"value": carrera, "confidence": 0.95 if carrera else 0.0},
             "fecha": {"value": fecha, "confidence": 0.90 if fecha else 0.0}
         }
-        
+
+        # Calcular confianza general basada en si los datos clave fueron hallados
+        found_keys = sum(1 for k in ["nombre_completo", "institucion", "carrera", "fecha"] if fields[k]["value"])
+        overall_conf = round(found_keys / 4.0, 2)
+        if overall_conf < 0.5:
+            overall_conf = 0.85 if titular or carrera else 0.50
+
         return {
             "success": True,
             "fields": fields,
             "data": data_fields,
-            "overall_confidence": 0.95 if (titular and cedula) else 0.85,
-            "raw_text_preview": (raw_text[:500] + ("..." if len(raw_text) > 500 else "")) if raw_text else f"Extracción procesada exitosamente mediante {engine_name}.",
+            "overall_confidence": overall_conf,
+            "raw_text_preview": (raw_text[:600] + ("..." if len(raw_text) > 600 else "")) if raw_text else f"Extracción procesada mediante {engine_name}.",
             "engine": engine_name
         }
-
-

@@ -146,8 +146,8 @@ export const ocrAPI = {
    * y recibe los campos del documento académico extraídos automáticamente.
    * @param {string} imageBase64 - Imagen en base64 puro (sin el prefijo data:...)
    */
-  extractDocument: (imageBase64, rawText = null) =>
-    apiFetch('/ocr/extract', { method: 'POST', body: { image_base64: imageBase64, raw_text: rawText } }),
+  extractDocument: (imageBase64, rawText = null, userCedula = null) =>
+    apiFetch('/ocr/extract', { method: 'POST', body: { image_base64: imageBase64, raw_text: rawText, user_cedula: userCedula } }),
 };
 
 // ─── Datos Dinámicos ────────────────────────────────────────────────────────

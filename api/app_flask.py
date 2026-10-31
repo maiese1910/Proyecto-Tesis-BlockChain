@@ -82,6 +82,7 @@ def extract_document():
         if uploaded_file.filename != "":
             image_bytes = uploaded_file.read()
             mode = request.form.get("mode", "auto")
+            raw_text_client = request.form.get("raw_text")
 
     # Caso 2: Payload JSON con base64 o raw_text
     elif request.is_json:
@@ -97,16 +98,16 @@ def extract_document():
             except Exception as e:
                 return jsonify({"success": False, "error": f"Base64 inválido: {str(e)}"}), 400
 
-    # Si sólo se envió texto crudo del cliente (WASM fallback)
-    if not image_bytes and raw_text_client:
+    # Si el cliente ya extrajo el texto (ej: Tesseract.js WASM en navegador)
+    if raw_text_client and len(raw_text_client.strip()) > 15:
         ner_fields = USMOcrService.rule_based_ner(raw_text_client)
-        resp = USMOcrService.format_for_frontend(ner_fields, raw_text_client, "Client OCR + Flask NER")
+        resp = USMOcrService.format_for_frontend(ner_fields, raw_text_client, "WASM Tesseract + Flask Academic NER")
         return jsonify(resp), 200
 
     if not image_bytes:
         return jsonify({
             "success": False,
-            "error": "Debe proporcionar una imagen mediante 'file' (multipart) o 'image_base64' (JSON)."
+            "error": "Debe proporcionar una imagen mediante 'file' (multipart), 'image_base64' (JSON) o 'raw_text'."
         }), 400
 
     try:
@@ -128,23 +129,22 @@ def extract_document():
             return jsonify({"success": False, "error": "No se pudo decodificar el formato de la imagen."}), 400
 
         # 2. Modo Híbrido (OpenCV Morfología + Tesseract frk+spa)
-        if mode == "hybrid":
-            tess_result = USMOcrService.extract_with_tesseract(image_cv)
+        tess_result = USMOcrService.extract_with_tesseract(image_cv)
+        if tess_result.get("full_text"):
             resp = USMOcrService.format_for_frontend(tess_result["extracted_fields"], tess_result["full_text"], tess_result["engine"])
-            resp["fraktur_enabled"] = tess_result["fraktur_enabled"]
+            resp["fraktur_enabled"] = tess_result.get("fraktur_enabled", False)
             return jsonify(resp), 200
 
-        # 3. Modo 'auto': Intenta Visión Local primero; si no está activo, ejecuta OpenCV + Tesseract
-        try:
-            res = USMOcrService.extract_with_ollama_vision(image_bytes)
-            resp = USMOcrService.format_for_frontend(res["extracted_fields"], res.get("raw_response", ""), res["engine"])
+        # 3. Fallback a raw_text si el motor Tesseract en servidor no tiene binarios instalados
+        if raw_text_client:
+            ner_fields = USMOcrService.rule_based_ner(raw_text_client)
+            resp = USMOcrService.format_for_frontend(ner_fields, raw_text_client, "Client OCR + Flask NER")
             return jsonify(resp), 200
-        except Exception:
-            logger.info("Ollama no activo, ejecutando motor Tesseract Fraktur por defecto.")
-            tess_result = USMOcrService.extract_with_tesseract(image_cv)
-            resp = USMOcrService.format_for_frontend(tess_result["extracted_fields"], tess_result["full_text"], tess_result["engine"])
-            resp["fraktur_enabled"] = tess_result["fraktur_enabled"]
-            return jsonify(resp), 200
+
+        return jsonify({
+            "success": False,
+            "error": "No se pudo extraer texto del documento. Por favor utilice el motor de reconocimiento en el navegador."
+        }), 422
 
     except Exception as e:
         logger.error(f"Error procesando OCR: {e}", exc_info=True)

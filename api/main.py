@@ -1325,23 +1325,27 @@ def ocr_engine_status():
 @app.route("/api/ocr/extract", methods=["POST"])
 def ocr_extract_document():
     """
-    Extracción avanzada con preprocesamiento OpenCV adaptativo para tipografías góticas y serif.
-    Acepta 'file' (multipart), 'image_base64' (JSON) o 'raw_text' (WASM fallback).
+    Extracción avanzada y análisis semántico de diplomas académicos.
+    Soporte dual: texto reconocido por el cliente (Tesseract.js WASM) y motores de servidor (OpenCV, Tesseract, Ollama).
     """
     try:
         image_bytes = None
         mode = "auto"
         raw_text_client = None
+        user_cedula = None
 
         if "file" in request.files:
             f = request.files["file"]
             if f.filename != "":
                 image_bytes = f.read()
                 mode = request.form.get("mode", "auto")
+                raw_text_client = request.form.get("raw_text")
+                user_cedula = request.form.get("user_cedula")
         elif request.is_json:
             data = request.get_json() or {}
             mode = data.get("mode", "auto")
             raw_text_client = data.get("raw_text")
+            user_cedula = data.get("user_cedula")
             b64_str = data.get("image_base64")
             if b64_str:
                 if "," in b64_str:
@@ -1351,14 +1355,19 @@ def ocr_extract_document():
                 except Exception as e:
                     return jsonify({"success": False, "error": f"Base64 inválido: {str(e)}"}), 400
 
-        # Si sólo se envía texto crudo del cliente (WASM fallback)
-        if not image_bytes and raw_text_client:
+        # Si el cliente ya extrajo el texto mediante Tesseract.js (WASM) en el navegador
+        if raw_text_client and len(raw_text_client.strip()) > 15:
             ner_fields = USMOcrService.rule_based_ner(raw_text_client)
-            resp = USMOcrService.format_for_frontend(ner_fields, raw_text_client, "Client OCR + Flask NER")
+            resp = USMOcrService.format_for_frontend(
+                ner_fields,
+                raw_text_client,
+                "WASM Tesseract + Flask Academic NER",
+                user_cedula=user_cedula
+            )
             return jsonify(resp), 200
 
         if not image_bytes:
-            return jsonify({"success": False, "error": "Debe proporcionar 'file' o 'image_base64'."}), 400
+            return jsonify({"success": False, "error": "Debe proporcionar 'file', 'image_base64' o 'raw_text'."}), 400
 
         # Decodificación con OpenCV
         nparr = np.frombuffer(image_bytes, np.uint8)
@@ -1371,16 +1380,43 @@ def ocr_extract_document():
         if mode == "vision_ai":
             try:
                 res = USMOcrService.extract_with_ollama_vision(image_bytes)
-                resp = USMOcrService.format_for_frontend(res["extracted_fields"], res.get("raw_response", ""), res["engine"])
+                resp = USMOcrService.format_for_frontend(
+                    res["extracted_fields"],
+                    res.get("raw_response", ""),
+                    res["engine"],
+                    user_cedula=user_cedula
+                )
                 return jsonify(resp), 200
             except Exception as e:
                 logger.warning(f"Ollama local no disponible, activando motor Tesseract: {e}")
 
         # 2. Modo Híbrido / Auto por defecto
         tess_res = USMOcrService.extract_with_tesseract(img_cv)
-        resp = USMOcrService.format_for_frontend(tess_res['extracted_fields'], tess_res['full_text'], tess_res['engine'])
-        resp["fraktur_enabled"] = tess_res.get("fraktur_enabled", False)
-        return jsonify(resp), 200
+        if tess_res.get("full_text"):
+            resp = USMOcrService.format_for_frontend(
+                tess_res['extracted_fields'],
+                tess_res['full_text'],
+                tess_res['engine'],
+                user_cedula=user_cedula
+            )
+            resp["fraktur_enabled"] = tess_res.get("fraktur_enabled", False)
+            return jsonify(resp), 200
+
+        # 3. Si Tesseract en servidor no tiene binario y había raw_text breve
+        if raw_text_client:
+            ner_fields = USMOcrService.rule_based_ner(raw_text_client)
+            resp = USMOcrService.format_for_frontend(
+                ner_fields,
+                raw_text_client,
+                "Client OCR + Flask NER",
+                user_cedula=user_cedula
+            )
+            return jsonify(resp), 200
+
+        return jsonify({
+            "success": False,
+            "error": "No se pudo extraer texto del documento. Por favor asegúrese de que la imagen sea nítida o procese con el motor WebAssembly del navegador."
+        }), 422
 
     except Exception as e:
         logger.error(f"Error procesando OCR: {e}", exc_info=True)
