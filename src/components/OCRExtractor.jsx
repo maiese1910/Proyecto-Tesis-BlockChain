@@ -186,11 +186,13 @@ const ConfidenceBadge = ({ score }) => {
     }
 
     // 1. Institución Educativa Emisora
+    let institucion = null;
     if (/Santa\s+Mar[ií1l]a\s+La\s+Antigua/i.test(text)) {
       institucion = "Universidad Católica Santa María La Antigua";
+    } else {
+      const univMatch = text.match(/(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Universidab|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Faculta|República|El Rector|Por cuanto|Legalmente|Confiere|Contiere|$)/i);
+      institucion = univMatch ? univMatch[1].trim().replace(/\s+/g, " ").replace(/^Universidab/i, "Universidad") : null;
     }
-    const univMatch = text.match(/(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Universidab|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Faculta|República|El Rector|Por cuanto|Legalmente|Confiere|Contiere|$)/i);
-    let institucion = univMatch ? univMatch[1].trim().replace(/\s+/g, " ").replace(/^Universidab/i, "Universidad") : null;
     if (!institucion || institucion.length < 8) {
       if (/Santa\s+Mar[ií1l]a\s+La\s+Antigua/i.test(text)) institucion = "Universidad Católica Santa María La Antigua";
       else if (/Santa\s+Mar[ií1l]a/i.test(text)) institucion = "Universidad Santa María (USM)";

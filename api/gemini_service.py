@@ -60,6 +60,7 @@ Debes devolver ÚNICAMENTE un objeto JSON con las siguientes 5 claves exactas:
 class GeminiVisionExtractor:
     @staticmethod
     def get_configured_model():
+        load_dotenv(override=True)
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return None, "GEMINI_API_KEY no configurada en las variables de entorno (.env)."
@@ -136,3 +137,4 @@ class GeminiVisionExtractor:
         except Exception as e:
             logger.error(f"Excepción general en Gemini Vision: {e}", exc_info=True)
             return False, {}, f"Falla en el pipeline de visión con Gemini: {str(e)}"
+
