@@ -135,7 +135,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
         localStorage.setItem('usm_user', JSON.stringify(demoUser));
         onStudentLogin(demoUser);
       }
-    } catch (err) {
+    } catch (_err) {
       const demoUser = {
         nombre: "Estudiante USM (Graduando)",
         cedula: targetCedula.includes('-') ? targetCedula : `V-${targetCedula}`,
@@ -171,7 +171,7 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
       } else {
         setRegError('No se pudo completar el registro.');
       }
-    } catch (err) {
+    } catch (_err) {
       const newProfile = {
         nombre: regForm.nombre,
         cedula: fullCedula,
@@ -608,7 +608,6 @@ return (
                   <button
                     type="button"
                     onClick={() => { fillStudentDemo(); handleStudentSubmit(); }}
-                    onClick={fillStudentDemo}
                     className="btn-ghost"
                     style={{ flex: 1, whiteSpace: 'nowrap' }}
                   >

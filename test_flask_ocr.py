@@ -1,10 +1,15 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "api"))
+api_dir = os.path.join(os.path.dirname(__file__), "api")
+if api_dir not in sys.path:
+    sys.path.insert(0, api_dir)
 
-import app_flask
-import main
+try:
+    from api import app_flask, main
+except ImportError:
+    import app_flask  # type: ignore
+    import main  # type: ignore
 
 def test_endpoints():
     # 1. Probar microservicio app_flask
