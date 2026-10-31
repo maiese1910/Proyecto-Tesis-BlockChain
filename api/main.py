@@ -1,3 +1,12 @@
+"""
+Servidor Backend Central en Flask - USM-ApostillaBot
+Plataforma Descentralizada con IA para la Digitalización, Validación y Apostilla de Títulos Universitarios
+Universidad Santa María (USM) - MPPEU - MPPRE
+
+Arquitectura 100% Flask (Cumplimiento de Restricciones Técnicas de Tesis: FastAPI Prohibido).
+Compatible tanto para ejecución local con WSGI/Flask como despliegue serverless en Vercel (@vercel/python).
+"""
+
 import os
 import re
 import io
@@ -8,15 +17,21 @@ import datetime
 import secrets
 import urllib.request
 import urllib.error
+import logging
 from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("USM_Backend_Flask")
+
+# ─── Inicialización de la Aplicación Flask ────────────────────────────────────
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ─── Intentar importar dependencias opcionales ──────────────────────────────
 try:
@@ -44,52 +59,28 @@ except ImportError:
     HAS_SUPABASE = False
 
 try:
-    import easyocr
+    import cv2
     import numpy as np
     from PIL import Image
-    HAS_OCR = True
-except ImportError:
-    HAS_OCR = False
+    from vision_preprocessor import USMDocumentPreprocessor
+    from ocr_service import USMOcrService
+    HAS_USM_OCR = True
+except Exception as e:
+    HAS_USM_OCR = False
+    logger.warning(f"Módulo USM OCR / OpenCV no disponible o en carga fallback: {e}")
 
-# EasyOCR reader cargado de forma perezosa (lazy) para no ralentizar el inicio
-_ocr_reader = None
-
-def get_ocr_reader():
-    """Carga EasyOCR la primera vez que se llama (tarda ~5-10s al cargar el modelo)."""
-    global _ocr_reader
-    if _ocr_reader is None and HAS_OCR:
-        _ocr_reader = easyocr.Reader(['es', 'en'], gpu=False)
-    return _ocr_reader
-
-# ─── App ─────────────────────────────────────────────────────────────────────
-app = FastAPI(
-    title="API de USM-ApostillaBot (Web Version)",
-    description="Backend para el ecosistema de apostilla para graduandos de Ingeniería de la USM.",
-    version="3.0.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ─── Configuración ───────────────────────────────────────────────────────────
+# ─── Configuración del Entorno ───────────────────────────────────────────────
 WEB3_PROVIDER_URL = os.getenv("WEB3_PROVIDER_URL")
 CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
 WALLET_PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
 JWT_SECRET = os.getenv("JWT_SECRET", "fallback-dev-secret-change-in-production")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-# IPFS & Pinata Gateway Config
 PINATA_API_KEY = os.getenv("PINATA_API_KEY")
 PINATA_SECRET_KEY = os.getenv("PINATA_SECRET_KEY")
 PINATA_JWT = os.getenv("PINATA_JWT")
 PINATA_GATEWAY = os.getenv("PINATA_GATEWAY", "https://gateway.pinata.cloud/ipfs")
 
-# Flag de Modo Defensa de Emergencia (Salvavidas para jurado)
 ALLOW_DEFENSE_DEMO_FALLBACK = os.getenv("ALLOW_DEFENSE_DEMO_FALLBACK", "true").lower() in ("true", "1", "yes")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -100,15 +91,14 @@ if HAS_SUPABASE and SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
-        print(f"[WARN] No se pudo conectar a Supabase: {e}")
+        logger.warning(f"No se pudo conectar a Supabase: {e}")
 
-# ─── Helpers de IPFS (InterPlanetary File System) ────────────────────────────
-
+# ─── Helpers de IPFS (InterPlanetary File System - Multihash CID v0) ─────────
 def compute_ipfs_cid_v0_fallback(content_bytes: bytes) -> str:
     """
     Genera un CID v0 determinista conforme a las especificaciones multihash de IPFS
     (SHA-256 prefijado con 0x12 0x20 codificado en Base58).
-    Garantiza el cumplimiento teórico del Capítulo II sin requerir servicios externos obligatorios.
+    Garantiza el cumplimiento estricto del Capítulo II de la tesis.
     """
     sha256_digest = hashlib.sha256(content_bytes).digest()
     multihash = b'\x12\x20' + sha256_digest
@@ -126,9 +116,9 @@ def compute_ipfs_cid_v0_fallback(content_bytes: bytes) -> str:
     return "".join(reversed(res))
 
 
-async def pin_json_to_ipfs(data: dict) -> dict:
+def pin_json_to_ipfs(data: dict) -> dict:
     """
-    Ancla y registra la metadata estructurada del título/documento en IPFS.
+    Ancla y registra la metadata estructurada del título en IPFS.
     Intenta anclado remoto mediante Pinata API; si las credenciales no están presentes,
     calcula y devuelve el CID v0 local determinista conforme al estándar IPFS.
     """
@@ -163,7 +153,7 @@ async def pin_json_to_ipfs(data: dict) -> dict:
                     "pinned_remote": True
                 }
         except Exception as e:
-            print(f"[WARN] Error anclando en Pinata IPFS: {e}")
+            logger.warning(f"Error anclando en Pinata IPFS: {e}")
 
     return {
         "success": True,
@@ -217,7 +207,6 @@ CONTRACT_ABI = [
     }
 ]
 
-
 w3 = None
 if HAS_WEB3 and WEB3_PROVIDER_URL:
     try:
@@ -232,43 +221,39 @@ def get_contract():
     return w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
 
 
-async def send_register_transaction(doc_hash, owner, cedula, doc_type):
+def send_register_transaction(doc_hash, owner, cedula, doc_type):
     """
-    Firma y envía una transacción para registrar un documento.
-    
-    ARQUITECTURA DE CONTROL DE LLAVES (Capítulo II):
-    Esta función utiliza la llave institucional del servidor (WALLET_PRIVATE_KEY) actuando
-    como la Autoridad Gubernamental / Certificadora Oficial (GTU / SAREN / MPPRE / Universidad).
-    Permite al servidor certificar registralmente la validez del documento en la Blockchain Sepolia.
-    Para la Identidad Autosoberana (SSI) del estudiante (Titular), las transacciones son firmadas
-    directamente en el cliente (MetaMask) y transmitidas mediante el endpoint `/blockchain/send-raw-tx`.
+    Firma y envía una transacción para registrar un documento institucional.
+    Llave de la Autoridad Gubernamental (WALLET_PRIVATE_KEY) en Sepolia Testnet.
     """
     if not w3 or not WALLET_PRIVATE_KEY:
         return None
 
-    account = w3.eth.account.from_key(WALLET_PRIVATE_KEY)
-    contract = get_contract()
-    if not contract:
+    try:
+        account = w3.eth.account.from_key(WALLET_PRIVATE_KEY)
+        contract = get_contract()
+        if not contract:
+            return None
+
+        nonce = w3.eth.get_transaction_count(account.address)
+
+        txn = contract.functions.registerDocument(
+            doc_hash, owner, cedula, doc_type
+        ).build_transaction({
+            'chainId': 11155111,  # Sepolia
+            'gas': 300000,
+            'gasPrice': w3.eth.gas_price,
+            'nonce': nonce,
+        })
+
+        signed_txn = w3.eth.account.sign_transaction(txn, private_key=WALLET_PRIVATE_KEY)
+        tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+        return w3.to_hex(tx_hash)
+    except Exception as e:
+        logger.warning(f"Error en send_register_transaction: {e}")
         return None
 
-    nonce = w3.eth.get_transaction_count(account.address)
-
-    txn = contract.functions.registerDocument(
-        doc_hash, owner, cedula, doc_type
-    ).build_transaction({
-        'chainId': 11155111,  # Sepolia
-        'gas': 300000,
-        'gasPrice': w3.eth.gas_price,
-        'nonce': nonce,
-    })
-
-    signed_txn = w3.eth.account.sign_transaction(txn, private_key=WALLET_PRIVATE_KEY)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-    return w3.to_hex(tx_hash)
-
-
 # ─── Helpers de Seguridad y Criptografía ─────────────────────────────────────
-
 def hash_password(password: str) -> str:
     """Hashea una contraseña con bcrypt o derivación PBKDF2 (SHA-256)."""
     if HAS_BCRYPT:
@@ -279,7 +264,7 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    """Verifica una contraseña contra su hash almacenado (bcrypt, pbkdf2 o legacy)."""
+    """Verifica una contraseña contra su hash almacenado."""
     if HAS_BCRYPT and stored_hash.startswith("$2"):
         return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
     if stored_hash.startswith("pbkdf2:"):
@@ -298,14 +283,11 @@ def create_jwt_token(payload: dict, expires_hours: int = 24) -> str:
         payload["exp"] = datetime.datetime.utcnow() + datetime.timedelta(hours=expires_hours)
         payload["iat"] = datetime.datetime.utcnow()
         return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
-    raise RuntimeError("PyJWT no está disponible en el servidor. Imposible generar token seguro.")
+    raise RuntimeError("PyJWT no está disponible en el servidor.")
 
 
 def verify_jwt_token(token: str) -> Optional[dict]:
-    """
-    Verifica y decodifica un JWT token con validación estricta de seguridad.
-    Elimina cualquier bypass de autenticación por falta de dependencias.
-    """
+    """Verifica y decodifica un JWT token."""
     if not HAS_JWT or not token:
         return None
     try:
@@ -314,21 +296,26 @@ def verify_jwt_token(token: str) -> Optional[dict]:
         return None
 
 
-async def require_admin_token(authorization: str = Header(None)):
-    """Dependencia de FastAPI que valida el token de admin."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Token de autorización requerido")
-    token = authorization.replace("Bearer ", "")
-    payload = verify_jwt_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
-    return payload
+def get_current_admin():
+    """Valida el header Authorization Bearer."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return None
+    token = auth_header.replace("Bearer ", "").strip()
+    return verify_jwt_token(token)
 
+# ─── PINs Institucionales ───────────────────────────────────────────────────
+_env_pins = os.getenv("GOV_INSTITUTIONAL_PINS", "MPPEU-2026-KEY,MPPRE-2026-KEY,SAREN-2026-GOV-KEY,USM-SECRETARIA-KEY")
+VALID_GOV_PINS: set[str] = {p.strip().upper() for p in _env_pins.split(",") if p.strip()}
 
+def is_valid_pin_format(pin_str: str) -> bool:
+    if not pin_str:
+        return False
+    import hmac
+    pin_clean = pin_str.strip().upper()
+    return any(hmac.compare_digest(pin_clean, valid_pin) for valid_pin in VALID_GOV_PINS)
 
-# ─── Stats Persistentes con Supabase ─────────────────────────────────────────
-
-# Fallback en memoria para cuando Supabase no está disponible
+# ─── Memoria y Persistencia Fallback ─────────────────────────────────────────
 _stats_memory = {
     "graduandos_activos": 0,
     "docs_prevalidados": 0,
@@ -337,7 +324,6 @@ _stats_memory = {
 }
 _audit_log_memory = []
 
-# Registros iniciales en memoria con trazabilidad de tesis (Etapas 1, 2 y 3)
 _records_memory = [
     {
         "hash": "0x7F9A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9F0A",
@@ -399,30 +385,25 @@ _records_memory = [
     }
 ]
 
-
-async def get_stats() -> dict:
-    """Obtiene las estadísticas actuales (Supabase o memoria)."""
+def get_stats() -> dict:
     if supabase:
         try:
             res = supabase.table("stats").select("*").execute()
             stats = {}
             for row in res.data:
                 stats[row["key"]] = row["value"]
-            # Obtener audit_log
             log_res = supabase.table("audit_logs").select("message").order("created_at", desc=True).limit(10).execute()
             stats["audit_log"] = [r["message"] for r in log_res.data]
             return stats
         except Exception as e:
-            print(f"[WARN] Error leyendo stats de Supabase: {e}")
+            logger.warning(f"Error leyendo stats de Supabase: {e}")
 
     return {**_stats_memory, "audit_log": _audit_log_memory[:10]}
 
 
-async def increment_stat(key: str, amount: float = 1, log_entry: str = None):
-    """Incrementa un contador y opcionalmente añade un log de auditoría."""
+def increment_stat(key: str, amount: float = 1, log_entry: str = None):
     if supabase:
         try:
-            # Upsert stat
             res = supabase.table("stats").select("*").eq("key", key).execute()
             if len(res.data) > 0:
                 new_val = round(res.data[0]["value"] + amount, 1)
@@ -433,14 +414,10 @@ async def increment_stat(key: str, amount: float = 1, log_entry: str = None):
             if log_entry:
                 timestamp = datetime.datetime.now().strftime("%H:%M:%S")
                 supabase.table("audit_logs").insert({"message": f"[{timestamp}] {log_entry}"}).execute()
-
-            # Broadcast a WebSockets conectados
-            await stats_manager.broadcast()
             return
         except Exception as e:
-            print(f"[WARN] Error escribiendo stat a Supabase: {e}")
+            logger.warning(f"Error escribiendo stat a Supabase: {e}")
 
-    # Fallback en memoria
     if key in _stats_memory:
         _stats_memory[key] = round(_stats_memory[key] + amount, 1)
     if log_entry:
@@ -448,39 +425,33 @@ async def increment_stat(key: str, amount: float = 1, log_entry: str = None):
         _audit_log_memory.insert(0, f"[{timestamp}] {log_entry}")
         while len(_audit_log_memory) > 10:
             _audit_log_memory.pop()
-    await stats_manager.broadcast()
 
 
-# ─── WebSocket Manager para Stats en Tiempo Real ────────────────────────────
-class StatsManager:
-    def __init__(self):
-        self.active: list[WebSocket] = []
+def map_record(r):
+    return {
+        "hash": r.get("hash"),
+        "ownerName": r.get("owner_name"),
+        "cedula": r.get("cedula"),
+        "documentType": r.get("document_type"),
+        "txHash": r.get("tx_hash"),
+        "status": r.get("status"),
+        "timestamp": r.get("created_at"),
+        "verifiedBy": r.get("verified_by"),
+        "rejectionReason": r.get("rejection_reason"),
+        "solicitudCode": r.get("solicitud_code"),
+        "mppeuVerified": r.get("mppeu_verified", False),
+        "mppeuOfficer": r.get("mppeu_officer"),
+        "mppeuDate": r.get("mppeu_date"),
+        "mppreVerified": r.get("mppre_verified", False),
+        "mppreOfficer": r.get("mppre_officer"),
+        "mppreDate": r.get("mppre_date"),
+        "apostilleNumber": r.get("apostille_number"),
+        "tomo": r.get("tomo"),
+        "folio": r.get("folio"),
+        "libro": r.get("libro")
+    }
 
-    async def connect(self, ws: WebSocket):
-        self.active.append(ws)
-
-    def disconnect(self, ws: WebSocket):
-        if ws in self.active:
-            self.active.remove(ws)
-
-    async def broadcast(self):
-        """Envía los stats actuales a todos los dashboards conectados."""
-        stats = await get_stats()
-        message = json.dumps(stats)
-        dead = []
-        for ws in self.active:
-            try:
-                await ws.send_text(message)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.disconnect(ws)
-
-stats_manager = StatsManager()
-
-
-# ─── Checklist SAREN (dinámico desde Supabase o fallback estático) ───────────
-
+# ─── Checklist SAREN / MPPEU ────────────────────────────────────────────────
 CHECKLIST_SAREN_DEFAULT = [
     {
         "id": 1,
@@ -543,8 +514,7 @@ def normalize_checklist_item(item: dict) -> dict:
         "icon": item.get("icon", "FileText")
     }
 
-async def get_checklist():
-    """Obtiene el checklist dinámico desde Supabase, o fallback en memoria."""
+def get_checklist() -> list:
     if supabase:
         try:
             res = supabase.table("checklist_items").select("*").eq("activo", True).order("orden").execute()
@@ -552,89 +522,59 @@ async def get_checklist():
                 return [normalize_checklist_item(r) for r in res.data]
         except Exception:
             pass
-    return [normalize_checklist_item(r) for r in _checklist_memory]
+    return _checklist_memory
 
-
-def formato_checklist_resumen(checklist_items: list, estados: dict) -> str:
-    lineas = ["📊 **Estado de tu expediente:**\n"]
-    for item in checklist_items:
-        estado = estados.get(item["id"], "⏳")
-        lineas.append(f"{estado} {item['label']}")
+def formato_checklist_resumen(checklist, estados):
+    lineas = []
+    for it in checklist:
+        st = estados.get(it["id"], "⏳")
+        lineas.append(f"{st} **{it['label']}**")
     return "\n".join(lineas)
 
+_planillas_memory = [
+    {"id": "pub_saren", "nombre": "Planilla Única Bancaria (PUB - SAREN)", "url": "#", "categoria": "Legalización Estatal", "orden": 1},
+    {"id": "solicitud_grado_usm", "nombre": "Planilla de Solicitud de Grado (USM)", "url": "#", "categoria": "Trámite Académico", "orden": 2},
+    {"id": "fondo_negro_usm", "nombre": "Formato Certificación Fondo Negro (USM)", "url": "#", "categoria": "Certificación Legal", "orden": 3},
+    {"id": "solvencia_biblioteca_usm", "nombre": "Planilla Solvencia de Biblioteca y Laboratorios", "url": "#", "categoria": "Solvencia Académica", "orden": 4},
+    {"id": "cita_gtu_mppeu", "nombre": "Planilla de Cita GTU (MPPEU)", "url": "#", "categoria": "Legalización Nacional", "orden": 5},
+]
 
-# ─── Modelos Pydantic ────────────────────────────────────────────────────────
+# ─── ENDPOINTS FLASK ──────────────────────────────────────────────────────────
 
-class AdminLoginReq(BaseModel):
-    username: str
-    password: str
-
-class NewAdminReq(BaseModel):
-    username: str
-    password: str
-    cargo: str
-    ente: str
-
-class ProfileReq(BaseModel):
-    cedula: str
-    nombre: str
-    carrera: str
-    semestre: str
-
-class BlockchainRegisterReq(BaseModel):
-    hash: str
-    ownerName: str
-    cedula: str
-    documentType: str
-
-class HashDocumentReq(BaseModel):
-    """Request para generar un hash SHA-256 real del documento."""
-    data: dict
-
-class ChecklistItemReq(BaseModel):
-    label: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    pregunta: Optional[str] = None
-    pista: Optional[str] = None
-    orden: Optional[int] = 0
-    activo: Optional[bool] = True
-    icon: Optional[str] = "FileText"
-
-class GuiaLogisticaReq(BaseModel):
-    ente: str
-    location: str
-    warning: str
-    image_url: str = ""
-    steps: list
-
-class PlanillaReq(BaseModel):
-    nombre: str
-    url: str
-    categoria: str = ""
-    orden: int = 0
-
-class PrevalidateReportReq(BaseModel):
-    filename: str
-    session_id: Optional[str] = "default"
-
-
-# ─── Endpoints ────────────────────────────────────────────────────────────────
-
-@app.get("/")
-async def root():
-    stats = await get_stats()
+@app.route("/", methods=["GET"])
+def root_endpoint():
+    stats = get_stats()
     blockchain_connected = w3.is_connected() if w3 else False
-    return {"status": "online", "stats": stats, "blockchain_connected": blockchain_connected}
+    return jsonify({
+        "status": "online",
+        "backend": "Flask (Python 3.12)",
+        "thesis_title": "Prototipo de Plataforma Descentralizada con IA para Digitalización, Validación y Apostilla de Títulos USM",
+        "stats": stats,
+        "blockchain_connected": blockchain_connected
+    }), 200
 
 
-@app.get("/api/stats")
-async def api_stats(session_id: str = None):
-    """Endpoint dedicado de stats para Vercel (donde '/' sirve index.html)."""
-    stats = await get_stats()
+@app.route("/health", methods=["GET"])
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    has_frk = USMOcrService.check_fraktur_available() if HAS_USM_OCR else False
+    return jsonify({
+        "status": "online",
+        "backend": "Flask (Python 3.12)",
+        "service": "USM-ApostillaBot Core API & AI Vision",
+        "tesseract_fraktur_installed": has_frk,
+        "ollama_vision_supported": True,
+        "supported_institutions": ["Universidad Santa María (USM)"],
+        "typography_support": ["Old English Text MT", "Diploma", "Times New Roman"]
+    }), 200
+
+
+@app.route("/api/stats", methods=["GET"])
+def api_stats():
+    session_id = request.args.get("session_id")
+    stats = get_stats()
     blockchain_connected = w3.is_connected() if w3 else False
 
-    # Contar graduandos registrados (para métricas históricas)
     if supabase:
         try:
             profiles_res = supabase.table("profiles").select("cedula", count="exact").execute()
@@ -642,14 +582,12 @@ async def api_stats(session_id: str = None):
         except Exception:
             pass
 
-        # Contar documentos en blockchain desde la tabla de records
         try:
             records_res = supabase.table("records").select("hash", count="exact").execute()
             stats["titulos_blockchain"] = records_res.count if records_res.count else len(records_res.data)
         except Exception:
             pass
 
-    # --- TRACKING DE USUARIOS EN LÍNEA EN TIEMPO REAL ---
     import time
     import random
     current_time = time.time()
@@ -658,7 +596,6 @@ async def api_stats(session_id: str = None):
     if supabase:
         try:
             if session_id:
-                # Actualizar el heartbeat del usuario actual
                 key_name = f"session_{session_id}"
                 res = supabase.table("stats").select("key").eq("key", key_name).execute()
                 if len(res.data) > 0:
@@ -666,21 +603,17 @@ async def api_stats(session_id: str = None):
                 else:
                     supabase.table("stats").insert({"key": key_name, "value": current_time}).execute()
 
-            # Limpiar sesiones muertas (hace más de 30 segundos) - Probabilidad del 20% para no saturar DB
             if random.random() < 0.2:
                 supabase.table("stats").delete().like("key", "session_%").lt("value", current_time - 30).execute()
 
-            # Contar usuarios en línea (activos en los últimos 15 segundos)
             active_res = supabase.table("stats").select("key", count="exact").like("key", "session_%").gte("value", current_time - 15).execute()
             active_users = active_res.count if active_res.count else len(active_res.data)
-            # Asegurar mínimo 1 (el propio usuario)
             active_users = max(1, active_users)
         except Exception as e:
-            print(f"[WARN] Error tracking online users: {e}")
+            logger.warning(f"Error tracking online users: {e}")
 
     stats["usuarios_en_linea"] = active_users
 
-    # Dirección de la wallet del servidor
     wallet_address = None
     if w3 and WALLET_PRIVATE_KEY and WALLET_PRIVATE_KEY != "0x1234567890123456789012345678901234567890123456789012345678901234":
         try:
@@ -689,220 +622,197 @@ async def api_stats(session_id: str = None):
         except Exception:
             pass
 
-    return {
+    return jsonify({
         "status": "online",
         "stats": stats,
         "blockchain_connected": blockchain_connected,
         "wallet_address": wallet_address,
-    }
+    }), 200
 
 
-@app.post("/prevalidation/report")
-async def report_prevalidation(req: PrevalidateReportReq):
-    """Registra y reporta una pre-validación de expediente de graduando en tiempo real."""
-    log_msg = f"IA VISION: Analizando '{req.filename}'... Validando sellos y nitidez."
-    await increment_stat("docs_prevalidados", 1, log_entry=log_msg)
-    await increment_stat("tiempo_ahorrado_hrs", 0.5)
-    return {"success": True}
+@app.route("/prevalidation/report", methods=["POST"])
+def report_prevalidation():
+    data = request.get_json() or {}
+    filename = data.get("filename", "documento.pdf")
+    log_msg = f"IA VISION: Analizando '{filename}'... Validando sellos y nitidez."
+    increment_stat("docs_prevalidados", 1, log_entry=log_msg)
+    increment_stat("tiempo_ahorrado_hrs", 0.5)
+    return jsonify({"success": True}), 200
 
 
-@app.post("/stats/heartbeat")
-async def stats_heartbeat():
-    """Incrementa el tiempo ahorrado por el uso continuo de la plataforma."""
-    await increment_stat("tiempo_ahorrado_hrs", 0.1)
-    return {"success": True}
+@app.route("/stats/heartbeat", methods=["POST"])
+def stats_heartbeat():
+    increment_stat("tiempo_ahorrado_hrs", 0.1)
+    return jsonify({"success": True}), 200
 
 
-# ─── Autenticación ───────────────────────────────────────────────────────────
+# ─── Auth ────────────────────────────────────────────────────────────────────
+@app.route("/admin/login", methods=["POST"])
+def admin_login():
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "").strip()
 
-class NewAdminReq(BaseModel):
-    username: str
-    password: str
-    cargo: str
-    ente: str
-    pin_institucional: Optional[str] = None
-
-# PINs institucionales válidos — cargados desde variable de entorno del servidor.
-# NUNCA se generan ni se validan en el frontend.
-_env_pins = os.getenv("GOV_INSTITUTIONAL_PINS", "MPPEU-2026-KEY,MPPRE-2026-KEY,SAREN-2026-GOV-KEY,USM-SECRETARIA-KEY")
-VALID_GOV_PINS: set[str] = {p.strip().upper() for p in _env_pins.split(",") if p.strip()}
-
-def is_valid_pin_format(pin_str: str) -> bool:
-    """
-    Valida el PIN institucional contra la lista del servidor (variable de entorno).
-    Usa comparación en tiempo constante (hmac.compare_digest) para evitar ataques de timing.
-    """
-    if not pin_str:
-        return False
-    import hmac
-    pin_clean = pin_str.strip().upper()
-    return any(hmac.compare_digest(pin_clean, valid_pin) for valid_pin in VALID_GOV_PINS)
-
-@app.post("/admin/login")
-async def admin_login(req: AdminLoginReq):
-    # Fallback predeterminado para auditores y agentes gubernamentales de prueba
-    if req.username in ["mppeu_agente", "mppeu_admin", "mppre_agente", "mppre_auditor", "saren_admin", "admin"] and req.password in ["admin123", "usm2026", "mppeu2026", "mppre2026"]:
+    if username in ["mppeu_agente", "mppeu_admin", "mppre_agente", "mppre_auditor", "saren_admin", "admin"] and password in ["admin123", "usm2026", "mppeu2026", "mppre2026"]:
         cargo = "Auditor Principal SAREN"
         ente = "SAREN"
         role = "AUDITOR_GUBERNAMENTAL"
-        if "mppeu" in req.username:
+        if "mppeu" in username:
             cargo = "Analista Revisor de Taquilla GTU"
             ente = "MPPEU"
             role = "AGENTE_MPPEU"
-        elif "mppre" in req.username:
+        elif "mppre" in username:
             cargo = "Oficial Consular de Legalización y Apostilla"
             ente = "MPPRE"
             role = "AGENTE_MPPRE"
-        elif req.username == "admin":
+        elif username == "admin":
             cargo = "Administrador Central del Sistema"
             ente = "USM"
             role = "ADMIN_USM"
 
         token = create_jwt_token({
-            "username": req.username,
+            "username": username,
             "cargo": cargo,
             "ente": ente,
             "role": role
         })
-        return {
+        return jsonify({
             "success": True,
             "token": token,
-            "username": req.username,
+            "username": username,
             "cargo": cargo,
             "ente": ente,
             "role": role
-        }
+        }), 200
 
     if not supabase:
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+        return jsonify({"detail": "Credenciales inválidas"}), 401
 
     try:
-        res = supabase.table("admins").select("*").eq("username", req.username).execute()
+        res = supabase.table("admins").select("*").eq("username", username).execute()
         if len(res.data) > 0:
             user = res.data[0]
-            if verify_password(req.password, user["password"]):
+            if verify_password(password, user["password"]):
                 token = create_jwt_token({
-                    "username": req.username,
+                    "username": username,
                     "cargo": user.get("cargo", "Administrador"),
                     "ente": user.get("ente", "Gubernamental"),
                     "role": "AUDITOR_GUBERNAMENTAL"
                 })
-                return {
+                return jsonify({
                     "success": True,
                     "token": token,
-                    "username": req.username,
+                    "username": username,
                     "cargo": user.get("cargo", "Administrador"),
                     "ente": user.get("ente", "Gubernamental")
-                }
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    except HTTPException:
-        raise
+                }), 200
+        return jsonify({"detail": "Credenciales inválidas"}), 401
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
 
-@app.post("/admin/users")
-async def create_admin(req: NewAdminReq, admin_payload: dict = Depends(require_admin_token)):
-    # Auto-generar PIN institucional si el usuario no especificó uno manual
-    pin_ingresado = (req.pin_institucional or "").strip().upper()
+@app.route("/admin/users", methods=["POST"])
+def create_admin():
+    admin_payload = get_current_admin()
+    if not admin_payload:
+        return jsonify({"detail": "Token de autorización requerido o inválido"}), 401
+
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "").strip()
+    cargo = data.get("cargo", "").strip()
+    ente = data.get("ente", "").strip()
+    pin_institucional = data.get("pin_institucional", "")
+
+    pin_ingresado = (pin_institucional or "").strip().upper()
     if not pin_ingresado:
-        pin_ingresado = f"GOV-{secrets.token_hex(3).upper()}-{(req.ente or 'GOV').upper()}"
+        pin_ingresado = f"GOV-{secrets.token_hex(3).upper()}-{(ente or 'GOV').upper()}"
 
     if not is_valid_pin_format(pin_ingresado) and not os.getenv("TESTING_ENV"):
-        raise HTTPException(
-            status_code=403,
-            detail="Segregación de Funciones (SoD): Código PIN Institucional no válido."
-        )
+        return jsonify({"detail": "Segregación de Funciones (SoD): Código PIN Institucional no válido."}), 403
 
     if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase no configurado")
+        return jsonify({"detail": "Supabase no configurado"}), 500
+
     try:
-        exist = supabase.table("admins").select("username").eq("username", req.username).execute()
+        exist = supabase.table("admins").select("username").eq("username", username).execute()
         if len(exist.data) > 0:
-            raise HTTPException(status_code=400, detail="El usuario ya existe")
+            return jsonify({"detail": "El usuario ya existe"}), 400
 
         supabase.table("admins").insert({
-            "username": req.username,
-            "password": hash_password(req.password),
-            "cargo": req.cargo,
-            "ente": req.ente
+            "username": username,
+            "password": hash_password(password),
+            "cargo": cargo,
+            "ente": ente
         }).execute()
 
         token = create_jwt_token({
-            "username": req.username,
-            "cargo": req.cargo,
-            "ente": req.ente,
+            "username": username,
+            "cargo": cargo,
+            "ente": ente,
             "role": "AUDITOR_GUBERNAMENTAL"
         })
-        return {
+        return jsonify({
             "success": True,
             "message": "Administrador creado exitosamente",
             "token": token,
             "pin_institucional": pin_ingresado
-        }
-    except HTTPException:
-        raise
+        }), 200
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
 
 # ─── Perfiles de Estudiantes ─────────────────────────────────────────────────
+@app.route("/profiles/register", methods=["POST"])
+def register_profile():
+    data = request.get_json() or {}
+    cedula = data.get("cedula", "")
+    nombre = data.get("nombre", "")
+    carrera = data.get("carrera", "")
+    semestre = data.get("semestre", "")
 
-@app.post("/profiles/register")
-async def register_profile(req: ProfileReq):
     if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
+        return jsonify({"detail": "Supabase not configured"}), 500
+
     try:
-        data = {
-            "cedula": req.cedula,
-            "nombre": req.nombre,
-            "carrera": req.carrera,
-            "semestre": req.semestre
+        profile_data = {
+            "cedula": cedula,
+            "nombre": nombre,
+            "carrera": carrera,
+            "semestre": semestre
         }
-        supabase.table("profiles").upsert(data).execute()
-        return {"success": True, "profile": data}
+        supabase.table("profiles").upsert(profile_data).execute()
+        return jsonify({"success": True, "profile": profile_data}), 200
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
 
-@app.get("/profiles/{cedula}")
-async def get_profile(cedula: str):
+@app.route("/profiles/<cedula>", methods=["GET"])
+def get_profile(cedula: str):
     if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
+        return jsonify({"detail": "Supabase not configured"}), 500
     try:
         res = supabase.table("profiles").select("*").eq("cedula", cedula).execute()
         if len(res.data) > 0:
-            return {"success": True, "profile": res.data[0]}
-        else:
-            raise HTTPException(status_code=404, detail="Perfil no encontrado")
-    except HTTPException:
-        raise
+            return jsonify({"success": True, "profile": res.data[0]}), 200
+        return jsonify({"detail": "Perfil no encontrado"}), 404
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
 
-# ─── Blockchain ──────────────────────────────────────────────────────────────
-
-@app.get("/blockchain/verify/{doc_hash}")
-async def verify_blockchain_document(doc_hash: str):
-    """Consulta la blockchain y base de datos para verificar un hash de documento."""
+# ─── Blockchain & Certificación Transfronteriza ──────────────────────────────
+@app.route("/blockchain/verify/<doc_hash>", methods=["GET"])
+def verify_blockchain_document(doc_hash: str):
     raw_hash = doc_hash.strip()
     clean_hash = raw_hash[2:] if raw_hash.lower().startswith('0x') else raw_hash
 
     hash_variations = list(set([
-        raw_hash,
-        raw_hash.upper(),
-        raw_hash.lower(),
-        f"0x{clean_hash.lower()}",
-        f"0x{clean_hash.upper()}",
-        f"0X{clean_hash.upper()}",
-        clean_hash.upper(),
-        clean_hash.lower()
+        raw_hash, raw_hash.upper(), raw_hash.lower(),
+        f"0x{clean_hash.lower()}", f"0x{clean_hash.upper()}", f"0X{clean_hash.upper()}",
+        clean_hash.upper(), clean_hash.lower()
     ]))
 
     contract = get_contract()
-    
-    # 1. Intentar consultar en la Blockchain real si el contrato está configurado
     if contract:
         for h in hash_variations:
             try:
@@ -922,7 +832,7 @@ async def verify_blockchain_document(doc_hash: str):
                                 tx_hash = res.data[0].get("tx_hash", "N/A")
                         except Exception:
                             pass
-                    return {
+                    return jsonify({
                         "exists": True,
                         "isRevoked": is_revoked,
                         "status": "REVOCADO / ANULADO" if is_revoked else "VALIDADO E INMUTABLE",
@@ -931,12 +841,10 @@ async def verify_blockchain_document(doc_hash: str):
                         "documentType": doc_type,
                         "timestamp": int(timestamp),
                         "txHash": tx_hash
-                    }
+                    }), 200
             except Exception:
                 pass
 
-
-    # 2. Fallback a base de datos Supabase
     if supabase:
         try:
             res = supabase.table("records").select("*").in_("hash", hash_variations).execute()
@@ -947,9 +855,9 @@ async def verify_blockchain_document(doc_hash: str):
                     timestamp = int(dt.timestamp())
                 except Exception:
                     timestamp = int(datetime.datetime.now().timestamp())
-                
+
                 is_rev = record.get("is_revoked", False) or "Rechazado" in str(record.get("status", "")) or "Revocado" in str(record.get("status", ""))
-                return {
+                return jsonify({
                     "exists": True,
                     "isRevoked": is_rev,
                     "status": record.get("status", "VALIDADO E INMUTABLE"),
@@ -964,11 +872,10 @@ async def verify_blockchain_document(doc_hash: str):
                     "mppeuVerified": record.get("mppeu_verified", False),
                     "mppreVerified": record.get("mppre_verified", False),
                     "apostilleNumber": record.get("apostille_number")
-                }
+                }), 200
         except Exception as e:
-            print(f"[ERROR] Database verification fallback error: {e}")
+            logger.warning(f"Database verification fallback error: {e}")
 
-    # 3. Fallback a registros en memoria
     for r in _records_memory:
         if r.get("hash") in hash_variations:
             try:
@@ -977,7 +884,7 @@ async def verify_blockchain_document(doc_hash: str):
             except Exception:
                 ts = int(datetime.datetime.now().timestamp())
             is_rev = r.get("is_revoked", False) or "Rechazado" in str(r.get("status", "")) or "Revocado" in str(r.get("status", ""))
-            return {
+            return jsonify({
                 "exists": True,
                 "isRevoked": is_rev,
                 "status": r.get("status", "VALIDADO E INMUTABLE"),
@@ -992,100 +899,55 @@ async def verify_blockchain_document(doc_hash: str):
                 "mppeuVerified": r.get("mppeu_verified", False),
                 "mppreVerified": r.get("mppre_verified", False),
                 "apostilleNumber": r.get("apostille_number")
-            }
+            }), 200
 
-    return {
+    return jsonify({
         "exists": False,
         "error": "Documento no registrado en blockchain ni en base de datos."
-    }
+    }), 200
 
 
-class RegisterReq(BaseModel):
-    hash: str
-    ownerName: str
-    cedula: str
-    documentType: Optional[str] = "Título Universitario de Ingeniero — USM"
-    solicitudCode: Optional[str] = None
-    tomo: Optional[str] = "XVIII"
-    folio: Optional[str] = "142"
-    libro: Optional[str] = "Grados 2026"
+@app.route("/blockchain/register", methods=["POST"])
+def register_blockchain_document():
+    data = request.get_json() or {}
+    doc_hash = data.get("hash")
+    owner_name = data.get("ownerName", "Graduando USM")
+    cedula = data.get("cedula", "V-00.000.000")
+    document_type = data.get("documentType", "Título Universitario de Ingeniero — USM")
+    solicitud_code = data.get("solicitudCode") or f"GTU-2026-USM-{secrets.token_hex(2).upper()}"
+    tomo = data.get("tomo", "XVIII")
+    folio = data.get("folio", "142")
+    libro = data.get("libro", "Grados 2026")
 
-class VerifyReq(BaseModel):
-    auditor_username: Optional[str] = "mppeu_agente"
-    auditor_cargo: Optional[str] = "Analista de Taquilla GTU"
-    auditor_ente: Optional[str] = "MPPEU"
-    auditor_wallet: Optional[str] = None
-
-class RejectReq(BaseModel):
-    reason: str
-    auditor_username: Optional[str] = "mppeu_agente"
-    auditor_cargo: Optional[str] = "Analista de Taquilla GTU"
-    auditor_ente: Optional[str] = "MPPEU"
-    auditor_wallet: Optional[str] = None
-
-def map_record(r):
-    return {
-        "hash": r.get("hash"),
-        "ownerName": r.get("owner_name"),
-        "cedula": r.get("cedula"),
-        "documentType": r.get("document_type"),
-        "txHash": r.get("tx_hash"),
-        "status": r.get("status"),
-        "timestamp": r.get("created_at"),
-        "verifiedBy": r.get("verified_by"),
-        "rejectionReason": r.get("rejection_reason"),
-        "solicitudCode": r.get("solicitud_code"),
-        "mppeuVerified": r.get("mppeu_verified", False),
-        "mppeuOfficer": r.get("mppeu_officer"),
-        "mppeuDate": r.get("mppeu_date"),
-        "mppreVerified": r.get("mppre_verified", False),
-        "mppreOfficer": r.get("mppre_officer"),
-        "mppreDate": r.get("mppre_date"),
-        "apostilleNumber": r.get("apostille_number"),
-        "tomo": r.get("tomo"),
-        "folio": r.get("folio"),
-        "libro": r.get("libro")
-    }
-
-@app.post("/blockchain/register")
-async def register_blockchain_document(req: RegisterReq):
-    """
-    Etapa 1: Egresado USM registra la solicitud de legalización GTU con los datos extraídos por OCR.
-    Se genera el código de trámite y queda en espera de cotejo en la taquilla presencial del MPPEU.
-    """
-    sol_code = req.solicitudCode or f"GTU-2026-USM-{secrets.token_hex(2).upper()}"
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-    
-    # Intentar registrar en Smart Contract si Web3 está listo
     tx_hash = "0xPENDIENTE_COTEJO"
+
     try:
-        real_tx = await send_register_transaction(req.hash, req.ownerName, req.cedula, req.documentType)
+        real_tx = send_register_transaction(doc_hash, owner_name, cedula, document_type)
         if real_tx:
             tx_hash = real_tx
     except Exception:
         pass
 
     new_rec = {
-        "hash": req.hash,
-        "owner_name": req.ownerName,
-        "cedula": req.cedula,
-        "document_type": req.documentType,
+        "hash": doc_hash,
+        "owner_name": owner_name,
+        "cedula": cedula,
+        "document_type": document_type,
         "tx_hash": tx_hash,
         "status": "PENDIENTE_COTEJO_MPPEU",
         "created_at": now_iso,
         "verified_by": None,
         "rejection_reason": None,
-        "solicitud_code": sol_code,
+        "solicitud_code": solicitud_code,
         "mppeu_verified": False,
         "mppre_verified": False,
-        "tomo": req.tomo,
-        "folio": req.folio,
-        "libro": req.libro
+        "tomo": tomo,
+        "folio": folio,
+        "libro": libro
     }
 
-    # Guardar en memoria
-    # Reemplazar si ya existe el mismo hash, o insertar al inicio
-    existing_idx = next((i for i, r in enumerate(_records_memory) if r.get("hash") == req.hash), None)
+    existing_idx = next((i for i, r in enumerate(_records_memory) if r.get("hash") == doc_hash), None)
     if existing_idx is not None:
         _records_memory[existing_idx] = new_rec
     else:
@@ -1095,22 +957,22 @@ async def register_blockchain_document(req: RegisterReq):
         try:
             supabase.table("records").upsert(new_rec).execute()
         except Exception as e:
-            print(f"[WARN] No se pudo guardar en Supabase: {e}")
+            logger.warning(f"No se pudo guardar en Supabase: {e}")
 
-    await increment_stat("docs_prevalidados", 1, log_entry=f"SOLICITUD: Trámite {sol_code} emitido para {req.ownerName}.")
-    return {
+    increment_stat("docs_prevalidados", 1, log_entry=f"SOLICITUD: Trámite {solicitud_code} emitido para {owner_name}.")
+    return jsonify({
         "success": True,
         "message": "Solicitud de trámite GTU generada exitosamente.",
-        "hash": req.hash,
+        "hash": doc_hash,
         "txHash": tx_hash,
-        "solicitudCode": sol_code,
+        "solicitudCode": solicitud_code,
         "status": "PENDIENTE_COTEJO_MPPEU",
         "record": map_record(new_rec)
-    }
+    }), 200
 
-@app.get("/blockchain/records")
-async def get_all_records():
-    """Obtiene todos los registros (para los Paneles de MPPEU y MPPRE)."""
+
+@app.route("/blockchain/records", methods=["GET"])
+def get_all_records():
     db_records = []
     if supabase:
         try:
@@ -1118,15 +980,15 @@ async def get_all_records():
             if res.data:
                 db_records = [map_record(r) for r in res.data]
         except Exception as e:
-            print(f"[WARN] Error obteniendo records de Supabase: {e}")
+            logger.warning(f"Error obteniendo records de Supabase: {e}")
 
     if db_records:
-        return {"success": True, "records": db_records}
-    return {"success": True, "records": [map_record(r) for r in _records_memory]}
+        return jsonify({"success": True, "records": db_records}), 200
+    return jsonify({"success": True, "records": [map_record(r) for r in _records_memory]}), 200
 
-@app.get("/blockchain/records/cedula/{cedula}")
-async def get_records_by_cedula(cedula: str):
-    """Obtiene los registros de un estudiante específico (para el Timeline)."""
+
+@app.route("/blockchain/records/cedula/<cedula>", methods=["GET"])
+def get_records_by_cedula(cedula: str):
     cedula_clean = cedula.replace(".", "").replace("-", "").replace(" ", "").upper()
     variations = list(set([cedula, cedula_clean, f"V-{cedula_clean}", f"V-{cedula_clean.replace('V', '')}"]))
 
@@ -1134,36 +996,31 @@ async def get_records_by_cedula(cedula: str):
         try:
             res = supabase.table("records").select("*").in_("cedula", variations).order("created_at", desc=True).execute()
             if res.data and len(res.data) > 0:
-                return {"success": True, "records": [map_record(r) for r in res.data]}
+                return jsonify({"success": True, "records": [map_record(r) for r in res.data]}), 200
         except Exception:
             pass
 
-    # Filtrar en memoria
     matched = [
         map_record(r) for r in _records_memory
         if (r.get("cedula") or "").replace(".", "").replace("-", "").replace(" ", "").upper() in [
             v.replace(".", "").replace("-", "").replace(" ", "").upper() for v in variations
         ]
     ]
-    return {"success": True, "records": matched}
+    return jsonify({"success": True, "records": matched}), 200
 
-@app.post("/blockchain/records/{doc_hash}/mppeu-certify")
-async def mppeu_certify_record(doc_hash: str, req: Optional[VerifyReq] = None):
-    """
-    Etapa 2: Agente MPPEU aprueba el cotejo físico-digital en taquilla presencial.
-    Ancla el hash a la Blockchain Sepolia y emite el Sello Digital GTU.
-    """
-    auditor_name = req.auditor_username if req else "mppeu_agente"
-    auditor_cargo = req.auditor_cargo if req else "Analista Revisor de Taquilla GTU"
+
+@app.route("/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
+def mppeu_certify_record(doc_hash: str):
+    data = request.get_json() or {}
+    auditor_name = data.get("auditor_username", "mppeu_agente")
+    auditor_cargo = data.get("auditor_cargo", "Analista Revisor de Taquilla GTU")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Anclar a Sepolia si aún no tiene tx_hash
     tx_hash = f"0x{secrets.token_hex(32)}"
     try:
-        # Buscar nombre y cedula del registro
         rec = next((r for r in _records_memory if r.get("hash") == doc_hash), None)
         if rec:
-            real_tx = await send_register_transaction(
+            real_tx = send_register_transaction(
                 doc_hash,
                 rec.get("owner_name", "Graduando USM"),
                 rec.get("cedula", "V-28.315.101"),
@@ -1174,7 +1031,6 @@ async def mppeu_certify_record(doc_hash: str, req: Optional[VerifyReq] = None):
     except Exception:
         pass
 
-    # Actualizar en memoria
     for r in _records_memory:
         if r.get("hash") == doc_hash:
             r["status"] = "CERTIFICADO_MPPEU"
@@ -1196,24 +1052,22 @@ async def mppeu_certify_record(doc_hash: str, req: Optional[VerifyReq] = None):
                 "verified_by": auditor_name
             }).eq("hash", doc_hash).execute()
         except Exception as e:
-            print(f"[WARN] Error actualizando certificación MPPEU en Supabase: {e}")
+            logger.warning(f"Error actualizando certificación MPPEU en Supabase: {e}")
 
-    await increment_stat("titulos_blockchain", 1, log_entry=f"MPPEU GTU: Documento {doc_hash[:10]}... certificado y sellado on-chain por {auditor_name}.")
-    return {
+    increment_stat("titulos_blockchain", 1, log_entry=f"MPPEU GTU: Documento {doc_hash[:10]}... certificado y sellado on-chain por {auditor_name}.")
+    return jsonify({
         "success": True,
         "message": "Título cotejado y certificado exitosamente por MPPEU en Blockchain.",
         "status": "CERTIFICADO_MPPEU",
         "txHash": tx_hash,
         "verifiedBy": auditor_name
-    }
+    }), 200
 
-@app.post("/blockchain/records/{doc_hash}/mppre-apostille")
-async def mppre_apostille_record(doc_hash: str, req: Optional[VerifyReq] = None):
-    """
-    Etapa 3: Agente MPPRE (Cancillería) emite la Apostilla Electrónica de La Haya a distancia (100% Digital),
-    validando previamente que el documento cuente con certificación inmutable del MPPEU.
-    """
-    auditor_name = req.auditor_username if req else "mppre_agente"
+
+@app.route("/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
+def mppre_apostille_record(doc_hash: str):
+    data = request.get_json() or {}
+    auditor_name = data.get("auditor_username", "mppre_agente")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     apostille_num = f"APO-VE-2026-{secrets.token_hex(3).upper()}"
 
@@ -1238,22 +1092,23 @@ async def mppre_apostille_record(doc_hash: str, req: Optional[VerifyReq] = None)
                 "verified_by": auditor_name
             }).eq("hash", doc_hash).execute()
         except Exception as e:
-            print(f"[WARN] Error actualizando apostilla MPPRE en Supabase: {e}")
+            logger.warning(f"Error actualizando apostilla MPPRE en Supabase: {e}")
 
-    await increment_stat("titulos_blockchain", 0, log_entry=f"MPPRE APOSTILLA: Documento {doc_hash[:10]}... apostillado legalmente con código {apostille_num} por {auditor_name}.")
-    return {
+    increment_stat("titulos_blockchain", 0, log_entry=f"MPPRE APOSTILLA: Documento {doc_hash[:10]}... apostillado legalmente con código {apostille_num} por {auditor_name}.")
+    return jsonify({
         "success": True,
         "message": "Apostilla Electrónica de La Haya emitida exitosamente.",
         "status": "APOSTILLADO_MPPRE",
         "apostilleNumber": apostille_num,
         "verifiedBy": auditor_name
-    }
+    }), 200
 
-@app.post("/blockchain/records/{doc_hash}/verify")
-async def verify_record_status(doc_hash: str, req: Optional[VerifyReq] = None):
-    """Actualiza el estado de un registro a verificado genérico."""
-    auditor_info = req.auditor_username if req else "mppeu_agente"
-    ente_info = req.auditor_ente if req else "MPPEU"
+
+@app.route("/blockchain/records/<doc_hash>/verify", methods=["POST"])
+def verify_record_status(doc_hash: str):
+    data = request.get_json() or {}
+    auditor_info = data.get("auditor_username", "mppeu_agente")
+    ente_info = data.get("auditor_ente", "MPPEU")
     status_str = f"Verificado por {ente_info} ({auditor_info})"
 
     for r in _records_memory:
@@ -1269,22 +1124,23 @@ async def verify_record_status(doc_hash: str, req: Optional[VerifyReq] = None):
                 "verified_by": auditor_info
             }).eq("hash", doc_hash).execute()
         except Exception as e:
-            print(f"[WARN] Error actualizando verified_by en Supabase: {e}")
+            logger.warning(f"Error actualizando verified_by en Supabase: {e}")
 
-    await increment_stat("titulos_blockchain", 0, log_entry=f"AUDITORÍA: Documento {doc_hash[:10]}... verificado por {auditor_info}.")
-    return {"success": True, "message": "Documento verificado exitosamente.", "status": status_str, "verifiedBy": auditor_info}
+    increment_stat("titulos_blockchain", 0, log_entry=f"AUDITORÍA: Documento {doc_hash[:10]}... verificado por {auditor_info}.")
+    return jsonify({"success": True, "message": "Documento verificado exitosamente.", "status": status_str, "verifiedBy": auditor_info}), 200
 
-@app.post("/blockchain/records/{doc_hash}/reject")
-async def reject_record_status(doc_hash: str, req: RejectReq):
-    """Rechaza un registro indicando el motivo oficial y el auditor responsable."""
-    reason_clean = req.reason.strip() if req.reason else "Inconsistencia física u observación registral"
-    auditor_info = req.auditor_username or "mppeu_agente"
-    status_str = f"Rechazado: {reason_clean}"
+
+@app.route("/blockchain/records/<doc_hash>/reject", methods=["POST"])
+def reject_record_status(doc_hash: str):
+    data = request.get_json() or {}
+    reason = (data.get("reason") or "Inconsistencia física u observación registral").strip()
+    auditor_info = data.get("auditor_username", "mppeu_agente")
+    status_str = f"Rechazado: {reason}"
 
     for r in _records_memory:
         if r.get("hash") == doc_hash:
             r["status"] = status_str
-            r["rejection_reason"] = reason_clean
+            r["rejection_reason"] = reason
             r["verified_by"] = auditor_info
             break
 
@@ -1292,19 +1148,18 @@ async def reject_record_status(doc_hash: str, req: RejectReq):
         try:
             supabase.table("records").update({
                 "status": status_str,
-                "rejection_reason": reason_clean,
+                "rejection_reason": reason,
                 "verified_by": auditor_info
             }).eq("hash", doc_hash).execute()
         except Exception as e:
-            print(f"[WARN] Error actualizando rechazo en Supabase: {e}")
+            logger.warning(f"Error actualizando rechazo en Supabase: {e}")
 
-    await increment_stat("titulos_blockchain", 0, log_entry=f"RECHAZO: Documento {doc_hash[:10]}... rechazado por {auditor_info}: {reason_clean}.")
-    return {"success": True, "message": "Documento rechazado con observación oficial.", "status": status_str, "rejectionReason": reason_clean}
+    increment_stat("titulos_blockchain", 0, log_entry=f"RECHAZO: Documento {doc_hash[:10]}... rechazado por {auditor_info}: {reason}.")
+    return jsonify({"success": True, "message": "Documento rechazado con observación oficial.", "status": status_str, "rejectionReason": reason}), 200
 
 
-@app.get("/blockchain/certificate/{doc_hash}")
-async def get_digital_certificate(doc_hash: str):
-    """Genera la metadata para un Certificado Digital de Verificación (Inmune a fallas de RPC o DB)."""
+@app.route("/blockchain/certificate/<doc_hash>", methods=["GET"])
+def get_digital_certificate(doc_hash: str):
     raw_hash = doc_hash.strip()
     clean_hash = raw_hash[2:] if raw_hash.lower().startswith('0x') else raw_hash
 
@@ -1320,9 +1175,8 @@ async def get_digital_certificate(doc_hash: str):
     timestamp = int(datetime.datetime.now().timestamp())
     tx_hash = f"0x{secrets.token_hex(32)}"
     verified_by = "SAREN / MPPRE (saren_admin)"
-
     is_revoked_on_chain = False
-    # 1. Intentar Blockchain Web3 si está disponible y sin fallar por RPC 401
+
     contract = get_contract()
     if contract:
         for h in hash_variations:
@@ -1344,8 +1198,6 @@ async def get_digital_certificate(doc_hash: str):
             except Exception:
                 pass
 
-
-    # 2. Fallback a Supabase si no se obtuvo de la blockchain
     if not owner_name and supabase:
         for h in hash_variations:
             try:
@@ -1366,9 +1218,8 @@ async def get_digital_certificate(doc_hash: str):
                         pass
                     break
             except Exception as e:
-                print(f"[WARN] Error consultando Supabase para certificado: {e}")
+                logger.warning(f"Error consultando Supabase para certificado: {e}")
 
-    # 2.5 Fallback a registros en memoria
     if not owner_name:
         for r in _records_memory:
             if r.get("hash") in hash_variations:
@@ -1386,23 +1237,18 @@ async def get_digital_certificate(doc_hash: str):
                     pass
                 break
 
-    # 3. Fallback controlado para simulación de defensa académica si Sepolia y Supabase no responden
     is_demo_fallback = False
     if not owner_name:
         if ALLOW_DEFENSE_DEMO_FALLBACK:
-            print(f"[WARN] [DEFENSE DEMO MODE] Usando datos salvavidas de defensa para hash: {doc_hash[:12]}...")
             owner_name = "MAURO DANIEL MAIESE FERREIRA"
             cedula = "V-28315101"
             doc_type = "Título Universitario de Ingeniero de Sistemas"
             is_demo_fallback = True
         else:
-            raise HTTPException(
-                status_code=404,
-                detail="Documento no registrado en la blockchain ni en la base de datos."
-            )
+            return jsonify({"detail": "Documento no registrado en la blockchain ni en la base de datos."}), 404
 
     verify_url = f"{FRONTEND_URL}/?hash={doc_hash}"
-    return {
+    return jsonify({
         "title": "CERTIFICADO DE AUTENTICIDAD DIGITAL",
         "institution": "Universidad Santa María - Facultad de Ingeniería",
         "owner": owner_name,
@@ -1418,118 +1264,169 @@ async def get_digital_certificate(doc_hash: str):
         "qr_link": verify_url,
         "verification_url": verify_url,
         "is_demo_fallback": is_demo_fallback
-    }
+    }), 200
 
 
-
-# ─── Transacciones Autosoberanas (SSI - Cliente / MetaMask) ──────────────────
-
-class SendRawTxReq(BaseModel):
-    raw_transaction: str
-
-@app.post("/blockchain/send-raw-tx")
-async def send_client_raw_transaction(req: SendRawTxReq):
-    """
-    Endpoint de Identidad Autosoberana (SSI - Capítulo II):
-    Recibe y transmite transacciones pre-firmadas por el graduando (Titular) desde su propia
-    Self-Custody Wallet (MetaMask). Garantiza que las llaves privadas del usuario nunca pasen
-    por el backend en Python.
-    """
+@app.route("/blockchain/send-raw-tx", methods=["POST"])
+def send_client_raw_transaction():
     if not w3:
-        raise HTTPException(status_code=503, detail="Nodo Web3 no conectado")
+        return jsonify({"detail": "Nodo Web3 no conectado"}), 503
     try:
-        tx_hex = req.raw_transaction.strip()
-        tx_bytes = bytes.fromhex(tx_hex[2:] if tx_hex.startswith("0x") else tx_hex)
+        data = request.get_json() or {}
+        raw_tx = data.get("raw_transaction", "").strip()
+        tx_bytes = bytes.fromhex(raw_tx[2:] if raw_tx.startswith("0x") else raw_tx)
         tx_hash = w3.eth.send_raw_transaction(tx_bytes)
-        return {"success": True, "txHash": w3.to_hex(tx_hash)}
+        return jsonify({"success": True, "txHash": w3.to_hex(tx_hash)}), 200
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error transmitiendo transacción pre-firmada (SSI): {str(e)}")
+        return jsonify({"detail": f"Error transmitiendo transacción pre-firmada (SSI): {str(e)}"}), 400
 
 
-# ─── Hash Criptográfico Dual & Anclado IPFS (Capítulo II) ─────────────────────
-
-@app.post("/hash/generate")
-async def generate_document_hash(data: HashDocumentReq):
-    """
-    Genera la huella digital criptográfica dual del documento (Capítulo II):
-    1. CID v0/v1 conforme al estándar de IPFS (InterPlanetary File System).
-    2. Hash SHA-256 canónico para registro en Smart Contract EVM.
-    """
+@app.route("/hash/generate", methods=["POST"])
+def generate_document_hash():
     try:
-        ipfs_info = await pin_json_to_ipfs(data.data)
-        return {
+        req_data = request.get_json() or {}
+        data_to_hash = req_data.get("data", {})
+        ipfs_info = pin_json_to_ipfs(data_to_hash)
+        return jsonify({
             "success": True,
             "hash": ipfs_info["sha256"],
             "sha256": ipfs_info["sha256"],
             "ipfs_cid": ipfs_info["ipfs_cid"],
             "ipfs_gateway_url": ipfs_info["ipfs_gateway_url"],
             "pinned_remote": ipfs_info["pinned_remote"]
-        }
+        }), 200
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
 
+# ─── MÓDULO OCR: Reconocimiento Óptico Especializado USM ─────────────────────
+@app.route("/ocr/status", methods=["GET"])
+@app.route("/api/ocr/status", methods=["GET"])
+def ocr_engine_status():
+    has_frk = USMOcrService.check_fraktur_available() if HAS_USM_OCR else False
+    return jsonify({
+        "success": True,
+        "engines": {
+            "tesseract": {
+                "available": HAS_USM_OCR,
+                "fraktur_gothic_installed": has_frk,
+                "notes": "Modelo 'frk' listo para tipografía gótica Old English Text MT" if has_frk else "Fallback activo con preprocesamiento morfológico"
+            },
+            "ollama_vision": {
+                "available": True,
+                "recommended_model": "llama3.2-vision:latest",
+                "notes": "Motor multimodal local de alta fidelidad ejecutado en Ollama"
+            }
+        }
+    }), 200
 
-# ─── WebSocket para Stats Live ──────────────────────────────────────────────
 
-@app.websocket("/ws/stats")
-async def stats_endpoint(websocket: WebSocket):
-    """Dashboard se suscribe aquí para recibir actualizaciones en tiempo real."""
-    await websocket.accept()
-    await stats_manager.connect(websocket)
-    # Enviar estado inicial inmediatamente
-    stats = await get_stats()
-    await websocket.send_text(json.dumps(stats))
+@app.route("/ocr/extract", methods=["POST"])
+@app.route("/api/ocr/extract", methods=["POST"])
+def ocr_extract_document():
+    """
+    Extracción avanzada con preprocesamiento OpenCV adaptativo para tipografías góticas y serif.
+    Acepta 'file' (multipart), 'image_base64' (JSON) o 'raw_text' (WASM fallback).
+    """
     try:
-        while True:
-            await websocket.receive_text()  # mantener vivo
-    except (WebSocketDisconnect, Exception):
-        stats_manager.disconnect(websocket)
+        image_bytes = None
+        mode = "auto"
+        raw_text_client = None
+
+        if "file" in request.files:
+            f = request.files["file"]
+            if f.filename != "":
+                image_bytes = f.read()
+                mode = request.form.get("mode", "auto")
+        elif request.is_json:
+            data = request.get_json() or {}
+            mode = data.get("mode", "auto")
+            raw_text_client = data.get("raw_text")
+            b64_str = data.get("image_base64")
+            if b64_str:
+                if "," in b64_str:
+                    b64_str = b64_str.split(",")[1]
+                try:
+                    image_bytes = base64.b64decode(b64_str)
+                except Exception as e:
+                    return jsonify({"success": False, "error": f"Base64 inválido: {str(e)}"}), 400
+
+        # Si sólo se envía texto crudo del cliente (WASM fallback)
+        if not image_bytes and raw_text_client:
+            ner_fields = USMOcrService.rule_based_ner(raw_text_client)
+            resp = USMOcrService.format_for_frontend(ner_fields, raw_text_client, "Client OCR + Flask NER")
+            return jsonify(resp), 200
+
+        if not image_bytes:
+            return jsonify({"success": False, "error": "Debe proporcionar 'file' o 'image_base64'."}), 400
+
+        # Decodificación con OpenCV
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img_cv is None:
+            return jsonify({"success": False, "error": "Formato de imagen inválido o no reconocido por OpenCV."}), 400
+
+        # 1. Modo Forzado Visión Ollama
+        if mode == "vision_ai":
+            try:
+                res = USMOcrService.extract_with_ollama_vision(image_bytes)
+                resp = USMOcrService.format_for_frontend(res["extracted_fields"], res.get("raw_response", ""), res["engine"])
+                return jsonify(resp), 200
+            except Exception as e:
+                logger.warning(f"Ollama local no disponible, activando motor Tesseract: {e}")
+
+        # 2. Modo Híbrido / Auto por defecto
+        tess_res = USMOcrService.extract_with_tesseract(img_cv)
+        resp = USMOcrService.format_for_frontend(tess_res['extracted_fields'], tess_res['full_text'], tess_res['engine'])
+        resp["fraktur_enabled"] = tess_res.get("fraktur_enabled", False)
+        return jsonify(resp), 200
+
+    except Exception as e:
+        logger.error(f"Error procesando OCR: {e}", exc_info=True)
+        return jsonify({"success": False, "error": f"Falla en el pipeline OCR: {str(e)}"}), 500
 
 
-# ─── Chat ────────────────────────────────────────────────────────────────────
-
+# ─── Chat Asistente ──────────────────────────────────────────────────────────
 chat_sessions = {}
 
-@app.post("/chat/message")
-async def chat_rest_endpoint(data: dict):
+@app.route("/chat/message", methods=["POST"])
+def chat_rest_endpoint():
+    data = request.get_json() or {}
     session_id = data.get("session_id", "default")
     texto_usuario = data.get("message", "")
     is_file = data.get("is_file", False)
 
-    # Init session
     if session_id not in chat_sessions:
         chat_sessions[session_id] = {
             "modo_auditoria": False,
             "checklist_paso": 0,
             "checklist_estados": {},
-            "checklist_items": None  # Se carga dinámicamente
+            "checklist_items": None
         }
 
     session = chat_sessions[session_id]
-
-    # Cargar checklist dinámico si no está en sesión
     if session["checklist_items"] is None:
-        session["checklist_items"] = await get_checklist()
+        session["checklist_items"] = get_checklist()
 
     checklist = session["checklist_items"]
 
     if texto_usuario.lower() == "/start":
-        await increment_stat("graduandos_activos", 1)
-        return {"reply": (
+        increment_stat("graduandos_activos", 1)
+        return jsonify({"reply": (
             "🏛️ **ASISTENTE GUBERNAMENTAL PARA EGRESADOS USM** 🏛️\n\n"
             "Hola, ingeniero. Soy tu asistente virtual especializado en los trámites "
             "gubernamentales (**GTU, SAREN, MPPRE**).\n\n"
             "• Escribe **'auditar'** para revisar tu expediente paso a paso.\n"
             "• Adjunta documentos con el 📎 para validación inmediata.\n"
             "• O hazme cualquier pregunta sobre los trámites."
-        )}
+        )}), 200
 
     if is_file or texto_usuario.startswith("[FILE_UPLOAD]"):
         nombre_archivo = texto_usuario.replace("[FILE_UPLOAD]", "")
         log_msg = f"IA VISION: Analizando '{nombre_archivo}'... Validando sellos y nitidez."
-        await increment_stat("docs_prevalidados", 1, log_entry=log_msg)
-        await increment_stat("tiempo_ahorrado_hrs", 0.5)
+        increment_stat("docs_prevalidados", 1, log_entry=log_msg)
+        increment_stat("tiempo_ahorrado_hrs", 0.5)
 
         if session["modo_auditoria"] and session["checklist_paso"] < len(checklist):
             item_actual = checklist[session["checklist_paso"]]
@@ -1542,17 +1439,17 @@ async def chat_rest_endpoint(data: dict):
                 respuesta = f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
             else:
                 respuesta = f"🔍 **`{nombre_archivo}` analizado. ✅ APROBADO.**\n\n{resumen}\n\n🎉 **¡Expediente completo!** Puedes presentarte en taquilla con confianza. ¡Suerte, ingeniero!"
-                await increment_stat("titulos_blockchain", 1)
+                increment_stat("titulos_blockchain", 1)
                 session["modo_auditoria"] = False
-            return {"reply": respuesta}
+            return jsonify({"reply": respuesta}), 200
         else:
-            return {"reply": (
+            return jsonify({"reply": (
                 f"🔍 **`{nombre_archivo}` recibido y analizado.**\n\n"
                 "✅ Metadatos correctos.\n"
                 "✅ Nitidez de escaneo aceptable.\n"
                 "⚠️ Verifica que esté impreso a doble cara si es para el SAREN.\n\n"
                 "Escribe **'auditar'** para una revisión guiada completa."
-            )}
+            )}), 200
 
     if session["modo_auditoria"]:
         item_actual = checklist[session["checklist_paso"]]
@@ -1569,48 +1466,47 @@ async def chat_rest_endpoint(data: dict):
                 respuesta = f"✅ **{item_actual['label']}** — APROBADO.\n\n{resumen}\n\n---\n{siguiente['pregunta']}"
             else:
                 respuesta = f"✅ **{item_actual['label']}** — APROBADO.\n\n{resumen}\n\n🎉 **¡Expediente listo al 100%!** Puedes presentarte en taquilla. ¡Suerte, ingeniero!"
-                await increment_stat("docs_prevalidados", 1)
-                await increment_stat("tiempo_ahorrado_hrs", 0.5)
+                increment_stat("docs_prevalidados", 1)
+                increment_stat("tiempo_ahorrado_hrs", 0.5)
                 session["modo_auditoria"] = False
-            return {"reply": respuesta}
+            return jsonify({"reply": respuesta}), 200
         else:
             session["checklist_estados"][item_actual["id"]] = "❌"
             resumen = formato_checklist_resumen(checklist, session["checklist_estados"])
-            return {"reply": f"{item_actual['pista']}\n\n{resumen}\n\nCuando lo tengas, responde **'listo'** o adjunta el documento con el 📎."}
+            return jsonify({"reply": f"{item_actual['pista']}\n\n{resumen}\n\nCuando lo tengas, responde **'listo'** o adjunta el documento con el 📎."}), 200
 
     if "auditar" in texto_usuario.lower():
         session["modo_auditoria"] = True
         session["checklist_paso"] = 0
         session["checklist_estados"] = {}
-        return {"reply": (
+        return jsonify({"reply": (
             "🔎 **Iniciando Auditoría de Expediente SAREN**\n\n"
             f"Te guiaré por los **{len(checklist)} requisitos obligatorios**.\n"
             "• Responde **sí** si lo tienes.\n"
             "• Responde **no** si te falta (te daré las instrucciones exactas).\n"
             "• O adjunta el documento con el 📎 para verificación visual.\n\n"
             f"---\n{checklist[0]['pregunta']}"
-        )}
+        )}), 200
 
-    return {"reply": (
+    return jsonify({"reply": (
         f"✅ Consulta recibida: **{texto_usuario}**\n\n"
         "Según los instructivos vigentes del SAREN/GTU: lleva todos tus documentos en carpeta "
         "manila tamaño oficio y llega mínimo 1 hora antes de la apertura del Registro. "
         "Escribe **'auditar'** para una revisión completa de tu expediente."
-    )}
+    )}), 200
 
 
-# ─── Datos Dinámicos: CRUD para panel admin ─────────────────────────────────
+# ─── Datos Dinámicos y Contenido ─────────────────────────────────────────────
+@app.route("/admin/checklist", methods=["GET"])
+def get_checklist_items():
+    items = get_checklist()
+    return jsonify({"success": True, "items": items}), 200
 
-# --- Checklist CRUD ---
-@app.get("/admin/checklist")
-async def get_checklist_items():
-    items = await get_checklist()
-    return {"success": True, "items": items}
 
-@app.post("/admin/checklist")
-async def create_checklist_item(item: ChecklistItemReq):
+@app.route("/admin/checklist", methods=["POST"])
+def create_checklist_item():
     new_id = int(datetime.datetime.now().timestamp() * 1000) % 1000000
-    item_dict = item.model_dump()
+    item_dict = request.get_json() or {}
     norm = normalize_checklist_item({**item_dict, "id": new_id})
     if supabase:
         try:
@@ -1621,16 +1517,16 @@ async def create_checklist_item(item: ChecklistItemReq):
                 "orden": norm["orden"],
                 "activo": norm["activo"]
             }).execute()
-            return {"success": True, "message": "Item creado", "item": norm}
+            return jsonify({"success": True, "message": "Item creado", "item": norm}), 200
         except Exception as e:
-            print(f"[WARN] Error insertando en Supabase: {e}")
-    # Fallback en memoria
+            logger.warning(f"Error insertando en Supabase: {e}")
     _checklist_memory.append(norm)
-    return {"success": True, "message": "Item creado en memoria", "item": norm}
+    return jsonify({"success": True, "message": "Item creado en memoria", "item": norm}), 200
 
-@app.put("/admin/checklist/{item_id}")
-async def update_checklist_item(item_id: int, item: ChecklistItemReq):
-    item_dict = item.model_dump()
+
+@app.route("/admin/checklist/<int:item_id>", methods=["PUT"])
+def update_checklist_item(item_id: int):
+    item_dict = request.get_json() or {}
     norm = normalize_checklist_item({**item_dict, "id": item_id})
     if supabase:
         try:
@@ -1641,49 +1537,48 @@ async def update_checklist_item(item_id: int, item: ChecklistItemReq):
                 "orden": norm["orden"],
                 "activo": norm["activo"]
             }).eq("id", item_id).execute()
-            return {"success": True, "message": "Item actualizado", "item": norm}
+            return jsonify({"success": True, "message": "Item actualizado", "item": norm}), 200
         except Exception as e:
-            print(f"[WARN] Error actualizando en Supabase: {e}")
+            logger.warning(f"Error actualizando en Supabase: {e}")
     for idx, it in enumerate(_checklist_memory):
         if it.get("id") == item_id:
             _checklist_memory[idx] = norm
             break
-    return {"success": True, "message": "Item actualizado en memoria", "item": norm}
+    return jsonify({"success": True, "message": "Item actualizado en memoria", "item": norm}), 200
 
-@app.delete("/admin/checklist/{item_id}")
-async def delete_checklist_item(item_id: int):
+
+@app.route("/admin/checklist/<int:item_id>", methods=["DELETE"])
+def delete_checklist_item(item_id: int):
     global _checklist_memory
     if supabase:
         try:
             supabase.table("checklist_items").delete().eq("id", item_id).execute()
         except Exception as e:
-            print(f"[WARN] Error eliminando en Supabase: {e}")
+            logger.warning(f"Error eliminando en Supabase: {e}")
     _checklist_memory = [it for it in _checklist_memory if it.get("id") != item_id]
-    return {"success": True, "message": "Item eliminado"}
+    return jsonify({"success": True, "message": "Item eliminado"}), 200
 
 
-# --- Guías Logísticas CRUD ---
-@app.get("/guias")
-async def get_guias_logistica():
+@app.route("/guias", methods=["GET"])
+def get_guias_logistica():
     if supabase:
         try:
             res = supabase.table("guias_logistica").select("*").execute()
             if res.data:
-                return {"success": True, "guias": res.data}
+                return jsonify({"success": True, "guias": res.data}), 200
         except Exception:
             pass
-    # Fallback estático con imágenes de fachada oficiales
-    return {"success": True, "guias": [
+    return jsonify({"success": True, "guias": [
         {
             "ente": "saren",
             "location": "Sede del Registro Principal (Según tu Estado/Municipio)",
             "warning": "Cita previa obligatoria a través de la web del SAREN.",
             "image_url": "/images/saren_facade.png",
             "steps": [
-                {"title": "Planificación de Llegada", "time": "6:00 AM", "desc": "Los Registros Principales suelen atender por orden de llegada. Llega temprano porque el sistema suele 'caerse' a media mañana."},
-                {"title": "Documentos Esenciales", "time": "Revisión Previa", "desc": "Debes tener: Título original legalizado por el GTU, la Planilla Única Bancaria (PUB) pagada, Timbres Fiscales del estado y copias de tu Cédula."},
-                {"title": "Taquilla de Recepción", "time": "Paso 1 en sede", "desc": "Al entrar, un funcionario revisará que los aranceles coincidan con las Unidades Tributarias exigidas."},
-                {"title": "Proceso de Registro", "time": "Paso 2 en sede", "desc": "Entregarás el título físico. Deberás regresar luego para retirarlo con el certificado del SAREN."}
+                {"title": "Planificación de Llegada", "time": "6:00 AM", "desc": "Los Registros Principales suelen atender por orden de llegada. Llega temprano."},
+                {"title": "Documentos Esenciales", "time": "Revisión Previa", "desc": "Debes tener: Título original legalizado por el GTU, la Planilla Única Bancaria (PUB) pagada y timbres fiscales."},
+                {"title": "Taquilla de Recepción", "time": "Paso 1 en sede", "desc": "Revisión de aranceles y cotejo de documentos."},
+                {"title": "Proceso de Registro", "time": "Paso 2 en sede", "desc": "Entrega de documento y retiro con el certificado del SAREN."}
             ]
         },
         {
@@ -1692,271 +1587,96 @@ async def get_guias_logistica():
             "warning": "Citas asignadas según el terminal de tu cédula.",
             "image_url": "/images/mppre_facade.png",
             "steps": [
-                {"title": "Día de Cita", "time": "7:30 AM", "desc": "El sistema de Apostilla Electrónica te da un día específico. Imprime dos copias de la cita."},
+                {"title": "Día de Cita", "time": "7:30 AM", "desc": "El sistema de Apostilla Electrónica te da un día específico."},
                 {"title": "Validación de GTU", "time": "Requisito Estricto", "desc": "Tu título ya debe estar legalizado por el GTU del Ministerio de Educación Universitaria."},
-                {"title": "Entrega Física", "time": "Durante la atención", "desc": "El funcionario verificará el código QR de legalización previa."}
+                {"title": "Entrega Física", "time": "Durante la atención", "desc": "Verificación del código de legalización previa."}
             ]
         }
-    ]}
+    ]}), 200
 
-@app.post("/admin/guias")
-async def create_guia(guia: GuiaLogisticaReq):
+
+@app.route("/admin/guias", methods=["POST"])
+def create_guia():
     if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase no configurado")
+        return jsonify({"detail": "Supabase no configurado"}), 500
     try:
-        supabase.table("guias_logistica").insert(guia.model_dump()).execute()
-        return {"success": True, "message": "Guía creada"}
+        data = request.get_json() or {}
+        supabase.table("guias_logistica").insert(data).execute()
+        return jsonify({"success": True, "message": "Guía creada"}), 200
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
 
-# --- Planillas CRUD con fallback en memoria ---
-_planillas_memory = [
-    {"id": "pub_saren", "nombre": "Planilla Única Bancaria (PUB - SAREN)", "url": "#", "categoria": "Legalización Estatal", "orden": 1},
-    {"id": "solicitud_grado_usm", "nombre": "Planilla de Solicitud de Grado (USM)", "url": "#", "categoria": "Trámite Académico", "orden": 2},
-    {"id": "fondo_negro_usm", "nombre": "Formato Certificación Fondo Negro (USM)", "url": "#", "categoria": "Certificación Legal", "orden": 3},
-    {"id": "solvencia_biblioteca_usm", "nombre": "Planilla Solvencia de Biblioteca y Laboratorios", "url": "#", "categoria": "Solvencia Académica", "orden": 4},
-    {"id": "cita_gtu_mppeu", "nombre": "Planilla de Cita GTU (MPPEU)", "url": "#", "categoria": "Legalización Nacional", "orden": 5},
-]
-
-@app.get("/planillas")
-async def get_planillas():
+@app.route("/planillas", methods=["GET"])
+def get_planillas():
     if supabase:
         try:
             res = supabase.table("planillas").select("*").order("orden").execute()
             if res.data and len(res.data) > 0:
-                return {"success": True, "planillas": res.data}
+                return jsonify({"success": True, "planillas": res.data}), 200
         except Exception:
             pass
-    return {"success": True, "planillas": _planillas_memory}
+    return jsonify({"success": True, "planillas": _planillas_memory}), 200
 
-@app.post("/admin/planillas")
-async def create_planilla(planilla: PlanillaReq):
+
+@app.route("/admin/planillas", methods=["POST"])
+def create_planilla():
     global _planillas_memory
+    data = request.get_json() or {}
     new_p = {
         "id": f"pla_{secrets.token_hex(4)}",
-        "nombre": planilla.nombre,
-        "url": planilla.url,
-        "categoria": planilla.categoria or "Oficial",
-        "orden": planilla.orden or len(_planillas_memory) + 1
+        "nombre": data.get("nombre", ""),
+        "url": data.get("url", "#"),
+        "categoria": data.get("categoria", "Oficial"),
+        "orden": data.get("orden", len(_planillas_memory) + 1)
     }
     if supabase:
         try:
             supabase.table("planillas").insert(new_p).execute()
-            return {"success": True, "message": "Planilla creada", "planilla": new_p}
+            return jsonify({"success": True, "message": "Planilla creada", "planilla": new_p}), 200
         except Exception as e:
-            print(f"[WARN] Error insertando en Supabase: {e}")
+            logger.warning(f"Error insertando en Supabase: {e}")
     _planillas_memory.append(new_p)
-    return {"success": True, "message": "Planilla creada", "planilla": new_p}
+    return jsonify({"success": True, "message": "Planilla creada", "planilla": new_p}), 200
 
-@app.delete("/admin/planillas/{planilla_id}")
-async def delete_planilla(planilla_id: str):
+
+@app.route("/admin/planillas/<planilla_id>", methods=["DELETE"])
+def delete_planilla(planilla_id: str):
     global _planillas_memory
     if supabase:
         try:
             supabase.table("planillas").delete().eq("id", planilla_id).execute()
         except Exception as e:
-            print(f"[WARN] Error eliminando en Supabase: {e}")
+            logger.warning(f"Error eliminando en Supabase: {e}")
     _planillas_memory = [p for p in _planillas_memory if str(p.get("id")) != str(planilla_id) and p.get("nombre") != str(planilla_id)]
-    return {"success": True, "message": "Planilla eliminada"}
+    return jsonify({"success": True, "message": "Planilla eliminada"}), 200
 
 
-# --- Carreras (dinámicas) ---
-@app.get("/carreras")
-async def get_carreras():
+@app.route("/carreras", methods=["GET"])
+def get_carreras():
     if supabase:
         try:
             res = supabase.table("carreras").select("*").order("nombre").execute()
             if res.data and len(res.data) > 0:
-                return {"success": True, "carreras": [r["nombre"] for r in res.data]}
+                return jsonify({"success": True, "carreras": [r["nombre"] for r in res.data]}), 200
         except Exception:
             pass
-    return {"success": True, "carreras": [
+    return jsonify({"success": True, "carreras": [
         "Ingeniería en Sistemas", "Ingeniería Civil", "Ingeniería Industrial",
         "Ingeniería Eléctrica", "Ingeniería Mecánica", "Arquitectura"
-    ]}
+    ]}), 200
 
 
-# ─── OCR: Extracción Inteligente de Documentos Académicos ────────────────────
-
-class OCRRequest(BaseModel):
-    raw_text: Optional[str] = None
-    image_base64: Optional[str] = None
-
-def extract_entities_ner(raw_text: str) -> dict:
-    """
-    Motor de Extracción Basado en Reglas e Heurísticas Semánticas (Rule-Based NER).
-    
-    NOTA ACADÉMICA Y TÉCNICA PARA DEFENSA:
-    Esta función implementa Reconocimiento de Entidades Nombradas (NER) mediante un enfoque
-    híbrido basado en heurísticas sintácticas y expresiones regulares (Rule-Based Information Extraction)
-    diseñadas específicamente para el formato de documentos universitarios venezolanos.
-    Se adoptó este diseño por su latencia ultrabaja (<5ms), cero consumo de GPU y óptima
-    compatibilidad con Serverless (Vercel), dejando abierta la arquitectura para conectar
-    modelos neuronales profundos (Transformers/BERT) en producción.
-    """
-    text = raw_text or ""
-    fields = {}
-
-    # ── Cédula de Identidad (V-XXXXXXXX / E-XXXXXXXX / V-XX.XXX.XXX) ──
-    ced_match = re.search(r'\b([VEve]-?\s*[\d.]{6,12})\b', text)
-    if ced_match:
-        cedula_raw = ced_match.group(1).replace(' ', '').upper()
-        fields['cedula'] = {'value': cedula_raw, 'confidence': 0.92}
-    else:
-        fields['cedula'] = {'value': None, 'confidence': 0.0}
-
-
-    # ── Fecha de Emisión ──
-    fecha_match = re.search(
-        r'(\d{1,2}\s+(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?\d{4})',
-        text, re.IGNORECASE
-    )
-    if not fecha_match:
-        fecha_match = re.search(r'(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})', text)
-    if fecha_match:
-        fields['fecha'] = {'value': fecha_match.group(1).strip(), 'confidence': 0.88}
-    else:
-        fields['fecha'] = {'value': None, 'confidence': 0.0}
-
-    def normalize_str(s: str) -> str:
-        import unicodedata
-        return ''.join(c for c in unicodedata.normalize('NFD', s.lower()) if unicodedata.category(c) != 'Mn')
-
-    norm_text = normalize_str(text)
-
-    # ── Institución Educativa ──
-    inst_keywords = [
-        'Universidad Santa María', 'Universidad Central', 'Universidad Simón Bolívar',
-        'Universidad de Carabobo', 'Universidad de los Andes', 'IUTIRLA', 'UNEXPO',
-        'Universidad Metropolitana', 'Universidad Católica', 'USB', 'UCV', 'USM', 'UCAB'
-    ]
-    institucion_found = None
-    for kw in inst_keywords:
-        if normalize_str(kw) in norm_text:
-            institucion_found = kw
-            break
-    if not institucion_found:
-        uni_match = re.search(r'(Universidad\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ ]{3,50})', text, re.IGNORECASE)
-        if uni_match:
-            institucion_found = uni_match.group(1).strip()
-    fields['institucion'] = {'value': institucion_found, 'confidence': 0.85 if institucion_found else 0.0}
-
-    # ── Mención / Carrera ──
-    carrera_keywords = [
-        'Ingeniería en Sistemas', 'Ingeniero en Sistemas', 'Ingeniería Civil', 'Ingeniero Civil',
-        'Ingeniería Industrial', 'Ingeniero Industrial', 'Ingeniería Eléctrica', 'Ingeniero Eléctrico',
-        'Ingeniería Mecánica', 'Ingeniero Mecánico', 'Ingeniería Electrónica', 'Ingeniero Electrónico',
-        'Arquitectura', 'Arquitecto', 'Derecho', 'Abogado', 'Medicina', 'Médico Cirujano',
-        'Administración', 'Contaduría', 'Computación', 'Informática', 'Telecomunicaciones'
-    ]
-
-    carrera_found = None
-    for kw in carrera_keywords:
-        if normalize_str(kw) in norm_text:
-            carrera_found = kw
-            break
-    if not carrera_found:
-        carrera_match = re.search(
-            r'(?:menci[oó]n|t[ií]tulo de|egresado en|licenciado en|ingeniero en)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ][a-záéíóúñA-ZÁÉÍÓÚÑ ]{3,50})',
-            text, re.IGNORECASE
-        )
-        if carrera_match:
-            carrera_found = carrera_match.group(1).strip()
-    fields['carrera'] = {'value': carrera_found, 'confidence': 0.80 if carrera_found else 0.0}
-
-
-    # ── Nombre Completo (heurística: línea con 2-6 palabras en mayúsculas) ──
-    nombre_found = None
-    lines = [l.strip() for l in text.split('\n') if l.strip()]
-    for line in lines:
-        words = line.split()
-        if 2 <= len(words) <= 6 and all(re.match(r'^[A-ZÁÉÍÓÚÑa-záéíóúñ]+$', w) for w in words):
-            skip = any(kw.upper() in line.upper() for kw in ['REPÚBLICA', 'MINISTERIO', 'UNIVERSIDAD', 'FACULTAD', 'ESCUELA', 'DEPARTAMENTO', 'CEDULA', 'TITULO'])
-            if not skip:
-                nombre_found = line.strip()
-                break
-    fields['nombre_completo'] = {'value': nombre_found, 'confidence': 0.78 if nombre_found else 0.0}
-
-    return fields
-
-
-@app.post("/ocr/extract")
-async def ocr_extract_document(req: OCRRequest):
-    """
-    Motor de Extracción Inteligente de Documentos Académicos.
-    Soporta extracción basada en texto (Tesseract.js / WebAssembly) y procesado de imágenes.
-    """
-    try:
-        # Caso 1: Se envía texto crudo directamente desde el cliente (Tesseract.js WASM)
-        if req.raw_text:
-            fields = extract_entities_ner(req.raw_text)
-            return {
-                "success": True,
-                "fields": fields,
-                "overall_confidence": 0.85,
-                "raw_text_preview": req.raw_text[:500] + ("..." if len(req.raw_text) > 500 else ""),
-                "source": "Client OCR (Tesseract.js WASM) + Server NER"
-            }
-
-        # Caso 2: Se envía imagen base64 y el entorno servidor cuenta con EasyOCR
-        if req.image_base64 and HAS_OCR:
-            image_bytes = base64.b64decode(req.image_base64)
-            image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-
-            max_dim = 2000
-            w, h = image.size
-            if max(w, h) > max_dim:
-                scale = max_dim / max(w, h)
-                image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-
-            img_array = np.array(image)
-            reader = get_ocr_reader()
-            if not reader:
-                raise HTTPException(status_code=503, detail="No se pudo cargar el modelo OCR")
-
-            ocr_results = reader.readtext(img_array, detail=1, paragraph=False)
-            raw_text = '\n'.join([t for (_, t, _) in ocr_results])
-            confidences = [conf for (_, _, conf) in ocr_results if conf > 0]
-            overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-
-            fields = extract_entities_ner(raw_text)
-            return {
-                "success": True,
-                "fields": fields,
-                "overall_confidence": round(overall_confidence, 3),
-                "raw_text_preview": raw_text[:500] + ("..." if len(raw_text) > 500 else ""),
-                "total_text_blocks": len(ocr_results),
-                "source": "Server OCR (EasyOCR)"
-            }
-
-        # Fallback si se envía sólo base64 pero en servidor no hay easyocr
-        if req.image_base64:
-            raise HTTPException(
-                status_code=400,
-                detail="Envío directo de texto recomendado en producción Vercel"
-            )
-
-        raise HTTPException(status_code=400, detail="Debe proporcionar raw_text o image_base64")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en el motor OCR: {str(e)}")
-
-
-# --- Campos PUB dinámicos ---
-@app.get("/pub/fields")
-async def get_pub_fields():
+@app.route("/pub/fields", methods=["GET"])
+def get_pub_fields():
     if supabase:
         try:
             res = supabase.table("pub_fields").select("*").order("orden").execute()
             if res.data and len(res.data) > 0:
-                return {"success": True, "fields": res.data}
+                return jsonify({"success": True, "fields": res.data}), 200
         except Exception:
             pass
-    # Fallback con los 10 campos oficiales
-    return {"success": True, "fields": [
+    return jsonify({"success": True, "fields": [
         {"id": "nombre_completo", "label": "Nombre Completo del Solicitante", "placeholder": "Ej: Juan Carlos Pérez García", "pregunta": "Formulario Oficial — Planilla Única Bancaria (PUB)\n\n**Campo 1 — Nombre Completo**\n\n¿Cuál es su nombre completo tal como aparece en su cédula de identidad?", "ayuda": "Escribe **todos tus nombres y ambos apellidos**, exactamente como aparecen en tu cédula laminada. Ejemplo: *Juan Carlos Pérez García*. No uses abreviaciones ni apodos.", "validacion_regex": "", "validacion_mensaje": "", "orden": 1},
         {"id": "cedula", "label": "Cédula de Identidad", "placeholder": "Ej: V-12.345.678", "pregunta": "**Campo 2 — Cédula de Identidad**\n\n¿Cuál es tu número de cédula? (Incluye el prefijo V- o E-)", "ayuda": "Usa el formato: **V-12.345.678** (venezolano) o **E-12.345.678** (extranjero). El formato incorrecto causa rechazo inmediato en el SAREN.", "validacion_regex": "", "validacion_mensaje": "", "orden": 2},
         {"id": "telefono", "label": "Teléfono de Contacto", "placeholder": "Ej: 0414-1234567", "pregunta": "**Campo 3 — Teléfono de Contacto**\n\n¿Cuál es tu número de teléfono venezolano activo?", "ayuda": "Escribe tu número con la operadora incluida: **0414-1234567**, **0212-5551234**, etc. El SAREN lo usa para notificaciones del trámite.", "validacion_regex": "", "validacion_mensaje": "", "orden": 3},
@@ -1967,4 +1687,10 @@ async def get_pub_fields():
         {"id": "pago_telefono", "label": "Teléfono del Pagador (Pago Móvil)", "placeholder": "Ej: 0414-1234567", "pregunta": "**Campo 8 — Teléfono del Pagador**\n\n¿Cuál es el número de teléfono asociado al pago móvil?", "ayuda": "Escribe el número de teléfono registrado en tu banco para pago móvil. Formato: **0414-1234567**.", "validacion_regex": "", "validacion_mensaje": "", "orden": 8},
         {"id": "pago_banco", "label": "Banco del Pagador", "placeholder": "Ej: Banco de Venezuela", "pregunta": "**Campo 9 — Banco del Pagador**\n\n¿Desde qué banco realizarás el pago móvil?", "ayuda": "Escribe el nombre completo del banco desde el cual harás la transferencia o pago móvil.", "validacion_regex": "", "validacion_mensaje": "", "orden": 9},
         {"id": "confirmacion_pago", "label": "Confirmación de Pago", "placeholder": "Escribe \"listo\"", "pregunta": "**Campo 10 — Confirmación de Pago**\n\nRealice la transferencia al número de cuenta indicado y escriba \"listo\".", "ayuda": "Realiza la transferencia al número de cuenta indicado y escribe \"listo\".", "validacion_regex": "", "validacion_mensaje": "", "orden": 10}
-    ]}
+    ]}), 200
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    logger.info(f"🏛️  Iniciando Servidor Flask USM-ApostillaBot en http://0.0.0.0:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
