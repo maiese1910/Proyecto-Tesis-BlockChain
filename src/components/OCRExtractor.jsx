@@ -211,18 +211,24 @@ const ConfidenceBadge = ({ score }) => {
     const facMatch = text.match(/\b((?:Faculta[db]|Escuela)\s+(?:[db]e)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Legalmente|El Rector|Confiere|Contiere|Por cuanto|Dado|En fe|el título|el titulo|el grado|$)/i);
     let facultad = facMatch ? facMatch[1].trim().replace(/\s+/g, " ").replace(/Facultab/i, "Facultad").replace(/\bbe\b/gi, "de") : null;
 
-    // 3. Titular / Graduando (Universal: Concesión, Rectoral UCV y Cumplimiento)
+    // 3. Titular / Graduando Universal (USMA, UCV, USM, LUZ, etc.)
     let titular = null;
+
+    // Patrón 1: Hacen constar que: [TITULAR] (USMA y universidades privadas)
+    const patHacenConstar = text.match(/hacen\s+constar\s*(?:que)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s*,?\s*(?:ha\s+cumplido|cumpli|el\s+t[ií1]tulo|titular|$))/i);
+    // Patrón 2: Invertido UCV: "confiere el título de [CARRERA] a: [TITULAR]"
+    const patInvertido = text.match(/(?:t[ií1]tulo|grado)\s+(?:de|be)\s+[^A-Z\n]*[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?\s+(?:a|al|a\s+la)\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s*,?\s*(?:titular|c[eé]dula|por\s+haber|cumplido|$))/i);
+    // Patrón 3: Rectoral: "hago saber: que: [TITULAR]"
     const patRectoral = text.match(/(?:hago\s+saber\s*:\s*(?:que\s*:\s*)?|rector\(?a?\)?\s*\n*)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|cumpli[oó]|por\s+lo\s+cual))/i);
-    const patConcesion = text.match(/(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))/i);
-    const patCumplimiento = text.match(/por\s+cuanto\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:ha\s+cumplido|cumpli[oó]|en\s+nombre|titular))/i);
+    // Patrón 4: Concesión directa: "confiere a [TITULAR] el título"
+    const patConcesion = text.match(/(?:confiere|otorga|certifica)\s+(?:a|al|a\s+la)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*grado|para\s*optar|ha\s*cumplido|c[eé]dula|$))/i);
+    // Patrón 5: Cumplimiento: "Por cuanto [TITULAR] ha cumplido..."
+    const patCumplimiento = text.match(/por\s+cuanto\s*[:#-]?\s*\n*(?:el\s+ciudadano|la\s+ciudadana)?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s+ha\s+cumplido|\s+en\s+nombre)/i);
 
-    // Patrón invertido UCV: "confiere el título de [CARRERA] a: [TITULAR]"
-    const patInvertido = text.match(/(?:t[ií1]tulo|grado)\s+(?:de|be)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,35}?\s+(?:a|al|a\s+la)\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s*,?\s*(?:titular|c[eé]dula|por\s+haber|cumplido|$))/i);
-
-    if (patRectoral) titular = patRectoral[1].trim().replace(/\s+/g, " ");
-    else if (patConcesion) titular = patConcesion[1].trim().replace(/\s+/g, " ");
+    if (patHacenConstar) titular = patHacenConstar[1].trim().replace(/\s+/g, " ");
     else if (patInvertido) titular = patInvertido[1].trim().replace(/\s+/g, " ");
+    else if (patConcesion) titular = patConcesion[1].trim().replace(/\s+/g, " ");
+    else if (patRectoral) titular = patRectoral[1].trim().replace(/\s+/g, " ");
     else if (patCumplimiento) titular = patCumplimiento[1].trim().replace(/\s+/g, " ");
 
     if (titular) {
@@ -231,11 +237,12 @@ const ConfidenceBadge = ({ score }) => {
       if (titular.length < 4 || titular.length > 55 || /^(?:de\s+la\s+c[eé]dula|cedula\s+de)$/i.test(titular)) titular = null;
     }
 
+    // Escaneo forense por líneas: acepta tanto MAYÚSCULAS SOSTENIDAS como TitleCase
     if (!titular) {
       const lineas = text.split("\n").map(l => l.trim()).filter(Boolean);
       for (const l of lineas) {
-        if (/^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){2,4}$/.test(l)) {
-          if (!/Universidad|Facultad|República|Secretaría|Rector|Consejo|Diploma|Derecho|Ciencias|Políticas/i.test(l)) {
+        if (/^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}){1,4}$/.test(l)) {
+          if (!/Universidad|Facultad|Escuela|República|Secretaría|Secretario|Rector|Decano|Consejo|Diploma|Derecho|Ciencias|Políticas|Medicina|Sistemas|Ingeniería|Hacen|Constar|Por\s+cuanto|Confiere|Dado|Cumplido|Requisitos|Caracas|Panamá/i.test(l)) {
             titular = l;
             break;
           }
@@ -669,7 +676,9 @@ const ConfidenceBadge = ({ score }) => {
       if (!apiKey) throw new Error("API Key de Gemini no disponible");
 
       let mimeType = "image/jpeg";
-      if (base64Img.startsWith("iVBORw0KGgo")) {
+      if (base64Img.startsWith("JVBERi0")) {
+        mimeType = "application/pdf";
+      } else if (base64Img.startsWith("iVBORw0KGgo")) {
         mimeType = "image/png";
       } else if (base64Img.startsWith("UklGR")) {
         mimeType = "image/webp";
@@ -748,7 +757,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
   };
 
   const handleFile = useCallback((file) => {
-      if (!file || !file.type.startsWith("image/")) { setError("Selecciona una imagen (JPG, PNG, WEBP)."); return; }
+      if (!file || (!file.type.startsWith("image/") && file.type !== "application/pdf" && !file.name.endsWith(".pdf"))) { setError("Selecciona un documento válido (PDF, JPG, PNG, WEBP)."); return; }
       if (file.size > 10 * 1024 * 1024) { setError("La imagen no debe superar los 10 MB."); return; }
       setError(null); setResult(null); setGtuRegistered(null);
       const reader = new FileReader();
@@ -836,6 +845,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
   const getOptimizedImageBase64 = (imageSrc) => {
     return new Promise((resolve) => {
       if (!imageSrc) return resolve(null);
+      if (imageSrc.startsWith("data:application/pdf")) return resolve(imageSrc.split(",")[1]);
       const img = new Image();
       // Solo crossOrigin para URLs remotas http(s), NUNCA para data: o blob:
       if (!imageSrc.startsWith("data:") && !imageSrc.startsWith("blob:")) {
@@ -900,7 +910,12 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
         let geminiSucceeded = false;
 
         const applyExtractionResults = (gData, engineName) => {
-          const titular = gData.nombre_completo || null;
+          let titular = gData.nombre_completo || gData.nombre || gData.titular || gData.graduando || null;
+          // Si el modelo devolvió null para el titular pero es legible en el OCR local
+          if (!titular && recognizedText) {
+            const loc = parseDegreeAcademic(recognizedText, user?.cedula);
+            if (loc?.nombre_completo?.value) titular = loc.nombre_completo.value;
+          }
           const ced = gData.cedula || user?.cedula || null;
           const inst = gData.institucion_educativa || gData.institucion || null;
           const carrera = gData.mencion_carrera || gData.carrera || null;
@@ -1106,7 +1121,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
               onClick={() => !imagePreview && fileInputRef.current?.click()}
               style={{ border: `2px dashed ${dragOver ? "var(--color-sienna-brown)" : imagePreview ? "var(--color-sienna-brown)" : "var(--border)"}`, background: dragOver ? "var(--color-blush-peach)" : "#ffffff", cursor: imagePreview ? "default" : "pointer", transition: "all 0.2s", minHeight: "220px", display: "flex", alignItems: "center", justifyContent: "center", padding: imagePreview ? "0" : "2rem", overflow: "hidden", borderRadius: "var(--radius-cards)", position: "relative" }}
             >
-              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
+              <input ref={fileInputRef} type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
               {imagePreview ? (
                 <div style={{ width: "100%", position: "relative" }}>
                   <img src={imagePreview} alt="Documento" style={{ width: "100%", maxHeight: "300px", objectFit: "contain", display: "block" }} />
