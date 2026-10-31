@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check, X, ShieldCheck, ArrowRight, ExternalLink, Award, Sparkles, AlertCircle } from "lucide-react";
 import { ocrAPI, blockchainAPI, hashAPI } from "../services/api";
@@ -352,6 +353,7 @@ const ConfidenceBadge = ({ score }) => {
     }, [fields, isOpen]);
 
     if (!isOpen) return null;
+    if (typeof document === "undefined") return null;
 
     const handleChange = (key, val) => {
       setForm(prev => ({ ...prev, [key]: val }));
@@ -376,7 +378,7 @@ const ConfidenceBadge = ({ score }) => {
 
     const missingCount = Object.values(form).filter(v => !v || !v.trim()).length;
 
-    return (
+    return createPortal(
       <div
         style={{
           position: "fixed",
@@ -608,7 +610,8 @@ const ConfidenceBadge = ({ score }) => {
             </button>
           </div>
         </motion.div>
-      </div>
+      </div>,
+      document.body
     );
   };
 

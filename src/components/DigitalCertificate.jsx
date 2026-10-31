@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import html2pdf from 'html2pdf.js';
-import { X, CheckCircle, Shield, Printer, ExternalLink } from 'lucide-react';
+import { X, CheckCircle, Shield, Printer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { blockchainAPI } from '../services/api';
 
@@ -34,7 +35,9 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
     fetchCertificate();
   }, [docHash]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <motion.div 
       className="cert-modal-overlay"
       initial={{ opacity: 0 }}
@@ -46,28 +49,34 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(23, 25, 28, 0.55)',
-        backdropFilter: 'blur(4px)',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(15, 23, 42, 0.72)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1200,
-        padding: '1rem'
+        zIndex: 99999,
+        padding: '1.25rem',
+        overflowY: 'auto'
       }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}
     >
       <motion.div 
         className="cert-modal-content"
-        initial={{ y: 50, opacity: 0, scale: 0.95 }}
+        initial={{ y: 25, opacity: 0, scale: 0.96 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 25, opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
         style={{
           background: '#ffffff',
-          borderRadius: 'var(--radius-cards)',
+          borderRadius: '16px',
           padding: '0',
-          maxWidth: '800px',
+          maxWidth: '840px',
           width: '100%',
           maxHeight: '92vh',
           overflow: 'hidden',
-          boxShadow: 'var(--shadow-hover)',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(93, 42, 26, 0.15)',
           border: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column'
@@ -75,7 +84,7 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
       >
         {/* Cabecera Fija / Sticky con Botón Cerrar visible siempre */}
         <div style={{
-          padding: '1rem 1.5rem',
+          padding: '1.1rem 1.5rem',
           background: 'var(--color-fog-white)',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
@@ -85,7 +94,7 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
           top: 0,
           zIndex: 100
         }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <Shield color="var(--color-sienna-brown)" size={20} /> Certificado Digital de Inmutabilidad
           </h3>
           <button 
@@ -100,18 +109,21 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--color-ink-black)'
+              color: 'var(--color-ink-black)',
+              transition: 'all 0.2s'
             }}
+            title="Cerrar"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Cuerpo Desplazable del Certificado */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, background: '#ffffff' }}>
+        <div style={{ padding: '1.5rem 2rem', overflowY: 'auto', flex: 1, background: '#ffffff' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-              <p style={{ color: 'var(--color-ink-black)', fontSize: '1.1rem' }}>Generando Certificado Digital...</p>
+              <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: 'var(--color-sienna-brown)', borderRadius: '50%', margin: '0 auto 1rem auto', animation: 'spin 1s linear infinite' }} />
+              <p style={{ color: 'var(--color-ink-black)', fontSize: '1.05rem', fontWeight: 500 }}>Generando Certificado Digital de Blockchain...</p>
             </div>
           ) : error ? (
             <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--danger)' }}>
@@ -124,7 +136,7 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                 <p style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.78rem', marginBottom: '0.5rem', fontWeight: 600 }}>
                   {certData.institution}
                 </p>
-                <h2 style={{ fontSize: '1.6rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, margin: '0 0 1rem 0' }}>
+                <h2 style={{ fontSize: '1.6rem', color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 500, margin: '0 0 1rem 0' }}>
                   {certData.title}
                 </h2>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.2)', padding: '0.4rem 1rem', borderRadius: 'var(--radius-pill)', fontWeight: '600', fontSize: '0.88rem' }}>
@@ -132,10 +144,10 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                 </div>
               </div>
 
-              {/* Cuerpo del Certificado */}
-              <div className="cert-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '2rem', alignItems: 'center' }}>
+              {/* Cuerpo del Certificado - Grid Responsivo */}
+              <div className="cert-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', alignItems: 'center' }}>
                 
-                {/* Datos */}
+                {/* Datos del Graduando y Registro */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                   <div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem', fontWeight: 600 }}>Titular del Documento</p>
@@ -175,22 +187,22 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                 </div>
 
                 {/* QR Code */}
-                <div className="cert-qr-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', padding: '1.2rem', borderRadius: '12px' }}>
+                <div className="cert-qr-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', padding: '1.5rem', borderRadius: '12px' }}>
                   <QRCodeSVG 
-                    value={certData.qr_link} 
-                    size={150}
+                    value={certData.qr_link || `${window.location.origin}/?hash=${certData.document_hash}`} 
+                    size={160}
                     bgColor={"#ffffff"}
                     fgColor={"#17191c"}
                     level={"Q"}
                   />
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', fontWeight: '500', maxWidth: '150px', margin: 0 }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', fontWeight: '500', maxWidth: '160px', margin: 0 }}>
                     Escanear para verificar en Blockchain
                   </p>
                 </div>
               </div>
 
               {/* Botones de acción */}
-              <div className="cert-actions" style={{ display: 'flex', gap: '1rem', marginTop: '2rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <div className="cert-actions" style={{ display: 'flex', gap: '1rem', marginTop: '2.2rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button 
                   onClick={() => {
                     const element = document.getElementById('printable-certificate');
@@ -227,18 +239,19 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
           )}
         </div>
 
-        {/* Footer del Modal con botón de Cierre Táctil en Móvil */}
+        {/* Footer del Modal */}
         <div style={{ padding: '0.85rem 1.5rem', background: 'var(--color-fog-white)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={onClose}
             className="btn-ghost"
-            style={{ padding: '0.6rem 1.5rem', width: '100%' }}
+            style={{ padding: '0.6rem 1.5rem', width: '100%', maxWidth: '200px' }}
           >
             Cerrar Ventana
           </button>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 };
 

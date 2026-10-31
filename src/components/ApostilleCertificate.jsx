@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import html2pdf from 'html2pdf.js';
 import { X, CheckCircle, Shield, Printer, ExternalLink, Globe, Award, FileText } from 'lucide-react';
@@ -8,6 +9,7 @@ const ApostilleCertificate = ({ record, onClose }) => {
   const printRef = useRef(null);
 
   if (!record) return null;
+  if (typeof document === "undefined") return null;
 
   const apostilleNumber = record.apostilleNumber || `APO-VE-2026-${(record.hash || '8492').substring(2, 8).toUpperCase()}`;
   const verifyUrl = `${window.location.origin}/?hash=${record.hash || ''}`;
@@ -29,7 +31,7 @@ const ApostilleCertificate = ({ record, onClose }) => {
     window.print();
   };
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -40,14 +42,18 @@ const ApostilleCertificate = ({ record, onClose }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.85)',
-        backdropFilter: 'blur(4px)',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(15, 23, 42, 0.78)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1300,
-        padding: '1rem'
+        zIndex: 99999,
+        padding: '1.25rem',
+        overflowY: 'auto'
       }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}
     >
       <motion.div
         initial={{ y: 30, opacity: 0, scale: 0.96 }}
@@ -335,7 +341,8 @@ const ApostilleCertificate = ({ record, onClose }) => {
           </div>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 };
 

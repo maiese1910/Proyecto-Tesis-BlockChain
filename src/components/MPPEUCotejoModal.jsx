@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { X, ShieldCheck, CheckCircle2, AlertOctagon, FileText, User, Building2, Stamp, KeyRound, Check } from 'lucide-react';
 
@@ -13,6 +14,7 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
   const [notes, setNotes] = useState('');
 
   if (!record) return null;
+  if (typeof document === "undefined") return null;
 
   const allChecksPassed = Object.values(checks).every(Boolean);
 
@@ -20,7 +22,7 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
     setChecks(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -28,14 +30,18 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(23, 25, 28, 0.45)',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(23, 25, 28, 0.6)',
         backdropFilter: 'blur(8px)',
-        zIndex: 1300,
+        zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.25rem'
+        padding: '1.25rem',
+        overflowY: 'auto'
       }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}
     >
       <motion.div
         initial={{ y: 20, opacity: 0, scale: 0.98 }}
@@ -357,7 +363,8 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
           </div>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
