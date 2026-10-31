@@ -366,38 +366,38 @@ const ConfidenceBadge = ({ score }) => {
         }
 
         setCurrentStep(4);
-        let mistralSucceeded = false;
+        let geminiSucceeded = false;
         try {
-          // Intento prioritario con Mistral Vision API (Pixtral 12B)
-          const mistralRes = await ocrAPI.extractMistral(imageBase64);
-          if (mistralRes && mistralRes.success && mistralRes.data) {
-            const mData = mistralRes.data;
+          // Intento prioritario con Google Gemini 1.5 Flash Vision API
+          const geminiRes = await ocrAPI.extractGemini(imageBase64);
+          if (geminiRes && geminiRes.success && geminiRes.data) {
+            const gData = geminiRes.data;
             setResult({
               success: true,
-              engine: "Mistral Vision API (Pixtral 12B Multimodal)",
+              engine: "Google Gemini 1.5 Flash (Vision API)",
               overall_confidence: 0.99,
               fields: {
-                nombre_completo: { value: mData.nombre_completo, confidence: 0.99 },
-                cedula: { value: mData.cedula || user?.cedula, confidence: 0.99 },
-                institucion: { value: mData.institucion_educativa, confidence: 0.99 },
-                facultad: { value: mData.facultad || null, confidence: 0.95 },
-                carrera: { value: mData.mencion_carrera, confidence: 0.99 },
-                fecha: { value: mData.fecha_emision, confidence: 0.98 }
+                nombre_completo: { value: gData.nombre_completo, confidence: 0.99 },
+                cedula: { value: gData.cedula || user?.cedula, confidence: 0.99 },
+                institucion: { value: gData.institucion_educativa, confidence: 0.99 },
+                facultad: { value: gData.facultad || null, confidence: 0.95 },
+                carrera: { value: gData.mencion_carrera, confidence: 0.99 },
+                fecha: { value: gData.fecha_emision, confidence: 0.98 }
               },
-              raw_text_preview: `Extracción completada con éxito mediante Mistral Vision API (Pixtral 12B).
-Institución: ${mData.institucion_educativa}
-Titular: ${mData.nombre_completo}
-Cédula: ${mData.cedula}
-Carrera: ${mData.mencion_carrera}
-Fecha: ${mData.fecha_emision}`
+              raw_text_preview: `Extracción completada con éxito mediante Google Gemini 1.5 Flash.
+Institución: ${gData.institucion_educativa}
+Titular: ${gData.nombre_completo}
+Cédula: ${gData.cedula}
+Carrera: ${gData.mencion_carrera}
+Fecha: ${gData.fecha_emision}`
             });
-            mistralSucceeded = true;
+            geminiSucceeded = true;
           }
-        } catch (mistralErr) {
-          console.info("Mistral Vision API en espera de MISTRAL_API_KEY o modo offline. Ejecutando motor de contingencia:", mistralErr.message);
+        } catch (geminiErr) {
+          console.info("Gemini Vision API en espera de GEMINI_API_KEY o modo offline. Ejecutando motor de contingencia:", geminiErr.message);
         }
 
-        if (!mistralSucceeded) {
+        if (!geminiSucceeded) {
           try {
             const data = await ocrAPI.extractDocument(imageBase64, recognizedText || null, user?.cedula || null);
             if (data && data.fields) {

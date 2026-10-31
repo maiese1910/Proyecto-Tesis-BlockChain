@@ -14,7 +14,7 @@ from flask_cors import CORS
 
 from vision_preprocessor import USMDocumentPreprocessor
 from ocr_service import USMOcrService
-from mistral_service import MistralVisionExtractor
+from gemini_service import GeminiVisionExtractor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("USM_Flask_API")
@@ -178,44 +178,45 @@ def extract_document():
         }), 500
 
 
-@app.route("/ocr/mistral", methods=["POST"])
-@app.route("/api/ocr/mistral", methods=["POST"])
-def ocr_mistral_endpoint():
+@app.route("/ocr/gemini", methods=["POST"])
+@app.route("/api/ocr/gemini", methods=["POST"])
+def ocr_gemini_endpoint():
     """
-    Endpoint de digitalización multimodal con Mistral API (Pixtral 12B).
-    Especializado en fuentes góticas y estructuración semántica de títulos universitarios.
+    Endpoint de digitalización multimodal con Google Gemini 1.5 Flash.
+    Configurado con response_mime_type='application/json' para garantizar JSON puro.
+    Supera fuentes góticas, caligrafías bicolores y elimina artefactos visuales.
     """
-    image_b64 = None
-    mime_type = "image/jpeg"
+    raw_bytes = None
 
     # Caso 1: Archivo subido en formulario multipart ('file')
     if "file" in request.files:
         uploaded = request.files["file"]
         if uploaded.filename != "":
-            raw = uploaded.read()
-            image_b64 = base64.b64encode(raw).decode("utf-8")
-            if uploaded.mimetype:
-                mime_type = uploaded.mimetype
+            raw_bytes = uploaded.read()
 
     # Caso 2: Carga vía JSON ('image_base64')
     elif request.is_json:
         payload = request.get_json() or {}
         image_b64 = payload.get("image_base64")
-        if image_b64 and "," in image_b64:
-            header, image_b64 = image_b64.split(",", 1)
-            if "png" in header:
-                mime_type = "image/png"
-            elif "webp" in header:
-                mime_type = "image/webp"
+        if image_b64:
+            if "," in image_b64:
+                image_b64 = image_b64.split(",", 1)[1]
+            try:
+                raw_bytes = base64.b64decode(image_b64)
+            except Exception as dec_err:
+                return jsonify({
+                    "success": False,
+                    "error": f"Base64 inválido o corrupto: {str(dec_err)}"
+                }), 400
 
-    if not image_b64:
+    if not raw_bytes:
         return jsonify({
             "success": False,
             "error": "Debe enviar la imagen mediante 'file' (form-data) o 'image_base64' (JSON)."
         }), 400
 
-    ok, fields, err_msg = MistralVisionExtractor.extract_from_base64(image_b64, mime_type)
-    if not ok:
+    success, fields, err_msg = GeminiVisionExtractor.extract_from_image_bytes(raw_bytes)
+    if not success:
         return jsonify({
             "success": False,
             "error": err_msg
@@ -223,7 +224,7 @@ def ocr_mistral_endpoint():
 
     return jsonify({
         "success": True,
-        "engine": "Mistral Vision (Pixtral 12B Cloud API)",
+        "engine": "Google Gemini 1.5 Flash (Multimodal Vision API)",
         "data": fields
     }), 200
 

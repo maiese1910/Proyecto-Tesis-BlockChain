@@ -150,11 +150,12 @@ export const ocrAPI = {
     apiFetch('/ocr/extract', { method: 'POST', body: { image_base64: imageBase64, raw_text: rawText, user_cedula: userCedula } }),
 
   /**
-   * Envía la imagen al modelo multimodal de Mistral (Pixtral 12B) vía API oficial en la nube.
-   * Diseñado específicamente para superar fuentes góticas e inscripciones históricas complejas.
+   * Envía la imagen al modelo multimodal Google Gemini 1.5 Flash vía API oficial.
+   * Diseñado para superar fuentes góticas complejas (Old English Text MT / Diploma)
+   * y garantizar JSON puro estructurado.
    */
-  extractMistral: (imageBase64) =>
-    apiFetch('/ocr/mistral', { method: 'POST', body: { image_base64: imageBase64 } }),
+  extractGemini: (imageBase64) =>
+    apiFetch('/ocr/gemini', { method: 'POST', body: { image_base64: imageBase64 } }),
 };
 
 // ─── Datos Dinámicos ────────────────────────────────────────────────────────
