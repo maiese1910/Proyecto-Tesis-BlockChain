@@ -1468,9 +1468,10 @@ def ocr_gemini_endpoint():
             "error": err_msg
         }), 500
 
+    model_label = fields.get("model_used", "Multimodal Vision")
     return jsonify({
         "success": True,
-        "engine": "Google Gemini 1.5 Flash (Multimodal Vision API)",
+        "engine": f"Google Gemini ({model_label})",
         "data": fields
     }), 200
 

@@ -80,14 +80,22 @@ class AcademicDegreeNER:
             if len(clean) >= 8:
                 return clean
 
-        if re.search(r'\bSanta\s+Mar[ií1l]a\b', text, re.IGNORECASE):
-            return "Universidad Santa María (USM)"
-        elif re.search(r'\bCentral\s+de\s+Venezuela\b', text, re.IGNORECASE):
+        if re.search(r'\bCentral\s+de\s+Venezuela\b', text, re.IGNORECASE):
             return "Universidad Central de Venezuela (UCV)"
+        elif re.search(r'\bSanta\s+Mar[ií1l]a\b', text, re.IGNORECASE):
+            return "Universidad Santa María (USM)"
         elif re.search(r'\bSim[oó]n\s+Bol[ií]var\b', text, re.IGNORECASE):
             return "Universidad Simón Bolívar (USB)"
         elif re.search(r'\bCat[oó]lica\s+Andr[eé]s\s+Bello\b', text, re.IGNORECASE):
             return "Universidad Católica Andrés Bello (UCAB)"
+        elif re.search(r'\bde\s+Los\s+Andes\b', text, re.IGNORECASE):
+            return "Universidad de Los Andes (ULA)"
+        elif re.search(r'\bdel\s+Zulia\b', text, re.IGNORECASE):
+            return "Universidad del Zulia (LUZ)"
+        elif re.search(r'\bde\s+Carabobo\b', text, re.IGNORECASE):
+            return "Universidad de Carabobo (UC)"
+        elif re.search(r'\bMetropolitana\b', text, re.IGNORECASE):
+            return "Universidad Metropolitana (UNIMET)"
 
         return "Institución Universitaria"
 
@@ -95,17 +103,24 @@ class AcademicDegreeNER:
     def extract_titular(cls, text: str) -> Optional[str]:
         """
         Extrae el nombre y apellidos completos del graduando / titular del diploma.
+        Universal: admite patrones rectorales (UCV), de concesión (USM/USMA) y por cumplimiento.
         """
         patrones = [
+            # Patrón A (Rectoral / UCV): "Hago saber: Que: [NOMBRE] Titular de la cédula..."
+            r'(?:hago\s+saber\s*:\s*(?:que\s*:\s*)?|rector\(?a?\)?\s*\n*)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|cumpli[oó]|por\s+lo\s+cual))',
+            # Patrón B (Concesión): "Confiere a [NOMBRE] el título de..."
             r'(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))',
+            # Patrón C (Cumplimiento): "Por cuanto [NOMBRE] ha cumplido..."
+            r'por\s+cuanto\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:ha\s+cumplido|cumpli[oó]|en\s+nombre|titular))',
             r'(?:graduando|titular|egresado)\s*[:#-]?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{6,45})'
         ]
         for pat in patrones:
             m = re.search(pat, text, re.IGNORECASE)
             if m:
                 cand = ' '.join(m.group(1).strip().split())
-                cand = re.sub(r'^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana)\s+', '', cand, flags=re.IGNORECASE)
-                if 4 <= len(cand) <= 50:
+                cand = re.sub(r'^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana|de\s+la\s+c[eé]dula\s+de)\s+', '', cand, flags=re.IGNORECASE)
+                cand = re.sub(r'\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|de\s+la\s+c[eé]dula).*$', '', cand, flags=re.IGNORECASE)
+                if 4 <= len(cand) <= 55 and not re.search(r'^(?:de\s+la\s+c[eé]dula|cedula\s+de)$', cand, re.IGNORECASE):
                     return cand
 
         return None
@@ -116,15 +131,15 @@ class AcademicDegreeNER:
         Extrae la denominación exacta del título o grado académico conferido.
         """
         patrones = [
-            r'(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))',
-            r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)'
+            r'(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))',
+            r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)'
         ]
         for pat in patrones:
             m = re.search(pat, text, re.IGNORECASE)
             if m:
                 cand = ' '.join(m.group(1).strip().split())
                 cand = re.sub(r'^[oO0]\s+', '', cand)
-                cand = re.sub(r'\s+por\s+haber.*$', '', cand, flags=re.IGNORECASE)
+                cand = re.sub(r'\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|t[oó]mese|tomese|raz[oó]n|por\s+haber).*$', '', cand, flags=re.IGNORECASE)
                 if len(cand) >= 4:
                     return cand
 

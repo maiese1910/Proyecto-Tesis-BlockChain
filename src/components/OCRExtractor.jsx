@@ -195,10 +195,14 @@ const ConfidenceBadge = ({ score }) => {
     }
     if (!institucion || institucion.length < 8) {
       if (/Santa\s+Mar[ií1l]a\s+La\s+Antigua/i.test(text)) institucion = "Universidad Católica Santa María La Antigua";
-      else if (/Santa\s+Mar[ií1l]a/i.test(text)) institucion = "Universidad Santa María (USM)";
       else if (/Central\s+de\s+Venezuela/i.test(text)) institucion = "Universidad Central de Venezuela (UCV)";
+      else if (/Santa\s+Mar[ií1l]a/i.test(text)) institucion = "Universidad Santa María (USM)";
       else if (/Sim[oó]n\s+Bol[ií]var/i.test(text)) institucion = "Universidad Simón Bolívar (USB)";
       else if (/Cat[oó]lica\s+Andr[eé]s\s+Bello/i.test(text)) institucion = "Universidad Católica Andrés Bello (UCAB)";
+      else if (/de\s+Los\s+Andes/i.test(text)) institucion = "Universidad de Los Andes (ULA)";
+      else if (/del\s+Zulia/i.test(text)) institucion = "Universidad del Zulia (LUZ)";
+      else if (/de\s+Carabobo/i.test(text)) institucion = "Universidad de Carabobo (UC)";
+      else if (/Metropolitana/i.test(text)) institucion = "Universidad Metropolitana (UNIMET)";
       else institucion = "Institución Universitaria";
     }
 
@@ -206,20 +210,31 @@ const ConfidenceBadge = ({ score }) => {
     const facMatch = text.match(/\b((?:Faculta[db]|Escuela)\s+(?:[db]e)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Legalmente|El Rector|Confiere|Contiere|Por cuanto|Dado|En fe|el título|el titulo|el grado|$)/i);
     let facultad = facMatch ? facMatch[1].trim().replace(/\s+/g, " ").replace(/Facultab/i, "Facultad").replace(/\bbe\b/gi, "de") : null;
 
-    // 3. Titular / Graduando
-    const nameMatch = text.match(/(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))/i);
-    let titular = nameMatch ? nameMatch[1].trim().replace(/\s+/g, " ") : null;
+    // 3. Titular / Graduando (Universal: Concesión, Rectoral UCV y Cumplimiento)
+    let titular = null;
+    const patRectoral = text.match(/(?:hago\s+saber\s*:\s*(?:que\s*:\s*)?|rector\(?a?\)?\s*\n*)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|cumpli[oó]|por\s+lo\s+cual))/i);
+    const patConcesion = text.match(/(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))/i);
+    const patCumplimiento = text.match(/por\s+cuanto\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:ha\s+cumplido|cumpli[oó]|en\s+nombre|titular))/i);
+
+    if (patRectoral) titular = patRectoral[1].trim().replace(/\s+/g, " ");
+    else if (patConcesion) titular = patConcesion[1].trim().replace(/\s+/g, " ");
+    else if (patCumplimiento) titular = patCumplimiento[1].trim().replace(/\s+/g, " ");
+
     if (titular) {
-      titular = titular.replace(/^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana)\s+/i, "");
-      if (titular.length < 4 || titular.length > 55) titular = null;
+      titular = titular.replace(/^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana|de\s+la\s+c[eé]dula\s+de)\s+/i, "");
+      titular = titular.replace(/\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|de\s+la\s+c[eé]dula).*$/i, "");
+      if (titular.length < 4 || titular.length > 55 || /^(?:de\s+la\s+c[eé]dula|cedula\s+de)$/i.test(titular)) titular = null;
     }
 
     // 4. Denominación del Título / Carrera
-    const gradoMatch = text.match(/(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))/i);
-    let carrera = gradoMatch ? gradoMatch[1].trim().replace(/\s+/g, " ").replace(/^[oO0]\s+/, "").replace(/\s+por\s+haber.*$/i, "") : null;
+    const gradoMatch = text.match(/(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))/i);
+    let carrera = gradoMatch ? gradoMatch[1].trim().replace(/\s+/g, " ").replace(/^[oO0]\s+/, "") : null;
     if (!carrera) {
-      const m2 = text.match(/\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)/i);
+      const m2 = text.match(/\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)/i);
       if (m2) carrera = m2[1].trim().replace(/\s+/g, " ").replace(/^[oO0]\s+/, "");
+    }
+    if (carrera) {
+      carrera = carrera.replace(/\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|t[oó]mese|tomese|raz[oó]n|por\s+haber).*$/i, "").trim();
     }
 
     // 5. Cédula de Identidad (Búsqueda en texto o asociación de la cuenta de usuario)
@@ -370,28 +385,30 @@ const ConfidenceBadge = ({ score }) => {
         setCurrentStep(4);
         let geminiSucceeded = false;
         try {
-          // Intento prioritario con Google Gemini 1.5 Flash Vision API
+          // Intento prioritario con Google Gemini Vision API
           const geminiRes = await ocrAPI.extractGemini(imageBase64);
           if (geminiRes && geminiRes.success && geminiRes.data) {
             const gData = geminiRes.data;
+            const localFallback = parseDegreeAcademic(recognizedText, user?.cedula);
+            
             setResult({
               success: true,
-              engine: "Google Gemini 1.5 Flash (Vision API)",
+              engine: geminiRes.engine || "Google Gemini Multimodal Vision API",
               overall_confidence: 0.99,
               fields: {
-                nombre_completo: { value: gData.nombre_completo, confidence: 0.99 },
-                cedula: { value: gData.cedula || user?.cedula, confidence: 0.99 },
-                institucion: { value: gData.institucion_educativa, confidence: 0.99 },
-                facultad: { value: gData.facultad || null, confidence: 0.95 },
-                carrera: { value: gData.mencion_carrera, confidence: 0.99 },
-                fecha: { value: gData.fecha_emision, confidence: 0.98 }
+                nombre_completo: { value: gData.nombre_completo || localFallback.nombre_completo?.value, confidence: gData.nombre_completo ? 0.99 : 0.85 },
+                cedula: { value: gData.cedula || user?.cedula || localFallback.cedula?.value, confidence: 0.99 },
+                institucion: { value: gData.institucion_educativa || localFallback.institucion?.value, confidence: 0.99 },
+                facultad: { value: gData.facultad || localFallback.facultad?.value, confidence: 0.95 },
+                carrera: { value: gData.mencion_carrera || localFallback.carrera?.value, confidence: 0.99 },
+                fecha: { value: gData.fecha_emision || localFallback.fecha?.value, confidence: 0.98 }
               },
-              raw_text_preview: `Extracción completada con éxito mediante Google Gemini 1.5 Flash.
-Institución: ${gData.institucion_educativa}
-Titular: ${gData.nombre_completo}
-Cédula: ${gData.cedula}
-Carrera: ${gData.mencion_carrera}
-Fecha: ${gData.fecha_emision}`
+              raw_text_preview: `Extracción completada con éxito mediante ${geminiRes.engine || "Google Gemini Vision"}.
+Institución: ${gData.institucion_educativa || localFallback.institucion?.value}
+Titular: ${gData.nombre_completo || localFallback.nombre_completo?.value}
+Cédula: ${gData.cedula || user?.cedula || localFallback.cedula?.value}
+Carrera: ${gData.mencion_carrera || localFallback.carrera?.value}
+Fecha: ${gData.fecha_emision || localFallback.fecha?.value}`
             });
             geminiSucceeded = true;
           }

@@ -26,115 +26,127 @@ except ImportError:
     genai = None
     GoogleAPIError = Exception
 
-GEMINI_PROMPT_SYSTEM = """Eres un perito forense y especialista en visión artificial de documentos académicos, actas solemnes y títulos universitarios.
-Analiza con máxima precisión visual y contextual la imagen del título universitario adjunto y extrae los datos canónicos institucionales y del graduando.
+GEMINI_PROMPT_SYSTEM = """Eres un perito forense y especialista en visión artificial de documentos académicos, actas de grado y títulos universitarios de cualquier institución nacional o internacional.
+Analiza con máxima precisión visual y contextual la imagen del título universitario adjunto y extrae rigurosamente los datos que están literalmente escritos en este diploma específico.
 
 INSTRUCCIONES CRÍTICAS DE LECTURA Y ROBUSTEZ:
-1. FUENTES GÓTICAS Y ORNAMENTALES:
-   - El pergamino emplea tipografías de estilo gótico medieval (Old English Text MT, Diploma, Textura, Cancilleresca) en el encabezado universitario, el nombre del egresado y la denominación del título.
-   - Puede incluir caligrafía bicoloreada (letras capitulares e inscripciones solemnes en tinta roja y negra).
-   - Descifra rigurosamente el texto original sin omitir caracteres ni confundir ligaduras clásicas.
+1. INSTITUCIÓN EDUCATIVA:
+   - Lee el encabezado superior universitario (frecuentemente en estilo gótico medieval, arqueado o recto, con ilustraciones o escudos).
+   - Extrae el nombre canónico de la universidad emisora que aparece en este diploma (ej: Universidad Central de Venezuela, Universidad Santa María, Universidad Católica Santa María La Antigua, Universidad Simón Bolívar, etc.).
+   - PROHIBIDO sustituir el nombre de la universidad por otra diferente a la que figura en la imagen.
 
-2. SUPRESIÓN DE RUIDO Y SELLOS ADMINISTRATIVOS:
-   - Ignora completamente ilustraciones arquitectónicas de fondo (fachadas de rectorados, escudos), sellos circulares húmedos, timbres fiscales (SAREN), firmas rectorales o decanales.
-   - Ignora notas marginales de registro público o leyendas reglamentarias posteriores como "Tómese Razón de este Diploma en la Secretaría...".
+2. GRADUANDO / TITULAR:
+   - Extrae el nombre completo y apellidos del graduando a quien se confiere el título (frecuentemente en tipografía gótica destacada o mayúsculas).
+   - Puede ubicarse tras "Confiere a", "Hago saber: Que:", "certificamos que" o antes de "Titular de la cédula...".
+   - Limpia fórmulas de concesión o prefacios como "Hago saber:", "Que:", "confiere a", "al ciudadano" o "a favor de".
 
-3. NORMALIZACIÓN DE CAMPOS:
-   - "nombre_completo": Nombre y apellidos completos del graduando titular. Limpia fórmulas de concesión o prefacios como "Hago saber:", "Que:", "confiere a", "al ciudadano" o "a favor de".
-   - "cedula": Cédula de identidad oficial con su prefijo y numeración original (ej: "V-23.916.908", "V-28.315.101" o "8-66-581").
-   - "institucion_educativa": Nombre institucional canónico de la Universidad emisora (ej: "Universidad Santa María", "Universidad Central de Venezuela", "Universidad Católica Santa María La Antigua").
-   - "mencion_carrera": Denominación exacta del título o grado conferido (ej: "Médico Cirujano", "Ingeniero en Sistemas", "Licenciada en Derecho y Ciencias Políticas"). Elimina prefacios como "el título de:" y frases reglamentarias siguientes.
-   - "fecha_emision": Fecha oficial de expedición o grado en formato estricto DD/MM/YYYY. Transpila fechas en letras (ej: "a los cuatro días del mes de diciembre del año dos mil dieciocho" -> "04/12/2018", "veinticinco de mayo de dos mil uno" -> "25/05/2001", "veinticuatro de octubre de dos mil veintiséis" -> "24/10/2026").
+3. CÉDULA DE IDENTIDAD:
+   - Lee el número exacto del documento de identidad escrito en el cuerpo del título o en notas marginales/sellos.
+   - Extrae el número visible uniendo prefijos (ej: "V- 23.916.908" -> "V-23.916.908", "8-66-581" -> "8-66-581").
+   - Si no aparece ninguna cédula explícita en el diploma, devuelve null.
+
+4. MENCIÓN / CARRERA:
+   - Denominación exacta del título profesional o grado académico conferido (ej: "Médico Cirujano", "Licenciada en Derecho y Ciencias Políticas", "Ingeniero de Sistemas", "Abogado").
+   - Elimina prefacios como "el título de:" y leyendas reglamentarias posteriores como "Tómese Razón de este Diploma...", "Por haber cumplido...", etc.
+
+5. FECHA DE EMISIÓN:
+   - Fecha oficial de expedición o grado que figura en la fórmula de cierre ("En fe de lo cual... a los cuatro días del mes de diciembre del año dos mil dieciocho", "veinticinco de mayo de dos mil uno") o en sellos de registro legal.
+   - Transpila las palabras escritas a formato numérico estricto DD/MM/YYYY (ej: "04/12/2018", "25/05/2001").
+   - NUNCA uses la fecha de hoy ni fechas inventadas. Si no es legible, devuelve null.
 
 FORMATO DE SALIDA ESTRICTO:
-Debes devolver ÚNICAMENTE un objeto JSON con las siguientes 5 claves exactas:
+Debes devolver ÚNICAMENTE un objeto JSON con las siguientes 5 claves:
 {
-  "nombre_completo": "string",
-  "cedula": "string",
-  "institucion_educativa": "string",
-  "mencion_carrera": "string",
-  "fecha_emision": "string"
+  "nombre_completo": string | null,
+  "cedula": string | null,
+  "institucion_educativa": string | null,
+  "mencion_carrera": string | null,
+  "fecha_emision": string | null
 }"""
 
 
 class GeminiVisionExtractor:
     @staticmethod
-    def get_configured_model():
+    def get_candidate_models():
         load_dotenv(override=True)
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            return None, "GEMINI_API_KEY no configurada en las variables de entorno (.env)."
-        if not genai:
-            return None, "La librería 'google-generativeai' no está instalada en el entorno."
-
-        try:
-            genai.configure(api_key=api_key)
-            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-            
-            # Configuración de generación forzando respuesta en JSON puro
-            generation_config = {
-                "response_mime_type": "application/json",
-                "temperature": 0.0,
-                "top_p": 0.2
-            }
-            
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                generation_config=generation_config
-            )
-            return model, None
-        except Exception as e:
-            return None, f"Error inicializando cliente de Gemini: {str(e)}"
+        preferred = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+        defaults = [preferred, "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"]
+        seen = set()
+        candidates = []
+        for m in defaults:
+            if m and m not in seen and m != "gemini-1.5-flash":
+                seen.add(m)
+                candidates.append(m)
+        return candidates
 
     @classmethod
     def extract_from_image_bytes(cls, image_bytes: bytes) -> Tuple[bool, Dict[str, Any], Optional[str]]:
         """
-        Envía los bytes de la imagen a Google Gemini 1.5 Flash.
+        Envía los bytes de la imagen a Google Gemini Vision con fallback entre modelos activos.
         Retorna (éxito, diccionario_5_claves, mensaje_error).
         """
-        model, err_init = cls.get_configured_model()
-        if not model:
-            return False, {}, err_init
+        load_dotenv(override=True)
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return False, {}, "GEMINI_API_KEY no configurada en las variables de entorno (.env)."
+        if not genai:
+            return False, {}, "La librería 'google-generativeai' no está instalada en el entorno."
+
+        try:
+            genai.configure(api_key=api_key)
+        except Exception as cfg_err:
+            return False, {}, f"Error configurando API Key de Gemini: {str(cfg_err)}"
 
         try:
             pil_image = Image.open(BytesIO(image_bytes))
-            # Convertir a RGB si viene en RGBA o escala de grises
             if pil_image.mode not in ("RGB", "L"):
                 pil_image = pil_image.convert("RGB")
         except Exception as img_err:
             logger.error(f"Formato de imagen inválido o corrupto: {img_err}")
             return False, {}, f"No se pudo decodificar el archivo de imagen: {str(img_err)}"
 
-        try:
-            # Llamada síncrona a Gemini 1.5 Flash con la imagen y el system prompt
-            response = model.generate_content([pil_image, GEMINI_PROMPT_SYSTEM])
-            
-            if not response or not response.text:
-                return False, {}, "El modelo Gemini no retornó contenido en la respuesta."
+        generation_config = {
+            "response_mime_type": "application/json",
+            "temperature": 0.0,
+            "top_p": 0.1
+        }
 
-            raw_text = response.text.strip()
-            # Limpieza defensiva en caso de fences markdown
-            clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.MULTILINE).strip()
-            parsed = json.loads(clean_json)
+        candidates = cls.get_candidate_models()
+        last_error = "No se pudo consultar ningún modelo de Gemini."
 
-            # Estructurar estrictamente con las 5 claves canónicas
-            result = {
-                "nombre_completo": parsed.get("nombre_completo", "").strip(),
-                "cedula": parsed.get("cedula", "").strip(),
-                "institucion_educativa": parsed.get("institucion_educativa", "").strip(),
-                "mencion_carrera": parsed.get("mencion_carrera", "").strip(),
-                "fecha_emision": parsed.get("fecha_emision", "").strip()
-            }
+        for model_name in candidates:
+            try:
+                logger.info(f"Intentando extracción multimodal con modelo: {model_name}")
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    generation_config=generation_config
+                )
+                response = model.generate_content([pil_image, GEMINI_PROMPT_SYSTEM])
+                if not response or not response.text:
+                    continue
 
-            return True, result, None
+                raw_text = response.text.strip()
+                clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.MULTILINE).strip()
+                parsed = json.loads(clean_json)
 
-        except json.JSONDecodeError as jde:
-            logger.error(f"Falla de parsing JSON desde Gemini: {jde} - Texto crudo: {response.text}")
-            return False, {}, f"La respuesta de Gemini no es un JSON válido: {str(jde)}"
-        except GoogleAPIError as gerr:
-            logger.error(f"Google API Error: {gerr}")
-            return False, {}, f"Error de comunicación con Google Gemini API: {str(gerr)}"
-        except Exception as e:
-            logger.error(f"Excepción general en Gemini Vision: {e}", exc_info=True)
-            return False, {}, f"Falla en el pipeline de visión con Gemini: {str(e)}"
+                result = {
+                    "nombre_completo": parsed.get("nombre_completo") or None,
+                    "cedula": parsed.get("cedula") or None,
+                    "institucion_educativa": parsed.get("institucion_educativa") or None,
+                    "mencion_carrera": parsed.get("mencion_carrera") or None,
+                    "fecha_emision": parsed.get("fecha_emision") or None,
+                    "model_used": model_name
+                }
+                return True, result, None
+
+            except GoogleAPIError as gerr:
+                logger.warning(f"Falla con modelo {model_name}: {gerr}")
+                last_error = str(gerr)
+                continue
+            except Exception as e:
+                logger.warning(f"Error con modelo {model_name}: {e}")
+                last_error = str(e)
+                continue
+
+        return False, {}, f"Error en API de Gemini: {last_error}"
 
