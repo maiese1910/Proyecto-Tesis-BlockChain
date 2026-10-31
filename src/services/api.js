@@ -148,6 +148,13 @@ export const ocrAPI = {
    */
   extractDocument: (imageBase64, rawText = null, userCedula = null) =>
     apiFetch('/ocr/extract', { method: 'POST', body: { image_base64: imageBase64, raw_text: rawText, user_cedula: userCedula } }),
+
+  /**
+   * Envía la imagen al modelo multimodal de Mistral (Pixtral 12B) vía API oficial en la nube.
+   * Diseñado específicamente para superar fuentes góticas e inscripciones históricas complejas.
+   */
+  extractMistral: (imageBase64) =>
+    apiFetch('/ocr/mistral', { method: 'POST', body: { image_base64: imageBase64 } }),
 };
 
 // ─── Datos Dinámicos ────────────────────────────────────────────────────────

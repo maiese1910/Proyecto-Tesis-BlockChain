@@ -14,6 +14,7 @@ from flask_cors import CORS
 
 from vision_preprocessor import USMDocumentPreprocessor
 from ocr_service import USMOcrService
+from mistral_service import MistralVisionExtractor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("USM_Flask_API")
@@ -175,6 +176,56 @@ def extract_document():
             "success": False,
             "error": f"Falla en el pipeline de digitalización OCR: {str(e)}"
         }), 500
+
+
+@app.route("/ocr/mistral", methods=["POST"])
+@app.route("/api/ocr/mistral", methods=["POST"])
+def ocr_mistral_endpoint():
+    """
+    Endpoint de digitalización multimodal con Mistral API (Pixtral 12B).
+    Especializado en fuentes góticas y estructuración semántica de títulos universitarios.
+    """
+    image_b64 = None
+    mime_type = "image/jpeg"
+
+    # Caso 1: Archivo subido en formulario multipart ('file')
+    if "file" in request.files:
+        uploaded = request.files["file"]
+        if uploaded.filename != "":
+            raw = uploaded.read()
+            image_b64 = base64.b64encode(raw).decode("utf-8")
+            if uploaded.mimetype:
+                mime_type = uploaded.mimetype
+
+    # Caso 2: Carga vía JSON ('image_base64')
+    elif request.is_json:
+        payload = request.get_json() or {}
+        image_b64 = payload.get("image_base64")
+        if image_b64 and "," in image_b64:
+            header, image_b64 = image_b64.split(",", 1)
+            if "png" in header:
+                mime_type = "image/png"
+            elif "webp" in header:
+                mime_type = "image/webp"
+
+    if not image_b64:
+        return jsonify({
+            "success": False,
+            "error": "Debe enviar la imagen mediante 'file' (form-data) o 'image_base64' (JSON)."
+        }), 400
+
+    ok, fields, err_msg = MistralVisionExtractor.extract_from_base64(image_b64, mime_type)
+    if not ok:
+        return jsonify({
+            "success": False,
+            "error": err_msg
+        }), 500
+
+    return jsonify({
+        "success": True,
+        "engine": "Mistral Vision (Pixtral 12B Cloud API)",
+        "data": fields
+    }), 200
 
 
 if __name__ == "__main__":
