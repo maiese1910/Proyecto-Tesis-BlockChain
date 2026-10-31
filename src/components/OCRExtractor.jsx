@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check, X, ShieldCheck, ArrowRight, ExternalLink, Award } from "lucide-react";
+import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check, X, ShieldCheck, ArrowRight, ExternalLink, Award, Sparkles, AlertCircle } from "lucide-react";
 import { ocrAPI, blockchainAPI, hashAPI } from "../services/api";
 
 const ConfidenceBadge = ({ score }) => {
@@ -323,6 +323,295 @@ const ConfidenceBadge = ({ score }) => {
     };
   };
 
+  const ValidationFloatingModal = ({
+    isOpen,
+    onClose,
+    fields = {},
+    onSaveField,
+    onProceedGtu,
+    engineName
+  }) => {
+    const [form, setForm] = useState({
+      institucion: "",
+      nombre_completo: "",
+      cedula: "",
+      carrera: "",
+      fecha: ""
+    });
+
+    React.useEffect(() => {
+      if (fields && isOpen) {
+        setForm({
+          institucion: fields.institucion?.value || "",
+          nombre_completo: fields.nombre_completo?.value || "",
+          cedula: fields.cedula?.value || "",
+          carrera: fields.carrera?.value || "",
+          fecha: fields.fecha?.value || ""
+        });
+      }
+    }, [fields, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleChange = (key, val) => {
+      setForm(prev => ({ ...prev, [key]: val }));
+    };
+
+    const handleApply = () => {
+      Object.keys(form).forEach(k => {
+        onSaveField(k, form[k]);
+      });
+      onClose();
+    };
+
+    const handleApplyAndProceed = () => {
+      Object.keys(form).forEach(k => {
+        onSaveField(k, form[k]);
+      });
+      onClose();
+      if (onProceedGtu) {
+        setTimeout(() => onProceedGtu(), 100);
+      }
+    };
+
+    const missingCount = Object.values(form).filter(v => !v || !v.trim()).length;
+
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          background: "rgba(18, 18, 18, 0.58)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "1rem"
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: 16 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 16 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          style={{
+            background: "#ffffff",
+            width: "100%",
+            maxWidth: "620px",
+            maxHeight: "90vh",
+            borderRadius: "18px",
+            boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(93, 42, 26, 0.12)",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden"
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              padding: "1.2rem 1.5rem",
+              background: "linear-gradient(135deg, #fffbf6 0%, #fdf3e7 100%)",
+              borderBottom: "1px solid rgba(93, 42, 26, 0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "10px",
+                  background: "var(--color-blush-peach)",
+                  border: "1px solid rgba(93, 42, 26, 0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--color-sienna-brown)"
+                }}
+              >
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "1.1rem",
+                    color: "var(--color-ink-black)",
+                    fontFamily: "var(--font-serif)",
+                    fontWeight: 500,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem"
+                  }}
+                >
+                  Validación y Revisión Forense de Datos
+                </h3>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                  Motor de extracción: <strong>{engineName || "Visión Multimodal IA"}</strong>
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                padding: "0.3rem",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+              title="Cerrar"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Body con Scroll */}
+          <div style={{ padding: "1.3rem 1.5rem", overflowY: "auto", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+            
+            {/* Aviso estilo Gemini / IA Disclaimer */}
+            <div
+              style={{
+                background: "rgba(217, 119, 6, 0.08)",
+                border: "1px solid rgba(217, 119, 6, 0.28)",
+                borderRadius: "12px",
+                padding: "0.9rem 1.1rem",
+                display: "flex",
+                gap: "0.8rem",
+                alignItems: "flex-start"
+              }}
+            >
+              <AlertCircle size={20} style={{ color: "#b45309", flexShrink: 0, marginTop: "2px" }} />
+              <div style={{ fontSize: "0.82rem", lineHeight: "1.5", color: "#78350f" }}>
+                <strong style={{ display: "block", marginBottom: "0.2rem", color: "#92400e" }}>
+                  Aviso de Inteligencia Artificial (Cotejo Requerido):
+                </strong>
+                Recuerda que los modelos de Inteligencia Artificial y visión OCR no son infalibles y pueden cometer errores ante caligrafías ornamentales góticas o sellos de tinta. 
+                <strong> Coteja con atención que cada dato coincida exactamente con tu título físico antes de emitir la legalización oficial.</strong> Si detectas alguna inconsistencia o falta algún dato, complétalo abajo.
+              </div>
+            </div>
+
+            {/* Alerta de campos faltantes */}
+            {missingCount > 0 ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.8rem", background: "rgba(185, 28, 28, 0.08)", border: "1px solid rgba(185, 28, 28, 0.2)", borderRadius: "8px", fontSize: "0.78rem", color: "var(--danger)" }}>
+                <AlertTriangle size={15} />
+                <span>Atención: Hay <strong>{missingCount} campo(s) pendiente(s)</strong> por completar antes del registro.</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.8rem", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: "8px", fontSize: "0.78rem", color: "#047857" }}>
+                <CheckCircle size={15} />
+                <span>Todos los campos canónicos requeridos han sido identificados. Puedes editarlos si lo requieres.</span>
+              </div>
+            )}
+
+            {/* Inputs editables */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+              {[
+                { key: "institucion", label: "Institución Universitaria Emisora", icon: Building, placeholder: "Ej: Universidad Central de Venezuela (UCV)" },
+                { key: "nombre_completo", label: "Nombre Completo del Graduando", icon: User, placeholder: "Ej: Luis José Torres Correa" },
+                { key: "cedula", label: "Cédula de Identidad Oficial", icon: CreditCard, placeholder: "Ej: V-23.916.908" },
+                { key: "carrera", label: "Mención / Carrera Conferida", icon: FileText, placeholder: "Ej: Médico Cirujano" },
+                { key: "fecha", label: "Fecha de Emisión / Grado (DD/MM/YYYY)", icon: Calendar, placeholder: "Ej: 04/12/2018" },
+              ].map(({ key, label, icon: Icon, placeholder }) => {
+                const val = form[key];
+                const isComplete = val && val.trim().length > 0;
+                return (
+                  <div key={key} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                        <Icon size={14} style={{ color: "var(--color-sienna-brown)" }} />
+                        {label}
+                      </label>
+                      <span style={{ fontSize: "0.68rem", fontWeight: 600, padding: "0.1rem 0.45rem", borderRadius: "4px", background: isComplete ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: isComplete ? "#047857" : "#b91c1c", border: `1px solid ${isComplete ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
+                        {isComplete ? "✓ Completo" : "⚠️ Requerido"}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={val}
+                      onChange={(e) => handleChange(key, e.target.value)}
+                      placeholder={placeholder}
+                      style={{
+                        padding: "0.65rem 0.85rem",
+                        fontSize: "0.88rem",
+                        fontWeight: 600,
+                        color: "var(--color-ink-black)",
+                        background: isComplete ? "#ffffff" : "#fff8f8",
+                        border: `1px solid ${isComplete ? "var(--border)" : "rgba(239, 68, 68, 0.4)"}`,
+                        borderRadius: "var(--radius-inputs)",
+                        outline: "none",
+                        transition: "all 0.2s"
+                      }}
+                      onFocus={(e) => { e.target.style.borderColor = "var(--color-sienna-brown)"; }}
+                      onBlur={(e) => { e.target.style.borderColor = isComplete ? "var(--border)" : "rgba(239, 68, 68, 0.4)"; }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+
+          {/* Footer */}
+          <div
+            style={{
+              padding: "1rem 1.5rem",
+              background: "var(--color-fog-white)",
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+              gap: "0.75rem",
+              justifyContent: "flex-end",
+              alignItems: "center"
+            }}
+          >
+            <button
+              onClick={handleApply}
+              style={{
+                padding: "0.65rem 1.1rem",
+                background: "#ffffff",
+                color: "var(--color-ink-black)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-inputs)",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              Guardar y Revisar en Panel
+            </button>
+            <button
+              onClick={handleApplyAndProceed}
+              style={{
+                padding: "0.65rem 1.25rem",
+                background: "var(--color-ink-black)",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "var(--radius-inputs)",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem"
+              }}
+            >
+              <ShieldCheck size={16} />
+              Confirmar y Emitir GTU
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   const OCRExtractor = ({ user, onDataExtracted, onNavigate }) => {
     const [dragOver, setDragOver] = useState(false);
     const [imagePreview, setImagePreview] = useState(null);
@@ -333,6 +622,7 @@ const ConfidenceBadge = ({ score }) => {
     const [error, setError] = useState(null);
     const [isRegisteringGtu, setIsRegisteringGtu] = useState(false);
     const [gtuRegistered, setGtuRegistered] = useState(null);
+    const [showValidationModal, setShowValidationModal] = useState(false);
     const fileInputRef = useRef(null);
 
     const handleFile = useCallback((file) => {
@@ -411,6 +701,7 @@ Carrera: ${gData.mencion_carrera || localFallback.carrera?.value}
 Fecha: ${gData.fecha_emision || localFallback.fecha?.value}`
             });
             geminiSucceeded = true;
+            setShowValidationModal(true);
           }
         } catch (geminiErr) {
           console.info("Gemini Vision API en espera de GEMINI_API_KEY o modo offline. Ejecutando motor de contingencia:", geminiErr.message);
@@ -436,6 +727,7 @@ Fecha: ${gData.fecha_emision || localFallback.fecha?.value}`
                 fields: mergedFields,
                 raw_text_preview: recognizedText || data.raw_text_preview
               });
+              setShowValidationModal(true);
             } else {
               throw new Error("Respuesta del servidor sin estructura de campos válida.");
             }
@@ -451,6 +743,7 @@ Fecha: ${gData.fecha_emision || localFallback.fecha?.value}`
               overall_confidence: overallConf > 0.5 ? overallConf : 0.88,
               raw_text_preview: recognizedText || "Texto extraído mediante motor WebAssembly local del navegador."
             });
+            setShowValidationModal(true);
           }
         }
       } catch (err) {
@@ -710,11 +1003,51 @@ Fecha: ${gData.fecha_emision || localFallback.fecha?.value}`
             ) : result ? (
               <AnimatePresence>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-panel" style={{ padding: "1.5rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.9rem" }}>
                     <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.6rem", color: "var(--color-ink-black)", fontFamily: "var(--font-serif)", fontWeight: 400 }}><CheckCircle size={20} color="var(--color-sienna-brown)" /> Datos Extraídos</h3>
                     {result.overall_confidence !== undefined && (
                       <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>Precisión global: <strong style={{ color: result.overall_confidence >= 0.7 ? "var(--color-sienna-brown)" : "var(--warning)" }}>{Math.round(result.overall_confidence * 100)}%</strong></span>
                     )}
+                  </div>
+
+                  {/* Banner Asistente de Validación IA */}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "0.75rem",
+                    background: "rgba(217, 119, 6, 0.08)",
+                    border: "1px solid rgba(217, 119, 6, 0.28)",
+                    borderRadius: "10px",
+                    padding: "0.7rem 0.95rem",
+                    marginBottom: "1rem"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                      <Sparkles size={18} style={{ color: "#b45309", flexShrink: 0 }} />
+                      <div style={{ fontSize: "0.78rem", color: "#78350f", lineHeight: "1.4" }}>
+                        <strong>Aviso IA:</strong> La IA puede tener imprecisiones. Coteja los datos con tu título físico antes de continuar.
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowValidationModal(true)}
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid rgba(217, 119, 6, 0.4)",
+                        color: "#92400e",
+                        fontSize: "0.76rem",
+                        fontWeight: 700,
+                        padding: "0.35rem 0.75rem",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                        flexShrink: 0,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
+                      }}
+                    >
+                      <Sparkles size={13} /> Validar / Completar
+                    </button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                     {FIELDS.map(({ key, label, icon }) => (
@@ -797,6 +1130,16 @@ Fecha: ${gData.fecha_emision || localFallback.fecha?.value}`
             )}
           </div>
         </div>
+
+        {/* Modal / Pestaña Flotante de Validación IA */}
+        <ValidationFloatingModal
+          isOpen={showValidationModal}
+          onClose={() => setShowValidationModal(false)}
+          fields={result?.fields || {}}
+          onSaveField={handleFieldChange}
+          onProceedGtu={handleRegisterGtu}
+          engineName={result?.engine}
+        />
       </div>
     );
   };
