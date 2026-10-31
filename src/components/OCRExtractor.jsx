@@ -196,7 +196,7 @@ const ConfidenceBadge = ({ score }) => {
     }
     if (!institucion || institucion.length < 8) {
       if (/Santa\s+Mar[ií1l]a\s+La\s+Antigua/i.test(text)) institucion = "Universidad Católica Santa María La Antigua";
-      else if (/Central\s+de\s+Venezuela/i.test(text)) institucion = "Universidad Central de Venezuela (UCV)";
+      else if (/Central\s+de\s+Venezuela|Facultad\s+de\s+Medicina|U\.?C\.?V\.?/i.test(text)) institucion = "Universidad Central de Venezuela (UCV)";
       else if (/Santa\s+Mar[ií1l]a/i.test(text)) institucion = "Universidad Santa María (USM)";
       else if (/Sim[oó]n\s+Bol[ií]var/i.test(text)) institucion = "Universidad Simón Bolívar (USB)";
       else if (/Cat[oó]lica\s+Andr[eé]s\s+Bello/i.test(text)) institucion = "Universidad Católica Andrés Bello (UCAB)";
@@ -204,7 +204,7 @@ const ConfidenceBadge = ({ score }) => {
       else if (/del\s+Zulia/i.test(text)) institucion = "Universidad del Zulia (LUZ)";
       else if (/de\s+Carabobo/i.test(text)) institucion = "Universidad de Carabobo (UC)";
       else if (/Metropolitana/i.test(text)) institucion = "Universidad Metropolitana (UNIMET)";
-      else institucion = "Institución Universitaria";
+      else institucion = null;
     }
 
     // 2. Facultad / Escuela
@@ -217,8 +217,12 @@ const ConfidenceBadge = ({ score }) => {
     const patConcesion = text.match(/(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))/i);
     const patCumplimiento = text.match(/por\s+cuanto\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:ha\s+cumplido|cumpli[oó]|en\s+nombre|titular))/i);
 
+    // Patrón invertido UCV: "confiere el título de [CARRERA] a: [TITULAR]"
+    const patInvertido = text.match(/(?:t[ií1]tulo|grado)\s+(?:de|be)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,35}?\s+(?:a|al|a\s+la)\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s*,?\s*(?:titular|c[eé]dula|por\s+haber|cumplido|$))/i);
+
     if (patRectoral) titular = patRectoral[1].trim().replace(/\s+/g, " ");
     else if (patConcesion) titular = patConcesion[1].trim().replace(/\s+/g, " ");
+    else if (patInvertido) titular = patInvertido[1].trim().replace(/\s+/g, " ");
     else if (patCumplimiento) titular = patCumplimiento[1].trim().replace(/\s+/g, " ");
 
     if (titular) {
@@ -761,16 +765,88 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
    * Optimiza y redimensiona la imagen en canvas HTML5 a tamaño ideal para LLMs de visión (máx 1600px).
    * Reduce drásticamente el peso de la imagen (de 8MB a ~250KB) acelerando la subida y procesamiento x10.
    */
+  /**
+   * Optimiza y redimensiona la imagen en canvas HTML5 a tamaño ideal para LLMs de visión (máx 1600px).
+   * Elimina crossOrigin para data:/blob: URLs evitando bloqueos de seguridad en móviles y navegadores.
+   * Reduce drásticamente el peso de la imagen (de 8MB a ~200KB) acelerando la subida y procesamiento x10.
+   */
+  /**
+   * Normaliza fechas de diplomas tanto en formato numérico (DD/MM/YYYY)
+   * como en palabras castellanas ceremoniales ("cuatro días del mes de diciembre de dos mil dieciocho").
+   */
+  const normalizeDateText = (rawDate) => {
+    if (!rawDate || typeof rawDate !== "string") return null;
+    const trimmed = rawDate.trim();
+    // Caso 1: Ya es numérico DD/MM/YYYY o YYYY-MM-DD
+    const mNum = trimmed.match(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b/);
+    if (mNum) {
+      let d = mNum[1].padStart(2, "0");
+      let m = mNum[2].padStart(2, "0");
+      let y = mNum[3];
+      if (y.length === 2) y = parseInt(y, 10) < 50 ? "20" + y : "19" + y;
+      return `${d}/${m}/${y}`;
+    }
+
+    // Caso 2: Texto ceremonial en palabras
+    const MESES = { enero: "01", febrero: "02", marzo: "03", abril: "04", mayo: "05", junio: "06", julio: "07", agosto: "08", septiembre: "09", setiembre: "09", octubre: "10", noviembre: "11", diciembre: "12" };
+    const NUMS = { un: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, dieciséis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21, veintiuno: 21, veintidos: 22, veintidós: 22, veintitres: 23, veintitrés: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintiséis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, "treinta y uno": 31 };
+
+    const lower = trimmed.toLowerCase();
+    const mMes = lower.match(/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)/);
+    if (!mMes) return trimmed;
+
+    const mes = MESES[mMes[1]];
+    const antesMes = lower.substring(0, mMes.index).trim();
+    const despuesMes = lower.substring(mMes.index + mMes[1].length).trim();
+
+    // Extraer día
+    let dia = null;
+    const palabrasAntes = antesMes.split(/[\s,]+/);
+    for (let i = palabrasAntes.length - 1; i >= 0; i--) {
+      const p = palabrasAntes[i];
+      if (NUMS[p]) { dia = NUMS[p]; break; }
+      if (/^\d{1,2}$/.test(p)) { dia = parseInt(p, 10); break; }
+    }
+
+    // Extraer año
+    let ano = null;
+    const mAnio = despuesMes.match(/\b(19\d{2}|20\d{2})\b/);
+    if (mAnio) {
+      ano = parseInt(mAnio[1], 10);
+    } else {
+      let base = 0;
+      let rem = despuesMes;
+      if (despuesMes.includes("dos mil") || despuesMes.includes("bos mil")) { base = 2000; rem = despuesMes.replace(/dos mil|bos mil/g, "").trim(); }
+      else if (despuesMes.includes("mil novecientos")) { base = 1900; rem = despuesMes.replace("mil novecientos", "").trim(); }
+      
+      let sum = 0;
+      for (const w of rem.split(/[\s,]+/)) {
+        if (NUMS[w]) sum += NUMS[w];
+        else if (/^\d+$/.test(w)) sum += parseInt(w, 10);
+      }
+      if (base > 0) ano = base + sum;
+    }
+
+    if (dia && mes && ano) {
+      return `${String(dia).padStart(2, "0")}/${mes}/${ano}`;
+    }
+    return trimmed;
+  };
+
   const getOptimizedImageBase64 = (imageSrc) => {
     return new Promise((resolve) => {
+      if (!imageSrc) return resolve(null);
       const img = new Image();
-      img.crossOrigin = "Anonymous";
+      // Solo crossOrigin para URLs remotas http(s), NUNCA para data: o blob:
+      if (!imageSrc.startsWith("data:") && !imageSrc.startsWith("blob:")) {
+        img.crossOrigin = "anonymous";
+      }
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas");
           const maxDim = 1600;
-          let width = img.width;
-          let height = img.height;
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
 
           if (width > maxDim || height > maxDim) {
             if (width > height) {
@@ -789,13 +865,18 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           ctx.imageSmoothingQuality = "high";
           ctx.drawImage(img, 0, 0, width, height);
 
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
-          resolve(dataUrl.split(",")[1]);
-        } catch (_) {
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
+          const b64 = dataUrl.split(",")[1];
+          resolve(b64);
+        } catch (canvasErr) {
+          console.warn("Fallo canvas optimizador:", canvasErr);
           resolve(null);
         }
       };
-      img.onerror = () => resolve(null);
+      img.onerror = (e) => {
+        console.warn("Error cargando imagen para optimizar:", e);
+        resolve(null);
+      };
       img.src = imageSrc;
     });
   };
@@ -823,7 +904,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           const ced = gData.cedula || user?.cedula || null;
           const inst = gData.institucion_educativa || gData.institucion || null;
           const carrera = gData.mencion_carrera || gData.carrera || null;
-          const fecha = gData.fecha_emision || gData.fecha || null;
+          const fecha = normalizeDateText(gData.fecha_emision || gData.fecha) || null;
           const fac = gData.facultad || null;
 
           setCurrentStep(4);
