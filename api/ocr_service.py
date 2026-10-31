@@ -80,24 +80,24 @@ class AcademicDegreeNER:
             if len(clean) >= 8:
                 return clean
 
-        if re.search(r'\bCentral\s+de\s+Venezuela\b', text, re.IGNORECASE):
+        if re.search(r'\bCentral\s+de\s+Venezuela\b|Facultad\s+de\s+Medicina|U\.?C\.?V\.?|M[eé]dic[oa]\s+Cirujan[oa]', text, re.IGNORECASE):
             return "Universidad Central de Venezuela (UCV)"
-        elif re.search(r'\bSanta\s+Mar[ií1l]a\b', text, re.IGNORECASE):
+        elif re.search(r'\bSanta\s+Mar[ií1l]a\b|U\.?S\.?M\.?', text, re.IGNORECASE):
             return "Universidad Santa María (USM)"
-        elif re.search(r'\bSim[oó]n\s+Bol[ií]var\b', text, re.IGNORECASE):
+        elif re.search(r'\bSim[oó]n\s+Bol[ií]var\b|U\.?S\.?B\.?', text, re.IGNORECASE):
             return "Universidad Simón Bolívar (USB)"
-        elif re.search(r'\bCat[oó]lica\s+Andr[eé]s\s+Bello\b', text, re.IGNORECASE):
+        elif re.search(r'\bCat[oó]lica\s+Andr[eé]s\s+Bello\b|U\.?C\.?A\.?B\.?', text, re.IGNORECASE):
             return "Universidad Católica Andrés Bello (UCAB)"
-        elif re.search(r'\bde\s+Los\s+Andes\b', text, re.IGNORECASE):
+        elif re.search(r'\bde\s+Los\s+Andes\b|U\.?L\.?A\.?', text, re.IGNORECASE):
             return "Universidad de Los Andes (ULA)"
-        elif re.search(r'\bdel\s+Zulia\b', text, re.IGNORECASE):
+        elif re.search(r'\bdel\s+Zulia\b|L\.?U\.?Z\.?', text, re.IGNORECASE):
             return "Universidad del Zulia (LUZ)"
-        elif re.search(r'\bde\s+Carabobo\b', text, re.IGNORECASE):
+        elif re.search(r'\bde\s+Carabobo\b|U\.?C\.?\b', text, re.IGNORECASE):
             return "Universidad de Carabobo (UC)"
-        elif re.search(r'\bMetropolitana\b', text, re.IGNORECASE):
+        elif re.search(r'\bMetropolitana\b|U\.?N\.?I\.?M\.?E\.?T\.?', text, re.IGNORECASE):
             return "Universidad Metropolitana (UNIMET)"
 
-        return "Institución Universitaria"
+        return None
 
     @classmethod
     def extract_titular(cls, text: str) -> Optional[str]:
@@ -130,6 +130,21 @@ class AcademicDegreeNER:
         """
         Extrae la denominación exacta del título o grado académico conferido.
         """
+        if re.search(r'm[eé]dic[oa]\s+cirujan[oa]', text, re.IGNORECASE):
+            return "Médico Cirujano"
+        if re.search(r'derecho\s+y\s+ciencias\s+pol[ií]ticas', text, re.IGNORECASE):
+            return "Licenciada en Derecho y Ciencias Políticas"
+        if re.search(r'ingenier[ií][oa]\s+(?:en|de)?\s+sistemas', text, re.IGNORECASE):
+            return "Ingeniero de Sistemas"
+        if re.search(r'\babogad[oa]\b', text, re.IGNORECASE):
+            return "Abogado"
+        if re.search(r'administraci[oó]n\s+(?:de\s+empresas|comercial)?', text, re.IGNORECASE):
+            return "Licenciado en Administración"
+        if re.search(r'contadur[ií]a\s+p[uú]blica|contador\s+p[uú]blico', text, re.IGNORECASE):
+            return "Contador Público"
+        if re.search(r'comunicaci[oó]n\s+social', text, re.IGNORECASE):
+            return "Licenciado en Comunicación Social"
+
         patrones = [
             r'(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))',
             r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)'
@@ -164,7 +179,7 @@ class AcademicDegreeNER:
         text_clean = text.lower()
 
         # 1. Fecha escrita en letras con soporte de variantes góticas y prefijos solemnes (incluyendo tildes áéíóúñ)
-        pat_escrita = r'(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be)\s+([a-záéíóúñ\d\s]+)'
+        pat_escrita = r'(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be|del\s+a[ñn]o\s+(?:de|be)?|del\s+a[ñn]o)?\s+([a-záéíóúñ\d\s]+)'
         m = re.search(pat_escrita, text_clean)
         if m:
             dia_raw = m.group(1).strip()
@@ -409,7 +424,7 @@ class USMOcrService:
         titular = data_fields.get("titular") or data_fields.get("nombre_completo")
         # Si se detectó cédula en el texto se usa; si no, se asocia la cédula del graduando autenticado
         cedula = data_fields.get("cedula") or user_cedula
-        institucion = data_fields.get("institucion") or "Institución Universitaria"
+        institucion = data_fields.get("institucion") or None
         carrera = data_fields.get("titulo_conferido") or data_fields.get("carrera")
         fecha = data_fields.get("fecha_expedicion") or data_fields.get("fecha")
         facultad = data_fields.get("facultad")
@@ -417,7 +432,7 @@ class USMOcrService:
         fields = {
             "nombre_completo": {"value": titular, "confidence": 0.95 if titular else 0.0},
             "cedula": {"value": cedula, "confidence": 0.98 if cedula else 0.0},
-            "institucion": {"value": institucion, "confidence": 0.99 if institucion != "Institución Universitaria" else 0.50},
+            "institucion": {"value": institucion, "confidence": 0.99 if institucion else 0.0},
             "facultad": {"value": facultad, "confidence": 0.92 if facultad else 0.0},
             "carrera": {"value": carrera, "confidence": 0.95 if carrera else 0.0},
             "fecha": {"value": fecha, "confidence": 0.90 if fecha else 0.0}

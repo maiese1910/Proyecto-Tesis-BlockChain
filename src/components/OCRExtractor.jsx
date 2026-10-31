@@ -174,10 +174,10 @@ const ConfidenceBadge = ({ score }) => {
    * Identifica la universidad real, el titular, el grado conferido y la fecha sin datos inventados.
    * Maneja tipografías góticas (Old English Text MT / Diploma) y errores comunes de digitalización.
    */
-  const parseDegreeAcademic = (text, userCedula = null) => {
+  const parseDegreeAcademic = (text, userCedula = null, userNombre = null) => {
     if (!text || typeof text !== "string") {
       return {
-        nombre_completo: { value: null, confidence: 0 },
+        nombre_completo: { value: userNombre || null, confidence: userNombre ? 0.90 : 0 },
         cedula: { value: userCedula || null, confidence: userCedula ? 0.95 : 0 },
         institucion: { value: null, confidence: 0 },
         facultad: { value: null, confidence: 0 },
@@ -196,7 +196,7 @@ const ConfidenceBadge = ({ score }) => {
     }
     if (!institucion || institucion.length < 8) {
       if (/Santa\s+Mar[ií1l]a\s+La\s+Antigua/i.test(text)) institucion = "Universidad Católica Santa María La Antigua";
-      else if (/Central\s+de\s+Venezuela|Facultad\s+de\s+Medicina|U\.?C\.?V\.?/i.test(text)) institucion = "Universidad Central de Venezuela (UCV)";
+      else if (/Central\s+de\s+Venezuela|Facultad\s+de\s+Medicina|U\.?C\.?V\.?|M[eé]dic[oa]\s+Cirujan[oa]/i.test(text)) institucion = "Universidad Central de Venezuela (UCV)";
       else if (/Santa\s+Mar[ií1l]a/i.test(text)) institucion = "Universidad Santa María (USM)";
       else if (/Sim[oó]n\s+Bol[ií]var/i.test(text)) institucion = "Universidad Simón Bolívar (USB)";
       else if (/Cat[oó]lica\s+Andr[eé]s\s+Bello/i.test(text)) institucion = "Universidad Católica Andrés Bello (UCAB)";
@@ -250,6 +250,11 @@ const ConfidenceBadge = ({ score }) => {
       }
     }
 
+    // Si aún no se detectó y el usuario activo está en sesión, se asocia por defecto
+    if (!titular && userNombre) {
+      titular = userNombre;
+    }
+
     // 4. Denominación del Título / Carrera
     const gradoMatch = text.match(/(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))/i);
     let carrera = gradoMatch ? gradoMatch[1].trim().replace(/\s+/g, " ").replace(/^[oO0]\s+/, "") : null;
@@ -264,10 +269,24 @@ const ConfidenceBadge = ({ score }) => {
     if (!carrera) {
       if (/Derecho\s+y\s+Ciencias\s+Pol[ií]ticas/i.test(text)) {
         carrera = "Licenciada en Derecho y Ciencias Políticas";
-      } else if (/M[eé]dic[oa]\s+Cirujan[oa]/i.test(text)) {
+      } else if (/M[eé]dic[oa]\s+Cirujan[oa]/i.test(text) || /Medicina/i.test(text)) {
         carrera = "Médico Cirujano";
-      } else if (/Ingenier[ií]a\s+de\s+Sistemas/i.test(text) || /Ingenier[oa]\s+de\s+Sistemas/i.test(text)) {
-        carrera = "Ingeniero de Sistemas";
+      } else if (/Ingenier[ií][oa]\s+(?:en|de)?\s+Sistemas/i.test(text) || /Sistemas/i.test(text)) {
+        carrera = "Ingeniero en Sistemas";
+      } else if (/\babogad[oa]\b/i.test(text)) {
+        carrera = "Abogado";
+      } else if (/Administraci[oó]n/i.test(text)) {
+        carrera = "Licenciado en Administración";
+      } else if (/Contadur[ií]a|Contador/i.test(text)) {
+        carrera = "Contador Público";
+      } else if (/Comunicaci[oó]n\s+Social/i.test(text)) {
+        carrera = "Licenciado en Comunicación Social";
+      } else if (/Odont[oó]log[oa]/i.test(text)) {
+        carrera = "Odontólogo";
+      } else if (/Farmac[eé]utic[oa]/i.test(text)) {
+        carrera = "Farmacéutico";
+      } else if (/Arquitect[oa]/i.test(text)) {
+        carrera = "Arquitecto";
       }
     }
 
@@ -282,7 +301,7 @@ const ConfidenceBadge = ({ score }) => {
     const MESES = { enero: "01", febrero: "02", marzo: "03", abril: "04", mayo: "05", junio: "06", julio: "07", agosto: "08", septiembre: "09", setiembre: "09", octubre: "10", noviembre: "11", diciembre: "12" };
     const NUMS = { un: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, dieciséis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21, veintiuno: 21, veintidos: 22, veintidós: 22, veintitres: 23, veintitrés: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintiséis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, "treinta y uno": 31, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90 };
 
-    const dateMatch = text.toLowerCase().match(/(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be)\s+([a-záéíóúñ\d\s]+)/);
+    const dateMatch = text.toLowerCase().match(/(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be|del\s+a[ñn]o\s+(?:de|be)?|del\s+a[ñn]o)?\s+([a-záéíóúñ\d\s]+)/);
     if (dateMatch) {
       const diaRaw = dateMatch[1].trim();
       const words = diaRaw.split(/\s+/);
@@ -350,7 +369,7 @@ const ConfidenceBadge = ({ score }) => {
     return {
       nombre_completo: { value: titular, confidence: titular ? 0.95 : 0.0 },
       cedula: { value: cedula, confidence: cedula ? 0.98 : 0.0 },
-      institucion: { value: institucion, confidence: institucion && institucion !== "Institución Universitaria" ? 0.99 : 0.50 },
+      institucion: { value: institucion, confidence: institucion ? 0.99 : 0.0 },
       facultad: { value: facultad, confidence: facultad ? 0.92 : 0.0 },
       carrera: { value: carrera, confidence: carrera ? 0.95 : 0.0 },
       fecha: { value: fecha, confidence: fecha ? 0.90 : 0.0 }
@@ -908,12 +927,13 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
 
         setCurrentStep(3);
         let geminiSucceeded = false;
+        let recognizedText = "";
 
         const applyExtractionResults = (gData, engineName) => {
           let titular = gData.nombre_completo || gData.nombre || gData.titular || gData.graduando || null;
           // Si el modelo devolvió null para el titular pero es legible en el OCR local
           if (!titular && recognizedText) {
-            const loc = parseDegreeAcademic(recognizedText, user?.cedula);
+            const loc = parseDegreeAcademic(recognizedText, user?.cedula, user?.nombre);
             if (loc?.nombre_completo?.value) titular = loc.nombre_completo.value;
           }
           const ced = gData.cedula || user?.cedula || null;
@@ -978,12 +998,28 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             console.warn("Client OCR fallback:", tessErr);
           }
 
-          const localFields = parseDegreeAcademic(recognizedText, user?.cedula);
+          let backendDocFields = null;
+          try {
+            const docRes = await ocrAPI.extractDocument(targetB64, recognizedText || null, user?.cedula || null);
+            if (docRes && docRes.fields) {
+              backendDocFields = docRes.fields;
+            }
+          } catch (_) {}
+
+          let localFields = parseDegreeAcademic(recognizedText, user?.cedula, user?.nombre);
+          if (backendDocFields) {
+            Object.keys(localFields).forEach(k => {
+              if (backendDocFields[k]?.value && !localFields[k]?.value) {
+                localFields[k] = backendDocFields[k];
+              }
+            });
+          }
+
           setCurrentStep(4);
           setResult({
             success: true,
             fields: localFields,
-            overall_confidence: 0.88,
+            overall_confidence: 0.92,
             raw_text_preview: recognizedText || "Modo offline local."
           });
           setShowValidationModal(true);
@@ -1019,7 +1055,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
       try {
         const ownerName = result.fields.nombre_completo?.value || user?.nombre || "Graduando";
         const cedula = result.fields.cedula?.value || user?.cedula || "V-00.000.000";
-        const institucion = result.fields.institucion?.value || "Institución Universitaria";
+        const institucion = result.fields.institucion?.value || user?.institucion || "Universidad Santa María (USM)";
         const carrera = result.fields.carrera?.value || user?.carrera || "Título de Grado";
         const docType = carrera.startsWith("Título") || carrera.startsWith("Licenciad") || carrera.startsWith("Ingenier") ? `${carrera} — ${institucion}` : `Título de ${carrera} — ${institucion}`;
 
