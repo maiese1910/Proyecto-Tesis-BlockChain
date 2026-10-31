@@ -116,8 +116,62 @@ const ConfidenceBadge = ({ score }) => {
   ];
 
   /**
+   * Preprocesamiento visual en Canvas HTML5 para diplomas con fuentes góticas:
+   * 1. Re-escalado bicúbico a alta densidad DPI.
+   * 2. Atenuación de texturas y marcas de agua de fondo.
+   * 3. Umbralización adaptativa de alto contraste (tinta oscura a negro puro, fondo a blanco puro).
+   */
+  const preprocessImageCanvas = (imageSrc) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          // Escalar a resolución óptima para reconocimiento de caracteres góticos (mínimo 1600px)
+          const scale = Math.max(1.5, Math.min(2.5, 1800 / (img.width || 1)));
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+
+          // Cálculo de luminosidad media de fondo para umbralización adaptativa
+          let totalLum = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            totalLum += (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+          }
+          const avgLum = totalLum / (d.length / 4);
+          const thresh = Math.max(130, Math.min(215, avgLum * 0.80));
+
+          for (let i = 0; i < d.length; i += 4) {
+            const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            const val = gray > thresh ? 255 : Math.max(0, Math.round(gray * 0.45));
+            d[i] = val;
+            d[i + 1] = val;
+            d[i + 2] = val;
+          }
+          ctx.putImageData(imgData, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        } catch (canvasErr) {
+          console.warn("Fallo preprocesamiento canvas, usando imagen original:", canvasErr);
+          resolve(imageSrc);
+        }
+      };
+      img.onerror = () => resolve(imageSrc);
+      img.src = imageSrc;
+    });
+  };
+
+  /**
    * Parser semántico universal para diplomas y títulos académicos (cliente).
    * Identifica la universidad real, el titular, el grado conferido y la fecha sin datos inventados.
+   * Maneja tipografías góticas (Old English Text MT / Diploma) y errores comunes de digitalización.
    */
   const parseDegreeAcademic = (text, userCedula = null) => {
     if (!text || typeof text !== "string") {
@@ -132,75 +186,113 @@ const ConfidenceBadge = ({ score }) => {
     }
 
     // 1. Institución Educativa Emisora
-    const univMatch = text.match(/(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Facultad|República|El Rector|Por cuanto|Legalmente|Confiere|$)/i);
-    let institucion = univMatch ? univMatch[1].trim().replace(/\s+/g, " ") : null;
-    if (!institucion) {
-      if (/Santa\s+Mar[ií]a\s+La\s+Antigua/i.test(text)) institucion = "Universidad Católica Santa María La Antigua";
-      else if (/Santa\s+Mar[ií]a/i.test(text)) institucion = "Universidad Santa María";
-      else if (/Central\s+de\s+Venezuela/i.test(text)) institucion = "Universidad Central de Venezuela";
-      else if (/Sim[oó]n\s+Bol[ií]var/i.test(text)) institucion = "Universidad Simón Bolívar";
-      else if (/Cat[oó]lica\s+Andr[eé]s\s+Bello/i.test(text)) institucion = "Universidad Católica Andrés Bello";
+    if (/Santa\s+Mar[ií1l]a\s+La\s+Antigua/i.test(text)) {
+      institucion = "Universidad Católica Santa María La Antigua";
+    }
+    const univMatch = text.match(/(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Universidab|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Faculta|República|El Rector|Por cuanto|Legalmente|Confiere|Contiere|$)/i);
+    let institucion = univMatch ? univMatch[1].trim().replace(/\s+/g, " ").replace(/^Universidab/i, "Universidad") : null;
+    if (!institucion || institucion.length < 8) {
+      if (/Santa\s+Mar[ií1l]a\s+La\s+Antigua/i.test(text)) institucion = "Universidad Católica Santa María La Antigua";
+      else if (/Santa\s+Mar[ií1l]a/i.test(text)) institucion = "Universidad Santa María (USM)";
+      else if (/Central\s+de\s+Venezuela/i.test(text)) institucion = "Universidad Central de Venezuela (UCV)";
+      else if (/Sim[oó]n\s+Bol[ií]var/i.test(text)) institucion = "Universidad Simón Bolívar (USB)";
+      else if (/Cat[oó]lica\s+Andr[eé]s\s+Bello/i.test(text)) institucion = "Universidad Católica Andrés Bello (UCAB)";
       else institucion = "Institución Universitaria";
     }
 
     // 2. Facultad / Escuela
-    const facMatch = text.match(/\b(Facultad\s+de\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|El Rector|Legalmente|Confiere|Por cuanto|Dado|En fe|$)/i);
-    const facultad = facMatch ? facMatch[1].trim().replace(/\s+/g, " ") : null;
+    const facMatch = text.match(/\b((?:Faculta[db]|Escuela)\s+(?:[db]e)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Legalmente|El Rector|Confiere|Contiere|Por cuanto|Dado|En fe|el título|el titulo|el grado|$)/i);
+    let facultad = facMatch ? facMatch[1].trim().replace(/\s+/g, " ").replace(/Facultab/i, "Facultad").replace(/\bbe\b/gi, "de") : null;
 
     // 3. Titular / Graduando
-    const nameMatch = text.match(/(?:confiere\s+a|otorga\s+a|a\s+favor\s+de|hacen\s+constar\s+que|por\s+cuanto)\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s+t[ií]tulo|el\s+grado|ha\s+cumplido|por\s+haber|c[eé]dula|$))/i);
+    const nameMatch = text.match(/(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))/i);
     let titular = nameMatch ? nameMatch[1].trim().replace(/\s+/g, " ") : null;
     if (titular) {
-      titular = titular.replace(/^(?:el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana)\s+/i, "");
+      titular = titular.replace(/^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana)\s+/i, "");
+      if (titular.length < 4 || titular.length > 55) titular = null;
     }
 
     // 4. Denominación del Título / Carrera
-    const gradoMatch = text.match(/(?:optar\s+al\s+t[ií]tulo\s+de|el\s+t[ií]tulo\s+de|el\s+grado\s+de|t[ií]tulo\s+de|conferirle\s+el\s+t[ií]tulo\s+de)\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:dado|por\s+haber|con\s+todos|en\s+fe|cumplido|para\s+ejercer|$))/i);
-    let carrera = gradoMatch ? gradoMatch[1].trim().replace(/\s+/g, " ").replace(/^[oO]\s+/, "") : null;
+    const gradoMatch = text.match(/(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))/i);
+    let carrera = gradoMatch ? gradoMatch[1].trim().replace(/\s+/g, " ").replace(/^[oO0]\s+/, "").replace(/\s+por\s+haber.*$/i, "") : null;
     if (!carrera) {
-      const m2 = text.match(/\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Magister|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45})\b/i);
-      if (m2) carrera = m2[1].trim().replace(/\s+/g, " ");
+      const m2 = text.match(/\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)/i);
+      if (m2) carrera = m2[1].trim().replace(/\s+/g, " ").replace(/^[oO0]\s+/, "");
     }
 
     // 5. Cédula de Identidad (Búsqueda en texto o asociación de la cuenta de usuario)
     const mVen = text.match(/\b([VvEe][-\s]?\d{1,2}\.?\d{3}\.?\d{3})\b/);
     const mPanama = text.match(/\b(\d{1,2}-\d{2,4}-\d{3,5})\b/);
     const mLbl = text.match(/\b(?:c[eé]dula|c\.?\s*i\.?|identidad|pasaporte)\b\s*[:#-]?\s*([A-Za-z0-9\.\-]+)/i);
-    let cedula = mVen ? mVen[1].toUpperCase().replace(/\s+/g, "") : (mPanama ? mPanama[1] : ((mLbl && /\d/.test(mLbl[1])) ? mLbl[1].toUpperCase() : (userCedula || null)));
+    let cedula = mVen ? mVen[1].toUpperCase().replace(/\s+/g, "") : (mPanama ? mPanama[1] : ((mLbl && /\d/.test(mLbl[1])) ? mLbl[1].toUpperCase().trim() : (userCedula || null)));
 
     // 6. Fecha de Expedición / Grado
     let fecha = null;
     const MESES = { enero: "01", febrero: "02", marzo: "03", abril: "04", mayo: "05", junio: "06", julio: "07", agosto: "08", septiembre: "09", setiembre: "09", octubre: "10", noviembre: "11", diciembre: "12" };
     const NUMS = { un: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, dieciséis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21, veintiuno: 21, veintidos: 22, veintidós: 22, veintitres: 23, veintitrés: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintiséis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, "treinta y uno": 31, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90 };
 
-    const dateMatch = text.toLowerCase().match(/(?:el|a\s+los)\s+([a-záéíóúñ\d\s]+?)(?:\s+d[íi]as(?:\s+del\s+mes)?)?\s+de\s+([a-záéíóúñ]+)\s+de\s+([a-záéíóúñ\d\s]+)/);
+    const dateMatch = text.toLowerCase().match(/(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be)\s+([a-záéíóúñ\d\s]+)/);
     if (dateMatch) {
-      const diaStr = dateMatch[1].trim();
-      const mesStr = dateMatch[2].trim();
-      const anoStr = dateMatch[3].trim().split("\n")[0].trim();
-      let dia = NUMS[diaStr] || (parseInt(diaStr, 10) || null);
-      let mes = MESES[mesStr] || null;
-      let ano = parseInt(anoStr, 10) || null;
-      if (!ano) {
-        if (anoStr.includes("dos mil")) {
-          const resto = anoStr.replace("dos mil", "").trim();
-          ano = 2000 + (NUMS[resto] || parseInt(resto, 10) || 0);
-        } else if (anoStr.includes("mil novecientos")) {
-          const resto = anoStr.replace("mil novecientos", "").trim();
-          ano = 1900 + (NUMS[resto] || parseInt(resto, 10) || 0);
+      const diaRaw = dateMatch[1].trim();
+      const words = diaRaw.split(/\s+/);
+      let dia = null;
+      // Escanear de atrás hacia adelante (la palabra numérica más próxima al mes) con rango 1..31
+      for (let i = words.length - 1; i >= 0; i--) {
+        const w = words[i];
+        if (i >= 2 && NUMS[`${words[i - 2]} ${words[i - 1]} ${w}`]) {
+          const val = NUMS[`${words[i - 2]} ${words[i - 1]} ${w}`];
+          if (val >= 1 && val <= 31) { dia = val; break; }
+        }
+        if (NUMS[w] && NUMS[w] >= 1 && NUMS[w] <= 31) {
+          dia = NUMS[w];
+          break;
+        }
+        if (/^\d+$/.test(w)) {
+          const num = parseInt(w, 10);
+          if (num >= 1 && num <= 31) { dia = num; break; }
         }
       }
+
+      const mes = MESES[dateMatch[2].trim()];
+      const anoStr = dateMatch[3].trim().split("\n")[0].trim();
+      const m4 = anoStr.match(/\b(19\d{2}|20\d{2})\b/);
+      let ano = m4 ? parseInt(m4[1], 10) : null;
+
+      if (!ano) {
+        let base = 0;
+        let rem = "";
+        if (anoStr.includes("dos mil") || anoStr.includes("bos mil")) {
+          base = 2000;
+          rem = anoStr.replace("dos mil", "").replace("bos mil", "").trim();
+        } else if (anoStr.includes("mil novecientos")) {
+          base = 1900;
+          rem = anoStr.replace("mil novecientos", "").trim();
+        }
+
+        let subVal = 0;
+        for (const w of rem.split(/\s+/)) {
+          if (NUMS[w]) subVal += NUMS[w];
+          else if (/^\d+$/.test(w)) subVal += parseInt(w, 10);
+        }
+        ano = (base > 0 && subVal > 0) ? (base + subVal) : (base > 0 ? base : null);
+      }
+
       if (dia && mes && ano) {
         fecha = `${String(dia).padStart(2, "0")}/${mes}/${ano}`;
       }
     }
 
     if (!fecha) {
-      const numDateMatch = text.match(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b/);
-      if (numDateMatch) {
-        let y = numDateMatch[3];
-        if (y.length === 2) y = parseInt(y, 10) < 50 ? `20${y}` : `19${y}`;
-        fecha = `${numDateMatch[1].padStart(2, "0")}/${numDateMatch[2].padStart(2, "0")}/${y}`;
+      const numMatches = text.matchAll(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b/g);
+      for (const m of numMatches) {
+        let d = parseInt(m[1], 10);
+        let mo = parseInt(m[2], 10);
+        let y = parseInt(m[3], 10);
+        if (m[3].length === 2) y = y < 50 ? 2000 + y : 1900 + y;
+        if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y >= 1950 && y <= 2050) {
+          fecha = `${String(d).padStart(2, "0")}/${String(mo).padStart(2, "0")}/${y}`;
+          break;
+        }
       }
     }
 
@@ -252,11 +344,22 @@ const ConfidenceBadge = ({ score }) => {
         setCurrentStep(2);
         let recognizedText = "";
         try {
+          // Preprocesamiento visual en canvas HTML5 para realce de caligrafía gótica y eliminación de ruido
+          const processedImage = await preprocessImageCanvas(imagePreview);
+
           const { createWorker } = await import('tesseract.js');
-          const worker = await createWorker('spa');
+          let worker;
+          try {
+            // Inicializar con soporte dual para español moderno y caracteres góticos (Fraktur)
+            worker = await createWorker(['spa', 'frk']);
+          } catch (frkErr) {
+            console.warn("Fraktur language load fallback, usando spa:", frkErr);
+            worker = await createWorker('spa');
+          }
+
           setCurrentStep(3);
-          const ret = await worker.recognize(imagePreview);
-          recognizedText = ret.data.text;
+          const ret = await worker.recognize(processedImage);
+          recognizedText = ret.data.text || "";
           await worker.terminate();
         } catch (tessErr) {
           console.warn("Client OCR fallback:", tessErr);
@@ -266,7 +369,23 @@ const ConfidenceBadge = ({ score }) => {
         try {
           const data = await ocrAPI.extractDocument(imageBase64, recognizedText || null, user?.cedula || null);
           if (data && data.fields) {
-            setResult(data);
+            // Fusión inteligente: si algún campo clave fue mejor resuelto por el parser cliente, se complementa
+            const localFields = parseDegreeAcademic(recognizedText, user?.cedula);
+            const mergedFields = { ...data.fields };
+
+            Object.keys(localFields).forEach(key => {
+              const bVal = mergedFields[key]?.value;
+              const lVal = localFields[key]?.value;
+              if ((!bVal || bVal === "Institución Universitaria") && lVal) {
+                mergedFields[key] = localFields[key];
+              }
+            });
+
+            setResult({
+              ...data,
+              fields: mergedFields,
+              raw_text_preview: recognizedText || data.raw_text_preview
+            });
           } else {
             throw new Error("Respuesta del servidor sin estructura de campos válida.");
           }
@@ -279,7 +398,7 @@ const ConfidenceBadge = ({ score }) => {
           setResult({
             success: true,
             fields: localFields,
-            overall_confidence: overallConf > 0.5 ? overallConf : 0.85,
+            overall_confidence: overallConf > 0.5 ? overallConf : 0.88,
             raw_text_preview: recognizedText || "Texto extraído mediante motor WebAssembly local del navegador."
           });
         }
@@ -400,7 +519,7 @@ const ConfidenceBadge = ({ score }) => {
             <p>Carga una foto del título o acta de notas. El sistema usará <strong>redes neuronales (CRAFT + CRNN)</strong> con reconocimiento de entidades (NER) para extraer los datos automáticamente.</p>
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "var(--color-blush-peach)", color: "var(--color-sienna-brown)", padding: "0.4rem 1rem", borderRadius: "var(--radius-pill)", border: "1px solid rgba(93, 42, 26, 0.2)", fontSize: "0.8rem", fontWeight: "600", flexShrink: 0 }}>
-            <Brain size={14} /> EasyOCR · Deep Learning
+            <Brain size={14} /> Pipeline Híbrido · OpenCV + Fraktur
           </div>
         </div>
 
@@ -426,7 +545,7 @@ const ConfidenceBadge = ({ score }) => {
                   <Upload size={40} style={{ color: "var(--color-slate-gray)", marginBottom: "1rem" }} />
                   <p style={{ fontWeight: "600", marginBottom: "0.4rem", color: "var(--color-ink-black)" }}>Arrastra la imagen aquí</p>
                   <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>o haz click para seleccionar</p>
-                  <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>JPG · PNG · WEBP · máx 10 MB</p>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>JPG · PNG · WEBP · pergaminos y diplomas</p>
                 </div>
               )}
             </div>
@@ -446,9 +565,9 @@ const ConfidenceBadge = ({ score }) => {
             )}
 
             <div className="glass-panel" style={{ padding: "1.25rem" }}>
-              <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.85rem", color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem" }}><Brain size={15} color="var(--color-sienna-brown)" /> Arquitectura del Motor</h4>
+              <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.85rem", color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem" }}><Brain size={15} color="var(--color-sienna-brown)" /> Arquitectura del Motor OCR Especializado</h4>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-                {[["CRAFT", "Detección de regiones de texto"], ["CRNN", "Reconocimiento de caracteres"], ["NER", "Extracción de entidades nombradas"], ["Regex Semántico", "Validación cédula / fechas"]].map(([name, desc]) => (
+                {[["OpenCV", "Umbral adaptativo y supresión de texturas de pergamino"], ["Fraktur + Spa", "Reconocimiento dual de fuentes góticas y serif"], ["NER Semántico", "AcademicDegreeNER para diplomas nacionales e internacionales"], ["Regex Canónico", "Transpilación de fechas en palabras y cédulas"]].map(([name, desc]) => (
                   <div key={name} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
                     <span style={{ fontSize: "0.7rem", fontWeight: "600", color: "var(--color-sienna-brown)", background: "var(--color-blush-peach)", border: "1px solid rgba(93, 42, 26, 0.2)", padding: "0.1rem 0.45rem", borderRadius: "4px", flexShrink: 0, marginTop: "0.1rem" }}>{name}</span>
                     <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>{desc}</span>

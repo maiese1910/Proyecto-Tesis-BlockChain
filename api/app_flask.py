@@ -75,6 +75,7 @@ def extract_document():
     image_bytes = None
     mode = "auto"
     raw_text_client = None
+    user_cedula = None
 
     # Caso 1: Archivo subido en formulario multipart
     if "file" in request.files:
@@ -83,12 +84,14 @@ def extract_document():
             image_bytes = uploaded_file.read()
             mode = request.form.get("mode", "auto")
             raw_text_client = request.form.get("raw_text")
+            user_cedula = request.form.get("user_cedula")
 
     # Caso 2: Payload JSON con base64 o raw_text
     elif request.is_json:
         data = request.get_json()
         mode = data.get("mode", "auto")
         raw_text_client = data.get("raw_text")
+        user_cedula = data.get("user_cedula")
         b64_str = data.get("image_base64")
         if b64_str:
             if "," in b64_str:
@@ -101,7 +104,12 @@ def extract_document():
     # Si el cliente ya extrajo el texto (ej: Tesseract.js WASM en navegador)
     if raw_text_client and len(raw_text_client.strip()) > 15:
         ner_fields = USMOcrService.rule_based_ner(raw_text_client)
-        resp = USMOcrService.format_for_frontend(ner_fields, raw_text_client, "WASM Tesseract + Flask Academic NER")
+        resp = USMOcrService.format_for_frontend(
+            ner_fields,
+            raw_text_client,
+            "WASM Tesseract + Flask Academic NER",
+            user_cedula=user_cedula
+        )
         return jsonify(resp), 200
 
     if not image_bytes:
@@ -115,7 +123,12 @@ def extract_document():
         if mode == "vision_ai":
             try:
                 res = USMOcrService.extract_with_ollama_vision(image_bytes)
-                resp = USMOcrService.format_for_frontend(res["extracted_fields"], res.get("raw_response", ""), res["engine"])
+                resp = USMOcrService.format_for_frontend(
+                    res["extracted_fields"],
+                    res.get("raw_response", ""),
+                    res["engine"],
+                    user_cedula=user_cedula
+                )
                 return jsonify(resp), 200
             except Exception as e:
                 logger.warning(f"Ollama local no disponible, activando fallback híbrido: {e}")
@@ -131,14 +144,24 @@ def extract_document():
         # 2. Modo Híbrido (OpenCV Morfología + Tesseract frk+spa)
         tess_result = USMOcrService.extract_with_tesseract(image_cv)
         if tess_result.get("full_text"):
-            resp = USMOcrService.format_for_frontend(tess_result["extracted_fields"], tess_result["full_text"], tess_result["engine"])
+            resp = USMOcrService.format_for_frontend(
+                tess_result["extracted_fields"],
+                tess_result["full_text"],
+                tess_result["engine"],
+                user_cedula=user_cedula
+            )
             resp["fraktur_enabled"] = tess_result.get("fraktur_enabled", False)
             return jsonify(resp), 200
 
         # 3. Fallback a raw_text si el motor Tesseract en servidor no tiene binarios instalados
         if raw_text_client:
             ner_fields = USMOcrService.rule_based_ner(raw_text_client)
-            resp = USMOcrService.format_for_frontend(ner_fields, raw_text_client, "Client OCR + Flask NER")
+            resp = USMOcrService.format_for_frontend(
+                ner_fields,
+                raw_text_client,
+                "Client OCR + Flask NER",
+                user_cedula=user_cedula
+            )
             return jsonify(resp), 200
 
         return jsonify({

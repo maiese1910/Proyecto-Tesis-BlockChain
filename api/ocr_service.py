@@ -65,28 +65,29 @@ class AcademicDegreeNER:
     def extract_institution(cls, text: str) -> str:
         """
         Extrae el nombre de la institución universitaria sin forzar una entidad predeterminada.
+        Maneja caligrafía gótica y caracteres OCR aproximados.
         """
-        # 1. Búsqueda de patrones explícitos de Universidad o Instituto
+        if re.search(r'Santa\s+Mar[ií1l]a\s+La\s+Antigua', text, re.IGNORECASE):
+            return "Universidad Católica Santa María La Antigua"
+
         m = re.search(
-            r'(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Facultad|República|El Rector|Por cuanto|Legalmente|Confiere|$)',
+            r'(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Universidab|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Faculta|República|El Rector|Por cuanto|Legalmente|Confiere|Contiere|$)',
             text, re.IGNORECASE
         )
         if m:
             clean = ' '.join(m.group(1).strip().split())
+            clean = re.sub(r'^Universidab', 'Universidad', clean, flags=re.IGNORECASE)
             if len(clean) >= 8:
                 return clean
 
-        # 2. Búsqueda por sellos o menciones periféricas
-        if re.search(r'\bSanta\s+Mar[ií]a\s+La\s+Antigua\b', text, re.IGNORECASE):
-            return "Universidad Católica Santa María La Antigua"
-        elif re.search(r'\bSanta\s+Mar[ií]a\b', text, re.IGNORECASE):
-            return "Universidad Santa María"
+        if re.search(r'\bSanta\s+Mar[ií1l]a\b', text, re.IGNORECASE):
+            return "Universidad Santa María (USM)"
         elif re.search(r'\bCentral\s+de\s+Venezuela\b', text, re.IGNORECASE):
-            return "Universidad Central de Venezuela"
+            return "Universidad Central de Venezuela (UCV)"
         elif re.search(r'\bSim[oó]n\s+Bol[ií]var\b', text, re.IGNORECASE):
-            return "Universidad Simón Bolívar"
+            return "Universidad Simón Bolívar (USB)"
         elif re.search(r'\bCat[oó]lica\s+Andr[eé]s\s+Bello\b', text, re.IGNORECASE):
-            return "Universidad Católica Andrés Bello"
+            return "Universidad Católica Andrés Bello (UCAB)"
 
         return "Institución Universitaria"
 
@@ -95,19 +96,16 @@ class AcademicDegreeNER:
         """
         Extrae el nombre y apellidos completos del graduando / titular del diploma.
         """
-        # Patrones de concesión en diplomas
         patrones = [
-            r'(?:confiere\s+a|otorga\s+a|a\s+favor\s+de|hacen\s+constar\s+que|por\s+cuanto)\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s+t[ií]tulo|el\s+grado|ha\s+cumplido|por\s+haber|c[eé]dula|$))',
+            r'(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))',
             r'(?:graduando|titular|egresado)\s*[:#-]?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{6,45})'
         ]
         for pat in patrones:
             m = re.search(pat, text, re.IGNORECASE)
             if m:
                 cand = ' '.join(m.group(1).strip().split())
-                # Limpiar fórmulas de cortesía
-                cand = re.sub(r'^(?:el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana)\s+', '', cand, flags=re.IGNORECASE)
-                # Asegurar longitud razonable para nombres
-                if 5 <= len(cand) <= 50:
+                cand = re.sub(r'^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana)\s+', '', cand, flags=re.IGNORECASE)
+                if 4 <= len(cand) <= 50:
                     return cand
 
         return None
@@ -117,17 +115,16 @@ class AcademicDegreeNER:
         """
         Extrae la denominación exacta del título o grado académico conferido.
         """
-        # 1. Expresión canónica "el título de..." / "el grado de..."
         patrones = [
-            r'(?:optar\s+al\s+t[ií]tulo\s+de|el\s+t[ií]tulo\s+de|el\s+grado\s+de|t[ií]tulo\s+de|conferirle\s+el\s+t[ií]tulo\s+de)\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:dado|por\s+haber|con\s+todos|en\s+fe|cumplido|para\s+ejercer|$))',
-            r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Magister|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45})\b'
+            r'(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))',
+            r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)'
         ]
         for pat in patrones:
             m = re.search(pat, text, re.IGNORECASE)
             if m:
                 cand = ' '.join(m.group(1).strip().split())
-                # Limpiar posibles artefactos OCR como 'o Licenciada...'
-                cand = re.sub(r'^[oO]\s+', '', cand)
+                cand = re.sub(r'^[oO0]\s+', '', cand)
+                cand = re.sub(r'\s+por\s+haber.*$', '', cand, flags=re.IGNORECASE)
                 if len(cand) >= 4:
                     return cand
 
@@ -136,9 +133,12 @@ class AcademicDegreeNER:
     @classmethod
     def extract_faculty(cls, text: str) -> Optional[str]:
         """Extrae la Facultad o Escuela si figura en el encabezado."""
-        m = re.search(r'\b(Facultad\s+de\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|El Rector|Legalmente|Confiere|Por cuanto|Dado|En fe|$)', text, re.IGNORECASE)
+        m = re.search(r'\b((?:Faculta[db]|Escuela)\s+(?:[db]e)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Legalmente|El Rector|Confiere|Contiere|Por cuanto|Dado|En fe|el título|el titulo|el grado|$)', text, re.IGNORECASE)
         if m:
-            return ' '.join(m.group(1).strip().split())
+            cand = ' '.join(m.group(1).strip().split())
+            cand = re.sub(r'Facultab', 'Facultad', cand, flags=re.IGNORECASE)
+            cand = re.sub(r'\bbe\b', 'de', cand, flags=re.IGNORECASE)
+            return cand
         return None
 
     @classmethod
@@ -148,56 +148,75 @@ class AcademicDegreeNER:
         """
         text_clean = text.lower()
 
-        # 1. Fecha escrita en letras: 'el veinticinco de mayo de dos mil uno'
-        pat_escrita = r'(?:el|a\s+los)\s+([a-záéíóúñ\d\s]+?)(?:\s+d[íi]as(?:\s+del\s+mes)?)?\s+de\s+([a-záéíóúñ]+)\s+de\s+([a-záéíóúñ\d\s]+)'
+        # 1. Fecha escrita en letras con soporte de variantes góticas y prefijos solemnes (incluyendo tildes áéíóúñ)
+        pat_escrita = r'(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be)\s+([a-záéíóúñ\d\s]+)'
         m = re.search(pat_escrita, text_clean)
         if m:
-            dia_str = m.group(1).strip()
-            mes_str = m.group(2).strip()
+            dia_raw = m.group(1).strip()
+            words = dia_raw.split()
+            dia = None
+            # Escanear de atrás hacia adelante (la palabra numérica más próxima al mes) con rango 1..31
+            for i in range(len(words) - 1, -1, -1):
+                w = words[i]
+                if i >= 2 and f"{words[i-2]} {words[i-1]} {words[i]}" in cls.NUMS:
+                    val = cls.NUMS[f"{words[i-2]} {words[i-1]} {words[i]}"]
+                    if 1 <= val <= 31:
+                        dia = val
+                        break
+                if w in cls.NUMS and 1 <= cls.NUMS[w] <= 31:
+                    dia = cls.NUMS[w]
+                    break
+                if w.isdigit() and 1 <= int(w) <= 31:
+                    dia = int(w)
+                    break
+
+            mes = cls.MESES.get(m.group(2).strip())
             ano_str = m.group(3).strip().split('\n')[0].strip()
+            ano = cls._parse_spanish_year(ano_str)
 
-            dia = cls.NUMS.get(dia_str)
-            if not dia and dia_str.isdigit():
-                dia = int(dia_str)
+            if dia and mes and ano:
+                return f"{dia:02d}/{mes}/{ano}"
 
-            mes = cls.MESES.get(mes_str)
-            if mes:
-                ano = cls._parse_spanish_year(ano_str)
-                if dia and mes and ano:
-                    return f"{dia:02d}/{mes}/{ano}"
-
-        # 2. Fecha numérica (ej: 28-5-2001, 28/05/2001, 2026-10-24)
-        num_m = re.search(r'\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b', text)
-        if num_m:
-            d, m, y = int(num_m.group(1)), int(num_m.group(2)), num_m.group(3)
-            if len(y) == 2:
-                y = f"20{y}" if int(y) < 50 else f"19{y}"
-            return f"{d:02d}/{m:02d}/{y}"
+        # 2. Fecha numérica con validación estricta de rangos de calendario
+        for nm in re.finditer(r'\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b', text):
+            d, m, y = int(nm.group(1)), int(nm.group(2)), int(nm.group(3))
+            if len(nm.group(3)) == 2:
+                y = 2000 + y if y < 50 else 1900 + y
+            if 1 <= d <= 31 and 1 <= m <= 12 and 1950 <= y <= 2050:
+                return f"{d:02d}/{m:02d}/{y}"
+            elif 1 <= m <= 31 and 1 <= d <= 12 and 1950 <= y <= 2050:
+                return f"{m:02d}/{d:02d}/{y}"
 
         return None
 
     @classmethod
     def _parse_spanish_year(cls, ano_str: str) -> Optional[int]:
         clean = ano_str.lower().strip()
-        if clean.isdigit() and len(clean) == 4:
-            return int(clean)
+        m4 = re.search(r'\b(19\d{2}|20\d{2})\b', clean)
+        if m4:
+            return int(m4.group(1))
 
         base = 0
-        if 'dos mil' in clean:
+        if 'dos mil' in clean or 'bos mil' in clean:
             base = 2000
-            clean = clean.replace('dos mil', '').strip()
+            rem = clean.replace('dos mil', '').replace('bos mil', '').strip()
         elif 'mil novecientos' in clean:
             base = 1900
-            clean = clean.replace('mil novecientos', '').strip()
+            rem = clean.replace('mil novecientos', '').strip()
+        else:
+            rem = ''
 
-        if clean in cls.NUMS:
-            return base + cls.NUMS[clean]
+        if not rem and base > 0:
+            return base
 
-        comp = re.match(r'^([a-z]+)\s+y\s+([a-z]+)$', clean)
-        if comp and comp.group(1) in cls.NUMS and comp.group(2) in cls.NUMS:
-            return base + cls.NUMS[comp.group(1)] + cls.NUMS[comp.group(2)]
+        sub_val = 0
+        for w in rem.split():
+            if w in cls.NUMS:
+                sub_val += cls.NUMS[w]
+            elif w.isdigit():
+                sub_val += int(w)
 
-        return base if base > 0 else None
+        return base + sub_val if (base > 0 and sub_val > 0) else (base if base > 0 else None)
 
     @classmethod
     def extract_cedula(cls, text: str) -> Optional[str]:
