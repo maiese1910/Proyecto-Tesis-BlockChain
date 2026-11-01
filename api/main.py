@@ -410,11 +410,21 @@ def _load_records_cache():
             with open(RECORDS_CACHE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, list) and data:
-                    known_hashes = {r.get("hash") for r in _records_memory if r.get("hash")}
+                    # Indexar registros por hash normalizado (minúsculas) para sobrescribir con el estado más reciente
+                    index_by_hash = {
+                        (r.get("hash") or "").strip().lower(): i 
+                        for i, r in enumerate(_records_memory) 
+                        if r.get("hash")
+                    }
                     for item in data:
-                        if item.get("hash") and item["hash"] not in known_hashes:
+                        h = (item.get("hash") or "").strip().lower()
+                        if not h:
+                            continue
+                        if h in index_by_hash:
+                            _records_memory[index_by_hash[h]] = item
+                        else:
                             _records_memory.append(item)
-                            known_hashes.add(item["hash"])
+                            index_by_hash[h] = len(_records_memory) - 1
     except Exception as e:
         logger.debug(f"No se pudo cargar cache de registros de /tmp: {e}")
 
@@ -1027,6 +1037,46 @@ def register_blockchain_document():
     }), 200
 
 
+def _get_status_weight(status: str) -> int:
+    if not status:
+        return 0
+    s = str(status).upper()
+    if "APOSTILL" in s:
+        return 50
+    if "CERTIFICAD" in s:
+        return 40
+    if "VERIFICAD" in s:
+        return 30
+    if "COTEJO" in s:
+        return 20
+    if "SOLICITUD" in s or "EMITID" in s:
+        return 10
+    if "RECHAZ" in s:
+        return 5
+    return 15
+
+
+def _merge_records_lists(list_a, list_b):
+    merged = {}
+    for item in list(list_b) + list(list_a):
+        if not item or not item.get("hash"):
+            continue
+        h = str(item.get("hash")).strip().lower()
+        if h not in merged:
+            merged[h] = dict(item)
+        else:
+            cur = merged[h]
+            w_cur = _get_status_weight(cur.get("status"))
+            w_new = _get_status_weight(item.get("status"))
+            winner = dict(item if w_new >= w_cur else cur)
+            winner["mppeuVerified"] = bool(cur.get("mppeuVerified") or item.get("mppeuVerified") or "CERTIFICAD" in str(winner.get("status", "")).upper() or "APOSTILL" in str(winner.get("status", "")).upper())
+            winner["mppreVerified"] = bool(cur.get("mppreVerified") or item.get("mppreVerified") or "APOSTILL" in str(winner.get("status", "")).upper())
+            winner["apostilleNumber"] = item.get("apostilleNumber") or cur.get("apostilleNumber")
+            winner["solicitudCode"] = item.get("solicitudCode") or cur.get("solicitudCode") or item.get("solicitud_code") or cur.get("solicitud_code")
+            merged[h] = winner
+    return list(merged.values())
+
+
 @app.route("/blockchain/records", methods=["GET"])
 @app.route("/api/blockchain/records", methods=["GET"])
 def get_all_records():
@@ -1040,45 +1090,52 @@ def get_all_records():
         except Exception as e:
             logger.warning(f"Error obteniendo records de Supabase: {e}")
 
-    if db_records:
-        return jsonify({"success": True, "records": db_records}), 200
-    return jsonify({"success": True, "records": [map_record(r) for r in _records_memory]}), 200
+    memory_records = [map_record(r) for r in _records_memory]
+    final_records = _merge_records_lists(memory_records, db_records)
+    return jsonify({"success": True, "records": final_records}), 200
 
 
 @app.route("/blockchain/records/cedula/<cedula>", methods=["GET"])
 @app.route("/api/blockchain/records/cedula/<cedula>", methods=["GET"])
 def get_records_by_cedula(cedula: str):
+    _load_records_cache()
     cedula_clean = cedula.replace(".", "").replace("-", "").replace(" ", "").upper()
     variations = list(set([cedula, cedula_clean, f"V-{cedula_clean}", f"V-{cedula_clean.replace('V', '')}"]))
 
+    db_records = []
     if supabase:
         try:
             res = supabase.table("records").select("*").in_("cedula", variations).order("created_at", desc=True).execute()
             if res.data and len(res.data) > 0:
-                return jsonify({"success": True, "records": [map_record(r) for r in res.data]}), 200
+                db_records = [map_record(r) for r in res.data]
         except Exception:
             pass
 
-    matched = [
+    matched_memory = [
         map_record(r) for r in _records_memory
         if (r.get("cedula") or "").replace(".", "").replace("-", "").replace(" ", "").upper() in [
             v.replace(".", "").replace("-", "").replace(" ", "").upper() for v in variations
         ]
     ]
-    return jsonify({"success": True, "records": matched}), 200
+
+    final_matches = _merge_records_lists(matched_memory, db_records)
+    return jsonify({"success": True, "records": final_matches}), 200
 
 
 @app.route("/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
 def mppeu_certify_record(doc_hash: str):
+    _load_records_cache()
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppeu_agente")
     auditor_cargo = data.get("auditor_cargo", "Analista Revisor de Taquilla GTU")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     tx_hash = f"0x{secrets.token_hex(32)}"
+    clean_h = doc_hash.strip().lower()
+
     try:
-        rec = next((r for r in _records_memory if r.get("hash") == doc_hash), None)
+        rec = next((r for r in _records_memory if (r.get("hash") or "").strip().lower() == clean_h), None)
         if rec:
             real_tx = send_register_transaction(
                 doc_hash,
@@ -1092,7 +1149,7 @@ def mppeu_certify_record(doc_hash: str):
         pass
 
     for r in _records_memory:
-        if r.get("hash") == doc_hash:
+        if (r.get("hash") or "").strip().lower() == clean_h:
             r["status"] = "CERTIFICADO_MPPEU"
             r["mppeu_verified"] = True
             r["mppeu_officer"] = f"{auditor_name} ({auditor_cargo})"
@@ -1100,6 +1157,8 @@ def mppeu_certify_record(doc_hash: str):
             r["tx_hash"] = tx_hash
             r["verified_by"] = auditor_name
             break
+
+    _save_records_cache()
 
     if supabase:
         try:
@@ -1123,17 +1182,18 @@ def mppeu_certify_record(doc_hash: str):
         "verifiedBy": auditor_name
     }), 200
 
-
 @app.route("/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 def mppre_apostille_record(doc_hash: str):
+    _load_records_cache()
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppre_agente")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     apostille_num = f"APO-VE-2026-{secrets.token_hex(3).upper()}"
+    clean_h = doc_hash.strip().lower()
 
     for r in _records_memory:
-        if r.get("hash") == doc_hash:
+        if (r.get("hash") or "").strip().lower() == clean_h:
             r["status"] = "APOSTILLADO_MPPRE"
             r["mppre_verified"] = True
             r["mppre_officer"] = f"{auditor_name} (Cancillería)"
@@ -1141,6 +1201,8 @@ def mppre_apostille_record(doc_hash: str):
             r["apostille_number"] = apostille_num
             r["verified_by"] = auditor_name
             break
+
+    _save_records_cache()
 
     if supabase:
         try:
@@ -1158,12 +1220,11 @@ def mppre_apostille_record(doc_hash: str):
     increment_stat("titulos_blockchain", 0, log_entry=f"MPPRE APOSTILLA: Documento {doc_hash[:10]}... apostillado legalmente con código {apostille_num} por {auditor_name}.")
     return jsonify({
         "success": True,
-        "message": "Apostilla Electrónica de La Haya emitida exitosamente.",
+        "message": "Apostilla Electrónica de La Haya emitida y sellada digitalmente.",
         "status": "APOSTILLADO_MPPRE",
         "apostilleNumber": apostille_num,
         "verifiedBy": auditor_name
     }), 200
-
 
 @app.route("/blockchain/records/<doc_hash>/verify", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/verify", methods=["POST"])
@@ -1224,6 +1285,7 @@ def reject_record_status(doc_hash: str):
 @app.route("/blockchain/certificate/<doc_hash>", methods=["GET"])
 @app.route("/api/blockchain/certificate/<doc_hash>", methods=["GET"])
 def get_digital_certificate(doc_hash: str):
+    _load_records_cache()
     raw_hash = doc_hash.strip()
     clean_hash = raw_hash[2:] if raw_hash.lower().startswith('0x') else raw_hash
 

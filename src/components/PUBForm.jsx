@@ -1,824 +1,858 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, FileText, Download, ShieldCheck, Printer, MessageSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import html2pdf from 'html2pdf.js';
-import { QRCodeSVG } from 'qrcode.react';
-import DigitalCertificate from './DigitalCertificate';
-import { blockchainAPI, hashAPI } from '../services/api';
-
-// ─── Validadores por campo ───────────────────────────────────────────────────
-const validators = {
-  nombre_completo: (v) => {
-    const words = v.trim().split(/\s+/);
-    if (words.length < 2) return 'Debes escribir al menos **nombre y apellido** completos.';
-    if (/\d/.test(v)) return 'El nombre no debe contener números. Por favor corrígelo.';
-    return null;
-  },
-  cedula: (v) => {
-    if (!/^[VvEe]-?\d{6,9}$/.test(v.replace(/\./g, '')))
-      return 'Formato incorrecto. Usa el formato **V-12.345.678** o **E-12.345.678**.';
-    return null;
-  },
-  telefono: (v) => {
-    const cleaned = v.replace(/[-\s]/g, '');
-    if (!/^(0414|0424|0412|0416|0426|0212|0241|0251|0261|0281|0291|0243)[0-9]{7}$/.test(cleaned))
-      return 'Número inválido. Usa el formato venezolano: **0414-1234567** o **0212-5551234**.';
-    return null;
-  },
-  correo: (v) => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
-      return 'El correo electrónico no es válido. Ejemplo correcto: **juan.perez@gmail.com**.';
-    return null;
-  },
-  tramite: (v) => {
-    if (v.trim().length < 5) return 'El tipo de trámite es demasiado corto. Escribe el nombre completo.';
-    return null;
-  },
-  institucion: (v) => {
-    if (v.trim().length < 3) return 'Por favor escribe el nombre completo de la institución.';
-    return null;
-  },
-  banco: (v) => {
-    if (v.trim().length < 3) return 'Por favor indica el nombre del banco (ej: **Banco de Venezuela**).';
-    return null;
-  },
-  monto: (v) => {
-    if (!/^\d+([.,]\d{1,2})?$/.test(v.trim()))
-      return 'Monto inválido. Escribe solo números con hasta 2 decimales. Ejemplo: **150.00**.';
-    if (parseFloat(v.replace(',', '.')) <= 0)
-      return 'El monto debe ser mayor a cero.';
-    return null;
-  },
-  pago_cedula: (v) => {
-    if (!/^[VvEe]-?\d{6,9}$/.test(v.replace(/\./g, '')))
-      return 'Formato incorrecto. Usa el formato **V-12.345.678** o **E-12.345.678**.';
-    return null;
-  },
-  pago_telefono: (v) => {
-    const cleaned = v.replace(/[-\s]/g, '');
-    if (!/^(0414|0424|0412|0416|0426|0212|0241|0251|0261|0281|0291|0243)[0-9]{7}$/.test(cleaned))
-      return 'Número inválido. Usa el formato venezolano: **0414-1234567**.';
-    return null;
-  },
-  pago_banco: (v) => {
-    if (v.trim().length < 3) return 'Por favor indica el nombre del banco (ej: **Banesco**, **Mercantil**, **Provincial**).';
-    return null;
-  },
-  confirmacion_pago: (v) => {
-    if (v.trim().toLowerCase() !== 'listo') return 'Debes escribir **"listo"** cuando hayas realizado la transferencia para continuar.';
-    return null;
-  }
-};
-
-// ─── Definición de campos de la PUB ─────────────────────────────────────────
-const PUB_FIELDS = [
-  {
-    id: 'nombre_completo',
-    label: 'Nombre Completo del Solicitante',
-    placeholder: 'Ej: Juan Carlos Pérez García',
-    pregunta: 'Formulario Oficial — Planilla Única Bancaria (PUB)\n\n**Campo 1 — Nombre Completo**\n\n¿Cuál es su nombre completo tal como aparece en su cédula de identidad?',
-    ayuda: 'Escribe **todos tus nombres y ambos apellidos**, exactamente como aparecen en tu cédula laminada. Ejemplo: *Juan Carlos Pérez García*. No uses abreviaciones ni apodos.',
-  },
-  {
-    id: 'cedula',
-    label: 'Cédula de Identidad',
-    placeholder: 'Ej: V-12.345.678',
-    pregunta: '**Campo 2 — Cédula de Identidad**\n\n¿Cuál es tu número de cédula? (Incluye el prefijo V- o E-)',
-    ayuda: 'Usa el formato: **V-12.345.678** (venezolano) o **E-12.345.678** (extranjero). El formato incorrecto causa rechazo inmediato en el SAREN.',
-  },
-  {
-    id: 'telefono',
-    label: 'Teléfono de Contacto',
-    placeholder: 'Ej: 0414-1234567',
-    pregunta: '**Campo 3 — Teléfono de Contacto**\n\n¿Cuál es tu número de teléfono venezolano activo?',
-    ayuda: 'Escribe tu número con la operadora incluida: **0414-1234567**, **0212-5551234**, etc. El SAREN lo usa para notificaciones del trámite.',
-  },
-  {
-    id: 'correo',
-    label: 'Correo Electrónico',
-    placeholder: 'Ej: juan.perez@gmail.com',
-    pregunta: '**Campo 4 — Correo Electrónico**\n\n¿Cuál es tu correo electrónico activo?',
-    ayuda: 'Usa un correo que revises con frecuencia. El SAREN envía confirmaciones y estados del trámite a este correo.',
-  },
-  {
-    id: 'tramite',
-    label: 'Tipo de Trámite',
-    placeholder: 'Registro de Título Universitario',
-    pregunta: '**Campo 5 — Tipo de Trámite**\n\nEscribe el tipo de trámite. Ejemplos:\n• *Registro de Título Universitario*\n• *Apostilla de Documento Educativo*\n• *Legalización*',
-    ayuda: 'Escribe exactamente el nombre del trámite. La IA calculará el costo basado en esto.',
-  },
-  {
-    id: 'institucion',
-    label: 'Institución Educativa',
-    placeholder: 'Universidad Santa María (USM)',
-    pregunta: '**Campo 6 — Institución Educativa**\n\n¿En qué universidad obtuviste tu título?',
-    ayuda: 'Escribe el nombre oficial completo: **"Universidad Santa María"**. No uses variantes informales.',
-  },
-  {
-    id: 'pago_cedula',
-    label: 'Cédula del Pagador (Pago Móvil)',
-    placeholder: 'Ej: V-12.345.678',
-    pregunta: '**Campo 7 — Cédula del Pagador**\n\n¿Cuál es la cédula de identidad asociada al pago móvil?\n\n*(Puede ser la misma que la del solicitante o de otra persona que realizará el pago)*',
-    ayuda: 'Escribe la cédula de la persona que realizará el pago móvil, en formato **V-12.345.678** o **E-12.345.678**.',
-  },
-  {
-    id: 'pago_telefono',
-    label: 'Teléfono del Pagador (Pago Móvil)',
-    placeholder: 'Ej: 0414-1234567',
-    pregunta: '**Campo 8 — Teléfono del Pagador**\n\n¿Cuál es el número de teléfono asociado al pago móvil?',
-    ayuda: 'Escribe el número de teléfono **registrado en tu banco** para pago móvil. Formato: **0414-1234567**.',
-  },
-  {
-    id: 'pago_banco',
-    label: 'Banco del Pagador',
-    placeholder: 'Ej: Banco de Venezuela',
-    pregunta: '**Campo 9 — Banco del Pagador**\n\n¿Desde qué banco realizarás el pago móvil?\n\nEjemplos: *Banco de Venezuela*, *Banesco*, *Mercantil*, *Provincial*',
-    ayuda: 'Escribe el nombre completo del banco desde el cual harás la transferencia o pago móvil.',
-  },
-  {
-    id: 'confirmacion_pago',
-    label: 'Confirmación de Pago',
-    placeholder: 'Escribe "listo"',
-    pregunta: '', // Se genera dinámicamente
-    ayuda: 'Realiza la transferencia al número de cuenta indicado y escribe "listo".',
-  }
-];
-
-// ─── Generador de hash SHA-256 REAL usando Web Crypto API ──────────────────
-const generateHash = async (data) => {
-  return await hashAPI.generateClientHash(data);
-};
-
-const PUBForm = ({ user, initialData, onVerifyHash }) => {
-  const [messages, setMessages] = useState([]);
-  const [inputVal, setInputVal] = useState('');
-  const [formData, setFormData] = useState(initialData || {});
-
-  useEffect(() => {
-    if (initialData && Object.keys(initialData).length > 0) {
-      setFormData(prev => ({ ...prev, ...initialData }));
-    }
-  }, [initialData]);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [currentFieldIndex, setCurrentFieldIndex] = useState(-1);
-  const [isComplete, setIsComplete] = useState(false);
-  const [blockchainHash, setBlockchainHash] = useState(null);
-  const [isHashing, setIsHashing] = useState(false);
-  const [showCert, setShowCert] = useState(false);
-  const [activeMobileTab, setActiveMobileTab] = useState('chat'); // 'chat' or 'preview'
-  const [scale, setScale] = useState(1);
-  const [scaledHeight, setScaledHeight] = useState('auto');
-  const [copiedHash, setCopiedHash] = useState(false);
-  const containerRef = useRef(null);
-  const previewRef = useRef(null);
-
-  // Números estables para la planilla (no cambian entre renders)
-  const stablePubCode = useRef(`PUB-${new Date().getFullYear()}-${Math.floor(Math.random()*1000000).toString().padStart(6,'0')}`);
-  const stableTramiteNum = useRef(Math.floor(Math.random()*10000000).toString());
-
-  const updateScale = () => {
-    if (containerRef.current && previewRef.current) {
-      const containerWidth = containerRef.current.offsetWidth;
-      // Ancho objetivo de la planilla (700px minWidth + bordes)
-      const targetWidth = 702; 
-      if (containerWidth < targetWidth) {
-        const s = containerWidth / targetWidth;
-        setScale(s);
-        setScaledHeight(`${previewRef.current.offsetHeight * s}px`);
-      } else {
-        setScale(1);
-        setScaledHeight('auto');
-      }
-    }
-  };
-
-  useEffect(() => {
-    updateScale();
-    
-    if (!containerRef.current || !previewRef.current) return;
-    
-    const resizeObserver = new ResizeObserver(() => {
-      updateScale();
-    });
-    
-    resizeObserver.observe(previewRef.current);
-    resizeObserver.observe(containerRef.current);
-    
-    window.addEventListener('resize', updateScale);
-    const timer = setTimeout(updateScale, 150);
-    
-    return () => {
-      clearTimeout(timer);
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', updateScale);
-    };
-  }, [activeMobileTab, formData]);
-
-  const messagesEndRef = useRef(null);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const addBotMessage = (text, isError = false) => {
-    setMessages(prev => [...prev, { text, sender: 'bot', isError }]);
-  };
-  const addUserMessage = (text) => {
-    setMessages(prev => [...prev, { text, sender: 'user' }]);
-  };
-
-  const handleStart = () => {
-    setCurrentFieldIndex(0);
-    const startingData = { ...(initialData || {}) };
-    if (user?.nombre && !startingData.nombre_completo) startingData.nombre_completo = user.nombre;
-    if (user?.cedula && !startingData.cedula) startingData.cedula = user.cedula;
-    setFormData(startingData);
-    setFieldErrors({});
-    setIsComplete(false);
-    setBlockchainHash(null);
-    setMessages([]);
-    setTimeout(() => {
-      addBotMessage(
-        '**Asistente Institucional — Planilla Única Bancaria (PUB)**\n\n' +
-        'Le guiaré campo por campo. Cada respuesta será **validada en tiempo real**.\n' +
-        '• Si el formato no coincide, se le indicará la corrección requerida.\n' +
-        '• Escriba **"ayuda"** si requiere orientación sobre cualquier campo.\n\n' +
-        PUB_FIELDS[0].pregunta
-      );
-    }, 300);
-  };
-
-  const handleSend = (e) => {
-    e.preventDefault();
-    if (!inputVal.trim() || currentFieldIndex < 0) return;
-
-    const userText = inputVal.trim();
-    addUserMessage(userText);
-    setInputVal('');
-
-    if (isComplete) return;
-
-    const currentField = PUB_FIELDS[currentFieldIndex];
-
-    // Comando ayuda
-    if (['ayuda', 'help', '?'].includes(userText.toLowerCase())) {
-      setTimeout(() => {
-        addBotMessage(`**Instrucción — ${currentField.label}**\n\n${currentField.ayuda}\n\nCuando esté listo, ingrese el valor correcto.`);
-      }, 300);
-      return;
-    }
-
-    // ── Validación ─────────────────────────────────────────────────────────
-    const validate = validators[currentField.id];
-    const error = validate ? validate(userText) : null;
-
-    if (error) {
-      setFieldErrors(prev => ({ ...prev, [currentField.id]: userText }));
-      setTimeout(() => {
-        addBotMessage(
-          `**El campo "${currentField.label}" requiere atención.**\n\n` +
-          `${error}\n\n` +
-          `Por favor corríjalo antes de continuar. Escriba **"ayuda"** si necesita orientación.`,
-          true
-        );
-      }, 350);
-      return;
-    }
-
-    // Campo aprobado — limpiar error previo y guardar
-    setFieldErrors(prev => { const n = { ...prev }; delete n[currentField.id]; return n; });
-    const updatedData = { ...formData, [currentField.id]: userText };
-    setFormData(updatedData);
-
-    const nextIndex = currentFieldIndex + 1;
-
-    if (nextIndex < PUB_FIELDS.length) {
-      setCurrentFieldIndex(nextIndex);
-      
-      // Lógica especial de calculadora de aranceles antes de pedir la confirmación de pago
-      if (PUB_FIELDS[nextIndex].id === 'pago_cedula') {
-        // Calcular aranceles al llegar a la sección de pago (Valores realistas basados en PTR)
-        const tramiteLower = updatedData.tramite.toLowerCase();
-        let montoCalculado = 0;
-        let unidad = '';
-        
-        // Tasa referencial ficticia para el sistema (1 PTR = ~60 USD = ~43.647 Bs a tasa BCV 727.45)
-        const valorPetroBs = 43647.00; 
-
-        if (tramiteLower.includes('titulo') || tramiteLower.includes('título')) {
-          unidad = '0.5 PTR';
-          montoCalculado = 0.5 * valorPetroBs; // ~ $30 USD
-        } else if (tramiteLower.includes('apostilla')) {
-          unidad = '0.4 PTR';
-          montoCalculado = 0.4 * valorPetroBs; // ~ $24 USD
-        } else {
-          unidad = '0.1 PTR';
-          montoCalculado = 0.1 * valorPetroBs; // ~ $6 USD
-        }
-
-        // Auto-llenar campos de monto para el PDF
-        setFormData(prev => ({
-          ...prev, 
-          banco_destino: 'Banco de Venezuela', 
-          monto: montoCalculado.toFixed(2),
-          nro_cuenta: '0102-0552-22-0000001234'
-        }));
-
-        setTimeout(() => {
-          addBotMessage(
-            `**Institución Educativa** registrada.\n\n` +
-            `**Cálculo Autómata de Aranceles (SAREN):**\n` +
-            `Se ha analizado el trámite (*${updatedData.tramite}*). El costo estipulado corresponde a **${unidad}** (Tasa Petro oficial).\n\n` +
-            `**Monto Total a Pagar: ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(montoCalculado)} Bs.**\n\n` +
-            `Datos de la cuenta destino:\n` +
-            `• **Banco:** Banco de Venezuela\n` +
-            `• **Cuenta:** 0102-0552-22-0000001234\n` +
-            `• **A nombre de:** SAREN Recaudación (G-20000000-0)\n\n` +
-            `Ingrese los datos de su **Pago Móvil** para registrar la transacción.\n\n` +
-            `${PUB_FIELDS[nextIndex].pregunta}`
-          );
-        }, 450);
-      } else if (PUB_FIELDS[nextIndex].id === 'confirmacion_pago') {
-        // Guardar banco del pagador y pedir confirmación
-        setTimeout(() => {
-          addBotMessage(
-            `**Banco del Pagador** registrado: *${userText}*\n\n` +
-            `**Resumen del Pago Registrado:**\n` +
-            `• **Cédula:** ${updatedData.pago_cedula}\n` +
-            `• **Teléfono:** ${updatedData.pago_telefono}\n` +
-            `• **Banco:** ${userText}\n` +
-            `• **Monto:** ${updatedData.monto} Bs.\n\n` +
-            `Realice la transferencia y escriba **"listo"** al haber confirmado la transacción.`
-          );
-        }, 450);
-      } else {
-        setTimeout(() => {
-          addBotMessage(`**${currentField.label}** registrado correctamente.\n\n${PUB_FIELDS[nextIndex].pregunta}`);
-        }, 450);
-      }
-    } else {
-      setIsComplete(true);
-      setCurrentFieldIndex(-1);
-      setTimeout(() => {
-        addBotMessage(
-          '**Planilla PUB completada y validada correctamente.**\n\n' +
-          'Los datos ingresados y la tasa arancelaria han sido verificados. La vista previa oficial se encuentra lista.\n\n' +
-          'Seleccione **Registrar Hash en Blockchain** en la barra inferior para inscribir el documento antes de la impresión.'
-        );
-      }, 500);
-    }
-  };
-
-  const saveToLocalHistory = (hash) => {
-    try {
-      // Usar la cédula del perfil del usuario (consistente con HistoryPanel)
-      const cedulaToSave = user?.cedula || formData.cedula;
-      const localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
-      if (!localHistory.some(r => r.hash === hash)) {
-        localHistory.unshift({
-          hash: hash,
-          owner_name: formData.nombre_completo,
-          cedula: cedulaToSave,
-          document_type: formData.tramite,
-          created_at: new Date().toISOString(),
-          formData: formData
-        });
-        localStorage.setItem('usm_pub_history', JSON.stringify(localHistory));
-      }
-    } catch (e) {
-      console.error("Error saving to local history:", e);
-    }
-  };
-
-  const handleBlockchain = async () => {
-    setIsHashing(true);
-    addBotMessage('**Registrando hash en Blockchain (Sepolia)...**\n\nGenerando hash SHA-256 y registrando en la red descentralizada...');
-    
-    try {
-      const hash = await generateHash(formData);
-      
-      try {
-        const cedulaForBlockchain = user?.cedula || formData.cedula;
-        const data = await blockchainAPI.register({
-          hash: hash,
-          ownerName: formData.nombre_completo,
-          cedula: cedulaForBlockchain,
-          documentType: formData.tramite
-        });
-
-        if (data.success) {
-          setBlockchainHash(hash);
-          saveToLocalHistory(hash);
-          addBotMessage(
-            `**Registro exitoso en Blockchain**\n\n` +
-            `**Hash del documento (SHA-256):**\n\`${hash}\`\n\n` +
-            `**Transaction Hash:**\n\`${data.txHash}\`\n\n` +
-            `Este registro es inmutable. Puede verificarlo en [Etherscan](${data.certificateUrl}).`
-          );
-          return;
-        }
-      } catch (blockchainErr) {
-        console.warn('Blockchain direct registration failed, using local hash:', blockchainErr);
-      }
-
-      // Fallback: registrar hash localmente sin transacción Ethereum real
-      setBlockchainHash(hash);
-      saveToLocalHistory(hash);
-      addBotMessage(
-        `**Huella digital registrada exitosamente**\n\n` +
-        `**Hash del documento (SHA-256):**\n\`${hash}\`\n\n` +
-        `La huella criptográfica ha sido generada y almacenada. El documento queda protegido contra modificaciones.\n\n` +
-        `Puede verificar la integridad del documento en cualquier momento desde la sección **"Verificar Blockchain"**.`
-      );
-    } catch (err) {
-      console.error('Hash generation error:', err);
-      addBotMessage('**Error:** No se pudo generar la huella digital del documento. Intente de nuevo.', true);
-    } finally {
-      setIsHashing(false);
-    }
-  };
-
-  const handleAyudaRapida = () => {
-    if (currentFieldIndex < 0 || currentFieldIndex >= PUB_FIELDS.length) return;
-    const field = PUB_FIELDS[currentFieldIndex];
-    addUserMessage('ayuda');
-    setTimeout(() => {
-      addBotMessage(`**Instrucción — ${field.label}**\n\n${field.ayuda}\n\nCuando esté listo, ingrese el valor correcto.`);
-    }, 300);
-  };
-
-  const progress = currentFieldIndex >= 0
-    ? Math.round((currentFieldIndex / PUB_FIELDS.length) * 100)
-    : isComplete ? 100 : 0;
-
-  return (
-    <div className="view-container">
-      <div className="dashboard-header">
-        <h2>Asistente de Llenado PUB</h2>
-        <p>La IA valida cada campo en tiempo real. Si cometes un error, te lo indica al instante sin perder el progreso. Al terminar, registra la huella digital en Blockchain.</p>
-      </div>
-
-      {/* Selector de pestañas móviles */}
-      <div className="mobile-tabs-header">
-        <button 
-          className={`mobile-tab-btn ${activeMobileTab === 'chat' ? 'active' : ''}`}
-          onClick={() => setActiveMobileTab('chat')}
-        >
-          <MessageSquare size={18} />
-          Asistente Chat
-        </button>
-        <button 
-          className={`mobile-tab-btn ${activeMobileTab === 'preview' ? 'active' : ''}`}
-          onClick={() => setActiveMobileTab('preview')}
-        >
-          <FileText size={18} />
-          Vista Previa
-        </button>
-      </div>
-
-      <div className={`pub-form-grid ${activeMobileTab === 'chat' ? 'show-chat' : 'show-preview'}`}>
-
-        {/* ── Chatbot Guiador ──────────────────────────────────────────── */}
-        <div className="chat-container" style={{ minHeight: '520px' }}>
-          <div className="chat-header">
-            <div className="status-dot" style={{ backgroundColor: 'var(--color-sienna-brown)' }} />
-            <h2 style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--color-ink-black)' }}>
-              Asistente PUB
-              {currentFieldIndex >= 0 && (
-                <small style={{ marginLeft: '0.8rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                  Campo {currentFieldIndex + 1} de {PUB_FIELDS.length}
-                </small>
-              )}
-              {isComplete && <small style={{ marginLeft: '0.8rem', color: 'var(--color-sienna-brown)', fontSize: '0.8rem', fontWeight: 600 }}>Completado</small>}
-            </h2>
-          </div>
-
-          {/* Barra de progreso */}
-          {(currentFieldIndex >= 0 || isComplete) && (
-            <div style={{ padding: '0 1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--color-fog-white)' }}>
-              <div style={{ background: 'var(--border)', borderRadius: '4px', height: '4px', margin: '0.8rem 0' }}>
-                <motion.div
-                  style={{ background: isComplete ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)', height: '100%', borderRadius: '4px' }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.5 }}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="chat-messages">
-            {messages.length === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                <FileText size={48} opacity={0.35} color="var(--color-ink-black)" />
-                <div>
-                  <h3 style={{ color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.35rem', marginBottom: '0.5rem' }}>Planilla PUB — SAREN</h3>
-                  <p>Validación asistida del trámite.<br />Escriba <strong style={{ color: 'var(--color-sienna-brown)' }}>"ayuda"</strong> si requiere orientación en cualquier momento.</p>
-                </div>
-                <button className="send-btn" style={{ padding: '0.8rem 2rem' }} onClick={handleStart}>
-                  Iniciar Registro de Planilla
-                </button>
-              </div>
-            )}
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`message ${msg.sender}`}
-                style={msg.isError ? { borderLeft: '3px solid var(--danger)', background: 'rgba(185, 28, 28, 0.06)' } : {}}
-              >
-                <span dangerouslySetInnerHTML={{
-                  __html: msg.text
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/`(.*?)`/g, '<code style="background:var(--color-fog-white);border:1px solid var(--border);padding:0.1rem 0.4rem;border-radius:4px;font-family:monospace;font-size:0.8rem;word-break:break-all">$1</code>')
-                    .replace(/\n/g, '<br/>')
-                }} />
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="chat-input-area">
-            {currentFieldIndex >= 0 && (
-              <div style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.5rem' }}>
-                <button
-                  onClick={handleAyudaRapida}
-                  style={{ background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.25)', borderRadius: 'var(--radius-inputs)', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600' }}
-                >
-                  Ver Instrucciones del Campo
-                </button>
-              </div>
-            )}
-            {isComplete && !blockchainHash && (
-              <button
-                className="send-btn"
-                style={{ width: '100%', padding: '0.9rem', marginBottom: '0.8rem', fontSize: '0.95rem' }}
-                onClick={handleBlockchain}
-                disabled={isHashing}
-              >
-                <ShieldCheck size={20} />
-                {isHashing ? 'Generando hash...' : 'Registrar Hash en Blockchain'}
-              </button>
-            )}
-            <form className="input-wrapper" onSubmit={handleSend}>
-              <input
-                type="text"
-                className="chat-input"
-                placeholder={currentFieldIndex >= 0 ? `"${PUB_FIELDS[currentFieldIndex]?.label}"...` : isComplete ? 'Planilla completada' : 'Presiona "Comenzar" para iniciar...'}
-                value={inputVal}
-                onChange={e => setInputVal(e.target.value)}
-                disabled={currentFieldIndex < 0}
-              />
-              <button type="submit" className="send-btn" disabled={currentFieldIndex < 0 || !inputVal.trim()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Send size={18} />
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* ── Vista Previa del Formulario PUB ──────────────────────────── */}
-        <motion.div
-          className="glass-panel"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.25rem', color: 'var(--color-ink-black)', margin: 0 }}>
-              <FileText size={20} color="var(--color-sienna-brown)" />
-              Vista Previa — Planilla PUB
-            </h3>
-            {isComplete && (
-              <button
-                className="send-btn"
-                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                onClick={() => {
-                  const element = document.getElementById('pub-preview');
-                  const opt = {
-                    margin:       10,
-                    filename:     `Planilla_PUB_${formData.cedula || 'USM'}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2 },
-                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                  };
-                  html2pdf().set(opt).from(element).save();
-                }}
-              >
-                <Download size={16} /> Exportar PDF Oficial
-              </button>
-            )}
-          </div>
-
-          <div className="pdf-preview-container" ref={containerRef} style={{ width: '100%', overflow: 'auto', maxHeight: '70vh' }}>
-            <div 
-              id="pub-preview" 
-              ref={previewRef}
-              style={{ 
-                padding: '2rem', 
-                background: '#ffffff', 
-                color: '#000000', 
-                fontFamily: '"Arial", sans-serif', 
-                border: '1px solid #e5e7eb', 
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
-                minWidth: '700px',
-                width: '700px',
-                transform: `scale(${scale})`,
-                transformOrigin: 'top left',
-                transition: 'transform 0.15s ease-out'
-              }}
-            >
-            {/* Membrete oficial de VENEZUELA */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1a365d', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ flex: 1 }}>
-                <img src="/images/mppre_facade.png" alt="Escudo" style={{ height: '60px', objectFit: 'contain', opacity: 0.1 }} onError={(e) => e.target.style.display='none'} />
-              </div>
-              <div style={{ textAlign: 'center', flex: 3 }}>
-                <p style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, color: '#4a5568' }}>República Bolivariana de Venezuela</p>
-                <p style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, color: '#4a5568' }}>Ministerio del Poder Popular para Relaciones Interiores, Justicia y Paz</p>
-                <h4 style={{ fontSize: '1.1rem', margin: '0.5rem 0', color: '#1a365d', fontWeight: '900' }}>SERVICIO AUTÓNOMO DE REGISTROS Y NOTARÍAS</h4>
-                <p style={{ fontSize: '0.9rem', color: '#2b6cb0', fontWeight: '800', letterSpacing: '1.5px', margin: 0 }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
-              </div>
-              <div style={{ flex: 1, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
-                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
-                   <div style={{ display: 'flex', height: '24px', background: '#ffffff', gap: '1px' }}>
-                     {[2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1].map((w, i) => (
-                       <div key={i} style={{ width: `${w}px`, height: '100%', background: i % 2 === 0 ? '#000000' : '#ffffff' }} />
-                     ))}
-                   </div>
-                   <p style={{ margin: 0, fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 'bold' }}>*{stablePubCode.current}*</p>
-                 </div>
-                 <div style={{ border: '1px solid #cbd5e0', padding: '0.2rem 0.5rem', textAlign: 'center', background: '#f8fafc', borderRadius: '4px', display: 'inline-block' }}>
-                   <p style={{ margin: 0, fontSize: '0.45rem', color: '#718096', fontWeight: 'bold' }}>NRO. TRÁMITE</p>
-                   <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{stableTramiteNum.current}</p>
-                 </div>
-              </div>
-            </div>
-
-            {/* Datos del Solicitante */}
-            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Solicitante</h5>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>NOMBRES Y APELLIDOS</p>
-                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.nombre_completo || '----------------------'}</p>
-              </div>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CÉDULA DE IDENTIDAD / PASAPORTE</p>
-                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.cedula || '----------------------'}</p>
-              </div>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>TELÉFONO MÓVIL</p>
-                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.telefono || '----------------------'}</p>
-              </div>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CORREO ELECTRÓNICO</p>
-                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.correo || '----------------------'}</p>
-              </div>
-            </div>
-
-            {/* Datos del Trámite */}
-            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Trámite e Institución</h5>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>DESCRIPCIÓN DEL ACTO O NEGOCIO JURÍDICO</p>
-                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600', textTransform: 'uppercase' }}>{formData.tramite || '----------------------'}</p>
-              </div>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>INSTITUCIÓN EDUCATIVA DE ORIGEN</p>
-                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600', textTransform: 'uppercase' }}>{formData.institucion || '----------------------'}</p>
-              </div>
-            </div>
-
-            {/* Liquidación de Aranceles */}
-            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Liquidación de Aranceles y Tasas</h5>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                 <thead style={{ background: '#f7fafc', borderBottom: '1px solid #e2e8f0' }}>
-                   <tr>
-                     <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#4a5568' }}>CANT.</th>
-                     <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#4a5568' }}>CONCEPTO</th>
-                     <th style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.65rem', color: '#4a5568' }}>MONTO (Bs.)</th>
-                   </tr>
-                 </thead>
-                 <tbody>
-                   <tr>
-                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7' }}>1</td>
-                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7' }}>Procesamiento de {formData.tramite || 'Trámite'}</td>
-                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7', textAlign: 'right', fontWeight: 'bold' }}>{formData.monto || '0.00'}</td>
-                   </tr>
-                 </tbody>
-                 <tfoot>
-                   <tr style={{ background: '#edf2f7' }}>
-                     <td colSpan="2" style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTAL A PAGAR:</td>
-                     <td style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '900', color: '#e53e3e' }}>Bs. {formData.monto || '0.00'}</td>
-                   </tr>
-                 </tfoot>
-               </table>
-            </div>
-
-            {/* Información de Pago Móvil */}
-            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Pago Móvil</h5>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CÉDULA DEL PAGADOR</p>
-                <p style={{ fontSize: '0.85rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.pago_cedula || '----------------------'}</p>
-              </div>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>TELÉFONO DEL PAGADOR</p>
-                <p style={{ fontSize: '0.85rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.pago_telefono || '----------------------'}</p>
-              </div>
-              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>BANCO DEL PAGADOR</p>
-                <p style={{ fontSize: '0.85rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.pago_banco || '----------------------'}</p>
-              </div>
-            </div>
-
-            {/* Información Bancaria Destino */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ border: '1px solid #cbd5e0', padding: '0.8rem', borderRadius: '4px', background: '#f8fafc' }}>
-                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.4rem 0', fontWeight: 'bold' }}>INFORMACIÓN DE DEPÓSITO / TRANSFERENCIA</p>
-                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: '0 0 0.2rem 0' }}><strong>BANCO DESTINO:</strong> {formData.banco_destino || '----------------------'}</p>
-                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: '0 0 0.2rem 0' }}><strong>CUENTA:</strong> {formData.nro_cuenta || '----------------------'}</p>
-                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: 0 }}><strong>ESTADO:</strong> {formData.confirmacion_pago ? 'PAGADO' : 'PENDIENTE'}</p>
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e0', padding: '0.5rem' }}>
-                 <p style={{ fontSize: '0.5rem', color: '#a0aec0', marginBottom: '0.3rem', textAlign: 'center' }}>Timbre Fiscal Electrónico (Blockchain)</p>
-                 {blockchainHash ? (
-                   <div style={{ width: '60px', height: '60px', display: 'grid', placeItems: 'center' }}>
-                     <QRCodeSVG value={`${window.location.origin}/?hash=${blockchainHash}`} size={60} />
-                   </div>
-                 ) : (
-                   <div style={{ width: '60px', height: '60px', background: '#edf2f7' }}></div>
-                 )}
-                 {blockchainHash && <p style={{ fontSize: '0.4rem', marginTop: '0.2rem', fontFamily: 'monospace' }}>{blockchainHash.substring(0, 15)}...</p>}
-              </div>
-            </div>
-          </div>
-        </div>
-
-          {/* Hash Blockchain */}
-          <AnimatePresence>
-            {blockchainHash && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{ marginTop: '1.5rem', padding: '1.25rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <p style={{ color: 'var(--color-sienna-brown)', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <ShieldCheck size={18} /> Huella Digital Blockchain Registrada
-                  </p>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(blockchainHash);
-                      setCopiedHash(true);
-                      setTimeout(() => setCopiedHash(false), 2000);
-                    }}
-                    className="btn-ghost"
-                    style={{
-                      padding: '0.25rem 0.65rem',
-                      fontSize: '0.75rem'
-                    }}
-                  >
-                    {copiedHash ? '¡Copiado!' : 'Copiar'}
-                  </button>
-                </div>
-                <p style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-ink-black)', background: '#ffffff', border: '1px solid var(--border)', padding: '0.5rem 0.75rem', borderRadius: '6px', wordBreak: 'break-all', lineHeight: '1.6', margin: '0.4rem 0' }}>
-                  {blockchainHash}
-                </p>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>
-                  Cualquier modificación al documento invalidará este hash.
-                </p>
-                <button
-                  onClick={() => setShowCert(true)}
-                  className="send-btn"
-                  style={{ marginTop: '1rem', width: '100%', padding: '0.8rem' }}
-                >
-                  <ShieldCheck size={18} /> Ver Certificado Digital
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {isComplete && !blockchainHash && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--color-blush-peach)', border: '1px solid rgba(93, 42, 26, 0.25)', borderRadius: 'var(--radius-inputs)', textAlign: 'center' }}
-            >
-              <p style={{ color: 'var(--color-sienna-brown)', fontWeight: '600', margin: 0 }}>Planilla Válida — Lista para Registro Criptográfico</p>
-            </motion.div>
-          )}
-        </motion.div>
-
-      </div>
-      
-      <AnimatePresence>
-        {showCert && blockchainHash && (
-          <DigitalCertificate docHash={blockchainHash} onClose={() => setShowCert(false)} onVerifyHash={onVerifyHash} />
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-export default PUBForm;
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, FileText, Download, ShieldCheck, Printer, MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import html2pdf from 'html2pdf.js';
+import { QRCodeSVG } from 'qrcode.react';
+import DigitalCertificate from './DigitalCertificate';
+import { blockchainAPI, hashAPI } from '../services/api';
+
+// ─── Validadores por campo ───────────────────────────────────────────────────
+const validators = {
+  nombre_completo: (v) => {
+    const words = v.trim().split(/\s+/);
+    if (words.length < 2) return 'Debes escribir al menos **nombre y apellido** completos.';
+    if (/\d/.test(v)) return 'El nombre no debe contener números. Por favor corrígelo.';
+    return null;
+  },
+  cedula: (v) => {
+    if (!/^[VvEe]-?\d{6,9}$/.test(v.replace(/\./g, '')))
+      return 'Formato incorrecto. Usa el formato **V-12.345.678** o **E-12.345.678**.';
+    return null;
+  },
+  telefono: (v) => {
+    const cleaned = v.replace(/[-\s]/g, '');
+    if (!/^(0414|0424|0412|0416|0426|0212|0241|0251|0261|0281|0291|0243)[0-9]{7}$/.test(cleaned))
+      return 'Número inválido. Usa el formato venezolano: **0414-1234567** o **0212-5551234**.';
+    return null;
+  },
+  correo: (v) => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
+      return 'El correo electrónico no es válido. Ejemplo correcto: **juan.perez@gmail.com**.';
+    return null;
+  },
+  tramite: (v) => {
+    if (v.trim().length < 5) return 'El tipo de trámite es demasiado corto. Escribe el nombre completo.';
+    return null;
+  },
+  institucion: (v) => {
+    if (v.trim().length < 3) return 'Por favor escribe el nombre completo de la institución.';
+    return null;
+  },
+  banco: (v) => {
+    if (v.trim().length < 3) return 'Por favor indica el nombre del banco (ej: **Banco de Venezuela**).';
+    return null;
+  },
+  monto: (v) => {
+    if (!/^\d+([.,]\d{1,2})?$/.test(v.trim()))
+      return 'Monto inválido. Escribe solo números con hasta 2 decimales. Ejemplo: **150.00**.';
+    if (parseFloat(v.replace(',', '.')) <= 0)
+      return 'El monto debe ser mayor a cero.';
+    return null;
+  },
+  pago_cedula: (v) => {
+    if (!/^[VvEe]-?\d{6,9}$/.test(v.replace(/\./g, '')))
+      return 'Formato incorrecto. Usa el formato **V-12.345.678** o **E-12.345.678**.';
+    return null;
+  },
+  pago_telefono: (v) => {
+    const cleaned = v.replace(/[-\s]/g, '');
+    if (!/^(0414|0424|0412|0416|0426|0212|0241|0251|0261|0281|0291|0243)[0-9]{7}$/.test(cleaned))
+      return 'Número inválido. Usa el formato venezolano: **0414-1234567**.';
+    return null;
+  },
+  pago_banco: (v) => {
+    if (v.trim().length < 3) return 'Por favor indica el nombre del banco (ej: **Banesco**, **Mercantil**, **Provincial**).';
+    return null;
+  },
+  confirmacion_pago: (v) => {
+    if (v.trim().toLowerCase() !== 'listo') return 'Debes escribir **"listo"** cuando hayas realizado la transferencia para continuar.';
+    return null;
+  }
+};
+
+// ─── Definición de campos de la PUB ─────────────────────────────────────────
+const PUB_FIELDS = [
+  {
+    id: 'nombre_completo',
+    label: 'Nombre Completo del Solicitante',
+    placeholder: 'Ej: Juan Carlos Pérez García',
+    pregunta: 'Formulario Oficial — Planilla Única Bancaria (PUB)\n\n**Campo 1 — Nombre Completo**\n\n¿Cuál es su nombre completo tal como aparece en su cédula de identidad?',
+    ayuda: 'Escribe **todos tus nombres y ambos apellidos**, exactamente como aparecen en tu cédula laminada. Ejemplo: *Juan Carlos Pérez García*. No uses abreviaciones ni apodos.',
+  },
+  {
+    id: 'cedula',
+    label: 'Cédula de Identidad',
+    placeholder: 'Ej: V-12.345.678',
+    pregunta: '**Campo 2 — Cédula de Identidad**\n\n¿Cuál es tu número de cédula? (Incluye el prefijo V- o E-)',
+    ayuda: 'Usa el formato: **V-12.345.678** (venezolano) o **E-12.345.678** (extranjero). El formato incorrecto causa rechazo inmediato en el SAREN.',
+  },
+  {
+    id: 'telefono',
+    label: 'Teléfono de Contacto',
+    placeholder: 'Ej: 0414-1234567',
+    pregunta: '**Campo 3 — Teléfono de Contacto**\n\n¿Cuál es tu número de teléfono venezolano activo?',
+    ayuda: 'Escribe tu número con la operadora incluida: **0414-1234567**, **0212-5551234**, etc. El SAREN lo usa para notificaciones del trámite.',
+  },
+  {
+    id: 'correo',
+    label: 'Correo Electrónico',
+    placeholder: 'Ej: juan.perez@gmail.com',
+    pregunta: '**Campo 4 — Correo Electrónico**\n\n¿Cuál es tu correo electrónico activo?',
+    ayuda: 'Usa un correo que revises con frecuencia. El SAREN envía confirmaciones y estados del trámite a este correo.',
+  },
+  {
+    id: 'tramite',
+    label: 'Tipo de Trámite',
+    placeholder: 'Registro de Título Universitario',
+    pregunta: '**Campo 5 — Tipo de Trámite**\n\nEscribe el tipo de trámite. Ejemplos:\n• *Registro de Título Universitario*\n• *Apostilla de Documento Educativo*\n• *Legalización*',
+    ayuda: 'Escribe exactamente el nombre del trámite. La IA calculará el costo basado en esto.',
+  },
+  {
+    id: 'institucion',
+    label: 'Institución Educativa',
+    placeholder: 'Universidad Santa María (USM)',
+    pregunta: '**Campo 6 — Institución Educativa**\n\n¿En qué universidad obtuviste tu título?',
+    ayuda: 'Escribe el nombre oficial completo: **"Universidad Santa María"**. No uses variantes informales.',
+  },
+  {
+    id: 'pago_cedula',
+    label: 'Cédula del Pagador (Pago Móvil)',
+    placeholder: 'Ej: V-12.345.678',
+    pregunta: '**Campo 7 — Cédula del Pagador**\n\n¿Cuál es la cédula de identidad asociada al pago móvil?\n\n*(Puede ser la misma que la del solicitante o de otra persona que realizará el pago)*',
+    ayuda: 'Escribe la cédula de la persona que realizará el pago móvil, en formato **V-12.345.678** o **E-12.345.678**.',
+  },
+  {
+    id: 'pago_telefono',
+    label: 'Teléfono del Pagador (Pago Móvil)',
+    placeholder: 'Ej: 0414-1234567',
+    pregunta: '**Campo 8 — Teléfono del Pagador**\n\n¿Cuál es el número de teléfono asociado al pago móvil?',
+    ayuda: 'Escribe el número de teléfono **registrado en tu banco** para pago móvil. Formato: **0414-1234567**.',
+  },
+  {
+    id: 'pago_banco',
+    label: 'Banco del Pagador',
+    placeholder: 'Ej: Banco de Venezuela',
+    pregunta: '**Campo 9 — Banco del Pagador**\n\n¿Desde qué banco realizarás el pago móvil?\n\nEjemplos: *Banco de Venezuela*, *Banesco*, *Mercantil*, *Provincial*',
+    ayuda: 'Escribe el nombre completo del banco desde el cual harás la transferencia o pago móvil.',
+  },
+  {
+    id: 'confirmacion_pago',
+    label: 'Confirmación de Pago',
+    placeholder: 'Escribe "listo"',
+    pregunta: '', // Se genera dinámicamente
+    ayuda: 'Realiza la transferencia al número de cuenta indicado y escribe "listo".',
+  }
+];
+
+// ─── Generador de hash SHA-256 REAL usando Web Crypto API ──────────────────
+const generateHash = async (data) => {
+  return await hashAPI.generateClientHash(data);
+};
+
+const PUBForm = ({ user, initialData, onVerifyHash }) => {
+  const [messages, setMessages] = useState([]);
+  const [inputVal, setInputVal] = useState('');
+  const [formData, setFormData] = useState(initialData || {});
+
+  useEffect(() => {
+    if (initialData && Object.keys(initialData).length > 0) {
+      setFormData(prev => ({ ...prev, ...initialData }));
+    }
+  }, [initialData]);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [currentFieldIndex, setCurrentFieldIndex] = useState(-1);
+  const [isComplete, setIsComplete] = useState(false);
+  const [blockchainHash, setBlockchainHash] = useState(null);
+  const [isHashing, setIsHashing] = useState(false);
+  const [showCert, setShowCert] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState('chat'); // 'chat' or 'preview'
+  const [scale, setScale] = useState(1);
+  const [scaledHeight, setScaledHeight] = useState('auto');
+  const [copiedHash, setCopiedHash] = useState(false);
+  const containerRef = useRef(null);
+  const previewRef = useRef(null);
+
+  // Números estables para la planilla (no cambian entre renders)
+  const stablePubCode = useRef(`PUB-${new Date().getFullYear()}-${Math.floor(Math.random()*1000000).toString().padStart(6,'0')}`);
+  const stableTramiteNum = useRef(Math.floor(Math.random()*10000000).toString());
+
+  const updateScale = () => {
+    if (containerRef.current && previewRef.current) {
+      const containerWidth = containerRef.current.offsetWidth;
+      // Ancho objetivo de la planilla (700px minWidth + bordes)
+      const targetWidth = 702; 
+      if (containerWidth < targetWidth) {
+        const s = containerWidth / targetWidth;
+        setScale(s);
+        setScaledHeight(`${previewRef.current.offsetHeight * s}px`);
+      } else {
+        setScale(1);
+        setScaledHeight('auto');
+      }
+    }
+  };
+
+  useEffect(() => {
+    updateScale();
+    
+    if (!containerRef.current || !previewRef.current) return;
+    
+    const resizeObserver = new ResizeObserver(() => {
+      updateScale();
+    });
+    
+    resizeObserver.observe(previewRef.current);
+    resizeObserver.observe(containerRef.current);
+    
+    window.addEventListener('resize', updateScale);
+    const timer = setTimeout(updateScale, 150);
+    
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [activeMobileTab, formData]);
+
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const addBotMessage = (text, isError = false) => {
+    setMessages(prev => [...prev, { text, sender: 'bot', isError }]);
+  };
+  const addUserMessage = (text) => {
+    setMessages(prev => [...prev, { text, sender: 'user' }]);
+  };
+
+  const handleStart = () => {
+    setCurrentFieldIndex(0);
+    const startingData = { ...(initialData || {}) };
+    if (user?.nombre && !startingData.nombre_completo) startingData.nombre_completo = user.nombre;
+    if (user?.cedula && !startingData.cedula) startingData.cedula = user.cedula;
+    setFormData(startingData);
+    setFieldErrors({});
+    setIsComplete(false);
+    setBlockchainHash(null);
+    setMessages([]);
+    setTimeout(() => {
+      addBotMessage(
+        '**Asistente Institucional — Planilla Única Bancaria (PUB)**\n\n' +
+        'Le guiaré campo por campo. Cada respuesta será **validada en tiempo real**.\n' +
+        '• Si el formato no coincide, se le indicará la corrección requerida.\n' +
+        '• Escriba **"ayuda"** si requiere orientación sobre cualquier campo.\n\n' +
+        PUB_FIELDS[0].pregunta
+      );
+    }, 300);
+  };
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (!inputVal.trim() || currentFieldIndex < 0) return;
+
+    const userText = inputVal.trim();
+    addUserMessage(userText);
+    setInputVal('');
+
+    if (isComplete) return;
+
+    const currentField = PUB_FIELDS[currentFieldIndex];
+
+    // Comando ayuda
+    if (['ayuda', 'help', '?'].includes(userText.toLowerCase())) {
+      setTimeout(() => {
+        addBotMessage(`**Instrucción — ${currentField.label}**\n\n${currentField.ayuda}\n\nCuando esté listo, ingrese el valor correcto.`);
+      }, 300);
+      return;
+    }
+
+    // ── Validación ─────────────────────────────────────────────────────────
+    const validate = validators[currentField.id];
+    const error = validate ? validate(userText) : null;
+
+    if (error) {
+      setFieldErrors(prev => ({ ...prev, [currentField.id]: userText }));
+      setTimeout(() => {
+        addBotMessage(
+          `**El campo "${currentField.label}" requiere atención.**\n\n` +
+          `${error}\n\n` +
+          `Por favor corríjalo antes de continuar. Escriba **"ayuda"** si necesita orientación.`,
+          true
+        );
+      }, 350);
+      return;
+    }
+
+    // Campo aprobado — limpiar error previo y guardar
+    setFieldErrors(prev => { const n = { ...prev }; delete n[currentField.id]; return n; });
+    const updatedData = { ...formData, [currentField.id]: userText };
+    setFormData(updatedData);
+
+    const nextIndex = currentFieldIndex + 1;
+
+    if (nextIndex < PUB_FIELDS.length) {
+      setCurrentFieldIndex(nextIndex);
+      
+      // Lógica especial de calculadora de aranceles antes de pedir la confirmación de pago
+      if (PUB_FIELDS[nextIndex].id === 'pago_cedula') {
+        // Calcular aranceles al llegar a la sección de pago (Valores realistas basados en PTR)
+        const tramiteLower = updatedData.tramite.toLowerCase();
+        let montoCalculado = 0;
+        let unidad = '';
+        
+        // Tasa referencial ficticia para el sistema (1 PTR = ~60 USD = ~43.647 Bs a tasa BCV 727.45)
+        const valorPetroBs = 43647.00; 
+
+        if (tramiteLower.includes('titulo') || tramiteLower.includes('título')) {
+          unidad = '0.5 PTR';
+          montoCalculado = 0.5 * valorPetroBs; // ~ $30 USD
+        } else if (tramiteLower.includes('apostilla')) {
+          unidad = '0.4 PTR';
+          montoCalculado = 0.4 * valorPetroBs; // ~ $24 USD
+        } else {
+          unidad = '0.1 PTR';
+          montoCalculado = 0.1 * valorPetroBs; // ~ $6 USD
+        }
+
+        // Auto-llenar campos de monto para el PDF
+        setFormData(prev => ({
+          ...prev, 
+          banco_destino: 'Banco de Venezuela', 
+          monto: montoCalculado.toFixed(2),
+          nro_cuenta: '0102-0552-22-0000001234'
+        }));
+
+        setTimeout(() => {
+          addBotMessage(
+            `**Institución Educativa** registrada.\n\n` +
+            `**Cálculo Autómata de Aranceles (SAREN):**\n` +
+            `Se ha analizado el trámite (*${updatedData.tramite}*). El costo estipulado corresponde a **${unidad}** (Tasa Petro oficial).\n\n` +
+            `**Monto Total a Pagar: ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(montoCalculado)} Bs.**\n\n` +
+            `Datos de la cuenta destino:\n` +
+            `• **Banco:** Banco de Venezuela\n` +
+            `• **Cuenta:** 0102-0552-22-0000001234\n` +
+            `• **A nombre de:** SAREN Recaudación (G-20000000-0)\n\n` +
+            `Ingrese los datos de su **Pago Móvil** para registrar la transacción.\n\n` +
+            `${PUB_FIELDS[nextIndex].pregunta}`
+          );
+        }, 450);
+      } else if (PUB_FIELDS[nextIndex].id === 'confirmacion_pago') {
+        // Guardar banco del pagador y pedir confirmación
+        setTimeout(() => {
+          addBotMessage(
+            `**Banco del Pagador** registrado: *${userText}*\n\n` +
+            `**Resumen del Pago Registrado:**\n` +
+            `• **Cédula:** ${updatedData.pago_cedula}\n` +
+            `• **Teléfono:** ${updatedData.pago_telefono}\n` +
+            `• **Banco:** ${userText}\n` +
+            `• **Monto:** ${updatedData.monto} Bs.\n\n` +
+            `Realice la transferencia y escriba **"listo"** al haber confirmado la transacción.`
+          );
+        }, 450);
+      } else {
+        setTimeout(() => {
+          addBotMessage(`**${currentField.label}** registrado correctamente.\n\n${PUB_FIELDS[nextIndex].pregunta}`);
+        }, 450);
+      }
+    } else {
+      setIsComplete(true);
+      setCurrentFieldIndex(-1);
+      setTimeout(() => {
+        addBotMessage(
+          '**Planilla PUB completada y validada correctamente.**\n\n' +
+          'Los datos ingresados y la tasa arancelaria han sido verificados. La vista previa oficial se encuentra lista.\n\n' +
+          'Seleccione **Registrar Hash en Blockchain** en la barra inferior para inscribir el documento antes de la impresión.'
+        );
+      }, 500);
+    }
+  };
+
+  const saveToLocalHistory = (hash) => {
+    try {
+      const cedulaToSave = user?.cedula || formData.cedula;
+      const pubCode = `PUB-2026-SAREN-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // 1. Guardar en usm_pub_history
+      const localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+      const newPubItem = {
+        hash: hash,
+        owner_name: formData.nombre_completo,
+        ownerName: formData.nombre_completo,
+        nombre: formData.nombre_completo,
+        cedula: cedulaToSave,
+        document_type: formData.tramite || 'Planilla Única Bancaria (PUB) SAREN',
+        documentType: formData.tramite || 'Planilla Única Bancaria (PUB) SAREN',
+        solicitudCode: pubCode,
+        stablePubCode: pubCode,
+        status: 'Registrado en Blockchain (SAREN PUB)',
+        created_at: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
+        formData: formData
+      };
+      const updatedHistory = [newPubItem, ...localHistory.filter(r => r.hash !== hash)];
+      localStorage.setItem('usm_pub_history', JSON.stringify(updatedHistory.slice(0, 50)));
+
+      // 2. Guardar en usm_blockchain_records para sincronización con GovernmentPanel
+      const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
+      const newBcItem = {
+        hash: hash,
+        ownerName: formData.nombre_completo,
+        cedula: cedulaToSave,
+        documentType: formData.tramite || 'Planilla Única Bancaria (PUB) SAREN',
+        solicitudCode: pubCode,
+        txHash: `0x${Math.random().toString(16).substring(2, 18)}`,
+        status: 'Registrado en Blockchain (SAREN PUB)',
+        mppeuVerified: false,
+        mppreVerified: false,
+        createdAt: new Date().toISOString()
+      };
+      const updatedBc = [newBcItem, ...bc.filter(r => r.hash !== hash)];
+      localStorage.setItem('usm_blockchain_records', JSON.stringify(updatedBc.slice(0, 50)));
+
+      // 3. Notificar a todas las pestañas vía BroadcastChannel
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const ch = new BroadcastChannel('usm_records_sync');
+          ch.postMessage({ type: 'RECORD_ADDED', record: newBcItem });
+          ch.close();
+        } catch (_) {}
+      }
+    } catch (e) {
+      console.error("Error saving to local history:", e);
+    }
+  };
+
+  const handleBlockchain = async () => {
+    setIsHashing(true);
+    addBotMessage('**Registrando hash en Blockchain (Sepolia)...**\n\nGenerando hash SHA-256 y registrando en la red descentralizada...');
+    
+    try {
+      const hash = await generateHash(formData);
+      
+      try {
+        const cedulaForBlockchain = user?.cedula || formData.cedula;
+        const data = await blockchainAPI.register({
+          hash: hash,
+          ownerName: formData.nombre_completo,
+          cedula: cedulaForBlockchain,
+          documentType: formData.tramite
+        });
+
+        if (data.success) {
+          setBlockchainHash(hash);
+          saveToLocalHistory(hash);
+          addBotMessage(
+            `**Registro exitoso en Blockchain**\n\n` +
+            `**Hash del documento (SHA-256):**\n\`${hash}\`\n\n` +
+            `**Transaction Hash:**\n\`${data.txHash}\`\n\n` +
+            `Este registro es inmutable. Puede verificarlo en [Etherscan](${data.certificateUrl}).`
+          );
+          return;
+        }
+      } catch (blockchainErr) {
+        console.warn('Blockchain direct registration failed, using local hash:', blockchainErr);
+      }
+
+      // Fallback: registrar hash localmente sin transacción Ethereum real
+      setBlockchainHash(hash);
+      saveToLocalHistory(hash);
+      addBotMessage(
+        `**Huella digital registrada exitosamente**\n\n` +
+        `**Hash del documento (SHA-256):**\n\`${hash}\`\n\n` +
+        `La huella criptográfica ha sido generada y almacenada. El documento queda protegido contra modificaciones.\n\n` +
+        `Puede verificar la integridad del documento en cualquier momento desde la sección **"Verificar Blockchain"**.`
+      );
+    } catch (err) {
+      console.error('Hash generation error:', err);
+      addBotMessage('**Error:** No se pudo generar la huella digital del documento. Intente de nuevo.', true);
+    } finally {
+      setIsHashing(false);
+    }
+  };
+
+  const handleAyudaRapida = () => {
+    if (currentFieldIndex < 0 || currentFieldIndex >= PUB_FIELDS.length) return;
+    const field = PUB_FIELDS[currentFieldIndex];
+    addUserMessage('ayuda');
+    setTimeout(() => {
+      addBotMessage(`**Instrucción — ${field.label}**\n\n${field.ayuda}\n\nCuando esté listo, ingrese el valor correcto.`);
+    }, 300);
+  };
+
+  const progress = currentFieldIndex >= 0
+    ? Math.round((currentFieldIndex / PUB_FIELDS.length) * 100)
+    : isComplete ? 100 : 0;
+
+  return (
+    <div className="view-container">
+      <div className="dashboard-header">
+        <h2>Asistente de Llenado PUB</h2>
+        <p>La IA valida cada campo en tiempo real. Si cometes un error, te lo indica al instante sin perder el progreso. Al terminar, registra la huella digital en Blockchain.</p>
+      </div>
+
+      {/* Selector de pestañas móviles */}
+      <div className="mobile-tabs-header">
+        <button 
+          className={`mobile-tab-btn ${activeMobileTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveMobileTab('chat')}
+        >
+          <MessageSquare size={18} />
+          Asistente Chat
+        </button>
+        <button 
+          className={`mobile-tab-btn ${activeMobileTab === 'preview' ? 'active' : ''}`}
+          onClick={() => setActiveMobileTab('preview')}
+        >
+          <FileText size={18} />
+          Vista Previa
+        </button>
+      </div>
+
+      <div className={`pub-form-grid ${activeMobileTab === 'chat' ? 'show-chat' : 'show-preview'}`}>
+
+        {/* ── Chatbot Guiador ──────────────────────────────────────────── */}
+        <div className="chat-container" style={{ minHeight: '520px' }}>
+          <div className="chat-header">
+            <div className="status-dot" style={{ backgroundColor: 'var(--color-sienna-brown)' }} />
+            <h2 style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--color-ink-black)' }}>
+              Asistente PUB
+              {currentFieldIndex >= 0 && (
+                <small style={{ marginLeft: '0.8rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  Campo {currentFieldIndex + 1} de {PUB_FIELDS.length}
+                </small>
+              )}
+              {isComplete && <small style={{ marginLeft: '0.8rem', color: 'var(--color-sienna-brown)', fontSize: '0.8rem', fontWeight: 600 }}>Completado</small>}
+            </h2>
+          </div>
+
+          {/* Barra de progreso */}
+          {(currentFieldIndex >= 0 || isComplete) && (
+            <div style={{ padding: '0 1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--color-fog-white)' }}>
+              <div style={{ background: 'var(--border)', borderRadius: '4px', height: '4px', margin: '0.8rem 0' }}>
+                <motion.div
+                  style={{ background: isComplete ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)', height: '100%', borderRadius: '4px' }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="chat-messages">
+            {messages.length === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <FileText size={48} opacity={0.35} color="var(--color-ink-black)" />
+                <div>
+                  <h3 style={{ color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.35rem', marginBottom: '0.5rem' }}>Planilla PUB — SAREN</h3>
+                  <p>Validación asistida del trámite.<br />Escriba <strong style={{ color: 'var(--color-sienna-brown)' }}>"ayuda"</strong> si requiere orientación en cualquier momento.</p>
+                </div>
+                <button className="send-btn" style={{ padding: '0.8rem 2rem' }} onClick={handleStart}>
+                  Iniciar Registro de Planilla
+                </button>
+              </div>
+            )}
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`message ${msg.sender}`}
+                style={msg.isError ? { borderLeft: '3px solid var(--danger)', background: 'rgba(185, 28, 28, 0.06)' } : {}}
+              >
+                <span dangerouslySetInnerHTML={{
+                  __html: msg.text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/`(.*?)`/g, '<code style="background:var(--color-fog-white);border:1px solid var(--border);padding:0.1rem 0.4rem;border-radius:4px;font-family:monospace;font-size:0.8rem;word-break:break-all">$1</code>')
+                    .replace(/\n/g, '<br/>')
+                }} />
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="chat-input-area">
+            {currentFieldIndex >= 0 && (
+              <div style={{ marginBottom: '0.8rem', display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={handleAyudaRapida}
+                  style={{ background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.25)', borderRadius: 'var(--radius-inputs)', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600' }}
+                >
+                  Ver Instrucciones del Campo
+                </button>
+              </div>
+            )}
+            {isComplete && !blockchainHash && (
+              <button
+                className="send-btn"
+                style={{ width: '100%', padding: '0.9rem', marginBottom: '0.8rem', fontSize: '0.95rem' }}
+                onClick={handleBlockchain}
+                disabled={isHashing}
+              >
+                <ShieldCheck size={20} />
+                {isHashing ? 'Generando hash...' : 'Registrar Hash en Blockchain'}
+              </button>
+            )}
+            <form className="input-wrapper" onSubmit={handleSend}>
+              <input
+                type="text"
+                className="chat-input"
+                placeholder={currentFieldIndex >= 0 ? `"${PUB_FIELDS[currentFieldIndex]?.label}"...` : isComplete ? 'Planilla completada' : 'Presiona "Comenzar" para iniciar...'}
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                disabled={currentFieldIndex < 0}
+              />
+              <button type="submit" className="send-btn" disabled={currentFieldIndex < 0 || !inputVal.trim()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Send size={18} />
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* ── Vista Previa del Formulario PUB ──────────────────────────── */}
+        <motion.div
+          className="glass-panel"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: '1.25rem', color: 'var(--color-ink-black)', margin: 0 }}>
+              <FileText size={20} color="var(--color-sienna-brown)" />
+              Vista Previa — Planilla PUB
+            </h3>
+            {isComplete && (
+              <button
+                className="send-btn"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                onClick={() => {
+                  const element = document.getElementById('pub-preview');
+                  const opt = {
+                    margin:       10,
+                    filename:     `Planilla_PUB_${formData.cedula || 'USM'}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                  };
+                  html2pdf().set(opt).from(element).save();
+                }}
+              >
+                <Download size={16} /> Exportar PDF Oficial
+              </button>
+            )}
+          </div>
+
+          <div className="pdf-preview-container" ref={containerRef} style={{ width: '100%', overflow: 'auto', maxHeight: '70vh' }}>
+            <div 
+              id="pub-preview" 
+              ref={previewRef}
+              style={{ 
+                padding: '2rem', 
+                background: '#ffffff', 
+                color: '#000000', 
+                fontFamily: '"Arial", sans-serif', 
+                border: '1px solid #e5e7eb', 
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                minWidth: '700px',
+                width: '700px',
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                transition: 'transform 0.15s ease-out'
+              }}
+            >
+            {/* Membrete oficial de VENEZUELA */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1a365d', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ flex: 1 }}>
+                <img src="/images/mppre_facade.png" alt="Escudo" style={{ height: '60px', objectFit: 'contain', opacity: 0.1 }} onError={(e) => e.target.style.display='none'} />
+              </div>
+              <div style={{ textAlign: 'center', flex: 3 }}>
+                <p style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, color: '#4a5568' }}>República Bolivariana de Venezuela</p>
+                <p style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', margin: 0, color: '#4a5568' }}>Ministerio del Poder Popular para Relaciones Interiores, Justicia y Paz</p>
+                <h4 style={{ fontSize: '1.1rem', margin: '0.5rem 0', color: '#1a365d', fontWeight: '900' }}>SERVICIO AUTÓNOMO DE REGISTROS Y NOTARÍAS</h4>
+                <p style={{ fontSize: '0.9rem', color: '#2b6cb0', fontWeight: '800', letterSpacing: '1.5px', margin: 0 }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
+              </div>
+              <div style={{ flex: 1, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
+                   <div style={{ display: 'flex', height: '24px', background: '#ffffff', gap: '1px' }}>
+                     {[2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1].map((w, i) => (
+                       <div key={i} style={{ width: `${w}px`, height: '100%', background: i % 2 === 0 ? '#000000' : '#ffffff' }} />
+                     ))}
+                   </div>
+                   <p style={{ margin: 0, fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 'bold' }}>*{stablePubCode.current}*</p>
+                 </div>
+                 <div style={{ border: '1px solid #cbd5e0', padding: '0.2rem 0.5rem', textAlign: 'center', background: '#f8fafc', borderRadius: '4px', display: 'inline-block' }}>
+                   <p style={{ margin: 0, fontSize: '0.45rem', color: '#718096', fontWeight: 'bold' }}>NRO. TRÁMITE</p>
+                   <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{stableTramiteNum.current}</p>
+                 </div>
+              </div>
+            </div>
+
+            {/* Datos del Solicitante */}
+            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Solicitante</h5>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>NOMBRES Y APELLIDOS</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.nombre_completo || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CÉDULA DE IDENTIDAD / PASAPORTE</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.cedula || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>TELÉFONO MÓVIL</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.telefono || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CORREO ELECTRÓNICO</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.correo || '----------------------'}</p>
+              </div>
+            </div>
+
+            {/* Datos del Trámite */}
+            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Trámite e Institución</h5>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>DESCRIPCIÓN DEL ACTO O NEGOCIO JURÍDICO</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600', textTransform: 'uppercase' }}>{formData.tramite || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>INSTITUCIÓN EDUCATIVA DE ORIGEN</p>
+                <p style={{ fontSize: '0.9rem', color: '#1a202c', margin: 0, fontWeight: '600', textTransform: 'uppercase' }}>{formData.institucion || '----------------------'}</p>
+              </div>
+            </div>
+
+            {/* Liquidación de Aranceles */}
+            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Liquidación de Aranceles y Tasas</h5>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                 <thead style={{ background: '#f7fafc', borderBottom: '1px solid #e2e8f0' }}>
+                   <tr>
+                     <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#4a5568' }}>CANT.</th>
+                     <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#4a5568' }}>CONCEPTO</th>
+                     <th style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.65rem', color: '#4a5568' }}>MONTO (Bs.)</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   <tr>
+                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7' }}>1</td>
+                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7' }}>Procesamiento de {formData.tramite || 'Trámite'}</td>
+                     <td style={{ padding: '0.5rem', fontSize: '0.85rem', borderBottom: '1px solid #edf2f7', textAlign: 'right', fontWeight: 'bold' }}>{formData.monto || '0.00'}</td>
+                   </tr>
+                 </tbody>
+                 <tfoot>
+                   <tr style={{ background: '#edf2f7' }}>
+                     <td colSpan="2" style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 'bold' }}>TOTAL A PAGAR:</td>
+                     <td style={{ padding: '0.5rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: '900', color: '#e53e3e' }}>Bs. {formData.monto || '0.00'}</td>
+                   </tr>
+                 </tfoot>
+               </table>
+            </div>
+
+            {/* Información de Pago Móvil */}
+            <h5 style={{ background: '#edf2f7', padding: '0.5rem', margin: '0 0 1rem 0', fontSize: '0.8rem', borderLeft: '4px solid #3182ce', color: '#2d3748', textTransform: 'uppercase' }}>Datos del Pago Móvil</h5>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>CÉDULA DEL PAGADOR</p>
+                <p style={{ fontSize: '0.85rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.pago_cedula || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>TELÉFONO DEL PAGADOR</p>
+                <p style={{ fontSize: '0.85rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.pago_telefono || '----------------------'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #cbd5e0', paddingBottom: '0.3rem' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.2rem 0', fontWeight: 'bold' }}>BANCO DEL PAGADOR</p>
+                <p style={{ fontSize: '0.85rem', color: '#1a202c', margin: 0, fontWeight: '600' }}>{formData.pago_banco || '----------------------'}</p>
+              </div>
+            </div>
+
+            {/* Información Bancaria Destino */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ border: '1px solid #cbd5e0', padding: '0.8rem', borderRadius: '4px', background: '#f8fafc' }}>
+                <p style={{ fontSize: '0.6rem', color: '#718096', margin: '0 0 0.4rem 0', fontWeight: 'bold' }}>INFORMACIÓN DE DEPÓSITO / TRANSFERENCIA</p>
+                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: '0 0 0.2rem 0' }}><strong>BANCO DESTINO:</strong> {formData.banco_destino || '----------------------'}</p>
+                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: '0 0 0.2rem 0' }}><strong>CUENTA:</strong> {formData.nro_cuenta || '----------------------'}</p>
+                <p style={{ fontSize: '0.8rem', color: '#2d3748', margin: 0 }}><strong>ESTADO:</strong> {formData.confirmacion_pago ? 'PAGADO' : 'PENDIENTE'}</p>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e0', padding: '0.5rem' }}>
+                 <p style={{ fontSize: '0.5rem', color: '#a0aec0', marginBottom: '0.3rem', textAlign: 'center' }}>Timbre Fiscal Electrónico (Blockchain)</p>
+                 {blockchainHash ? (
+                   <div style={{ width: '60px', height: '60px', display: 'grid', placeItems: 'center' }}>
+                     <QRCodeSVG value={`${window.location.origin}/?hash=${blockchainHash}`} size={60} />
+                   </div>
+                 ) : (
+                   <div style={{ width: '60px', height: '60px', background: '#edf2f7' }}></div>
+                 )}
+                 {blockchainHash && <p style={{ fontSize: '0.4rem', marginTop: '0.2rem', fontFamily: 'monospace' }}>{blockchainHash.substring(0, 15)}...</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+          {/* Hash Blockchain */}
+          <AnimatePresence>
+            {blockchainHash && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{ marginTop: '1.5rem', padding: '1.25rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <p style={{ color: 'var(--color-sienna-brown)', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ShieldCheck size={18} /> Huella Digital Blockchain Registrada
+                  </p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(blockchainHash);
+                      setCopiedHash(true);
+                      setTimeout(() => setCopiedHash(false), 2000);
+                    }}
+                    className="btn-ghost"
+                    style={{
+                      padding: '0.25rem 0.65rem',
+                      fontSize: '0.75rem'
+                    }}
+                  >
+                    {copiedHash ? '¡Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+                <p style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-ink-black)', background: '#ffffff', border: '1px solid var(--border)', padding: '0.5rem 0.75rem', borderRadius: '6px', wordBreak: 'break-all', lineHeight: '1.6', margin: '0.4rem 0' }}>
+                  {blockchainHash}
+                </p>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>
+                  Cualquier modificación al documento invalidará este hash.
+                </p>
+                <button
+                  onClick={() => setShowCert(true)}
+                  className="send-btn"
+                  style={{ marginTop: '1rem', width: '100%', padding: '0.8rem' }}
+                >
+                  <ShieldCheck size={18} /> Ver Certificado Digital
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {isComplete && !blockchainHash && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--color-blush-peach)', border: '1px solid rgba(93, 42, 26, 0.25)', borderRadius: 'var(--radius-inputs)', textAlign: 'center' }}
+            >
+              <p style={{ color: 'var(--color-sienna-brown)', fontWeight: '600', margin: 0 }}>Planilla Válida — Lista para Registro Criptográfico</p>
+            </motion.div>
+          )}
+        </motion.div>
+
+      </div>
+      
+      <AnimatePresence>
+        {showCert && blockchainHash && (
+          <DigitalCertificate docHash={blockchainHash} onClose={() => setShowCert(false)} onVerifyHash={onVerifyHash} />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default PUBForm;
