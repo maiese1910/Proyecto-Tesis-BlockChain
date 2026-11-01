@@ -146,7 +146,7 @@ function App() {
       return (
         <div className="app-layout" style={{ background: 'var(--color-mist-gray)', minHeight: '100vh', color: 'var(--color-ink-black)' }}>
           <ToastNotification />
-          <div style={{ width: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: '100%', maxWidth: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div className="admin-header" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', padding: '0.9rem 2rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
                 <div style={{
@@ -201,7 +201,7 @@ function App() {
                 Cerrar Sesión Auditoría
               </button>
             </div>
-            <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem', backgroundColor: 'var(--color-mist-gray)' }}>
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, padding: '1.5rem', backgroundColor: 'var(--color-mist-gray)' }}>
               {adminUser?.ente === 'USM' ? (
                 <AdminDashboard adminData={adminUser} />
               ) : (

@@ -369,9 +369,10 @@ select option:checked {
 
 /* Modals / Specific Views */
 .view-container {
-  max-width: 1040px;
+  max-width: 1360px;
+  width: 100%;
   margin: 0 auto;
-  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -891,14 +892,9 @@ select.chat-input option {
     padding: 0 1rem;
   }
 
-  /* GovernmentPanel: tabla → cards */
-  .gov-table-desktop {
-    display: none !important;
-  }
-  .gov-cards-mobile {
-    display: flex !important;
-    flex-direction: column;
-    gap: 1rem;
+  /* GovernmentPanel: tabla & cards responsivas */
+  .gov-table-scroll-container {
+    max-height: calc(100vh - 260px) !important;
   }
 
   /* Step card responsive */
@@ -1234,4 +1230,37 @@ select.chat-input option {
   thead, tbody, tr {
     min-width: 100%;
   }
+}
+
+
+/* ==========================================================================
+   GovernmentPanel — Scrollbars & Estética Ministerial (MPPRE / MPPEU)
+   ========================================================================== */
+.gov-table-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gov-table-scroll-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gov-table-scroll-container::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+
+.gov-table-scroll-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.gov-table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.gov-table-row:hover {
+  background-color: rgba(241, 245, 249, 0.75) !important;
 }

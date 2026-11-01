@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw, Bell, Wallet, Clipboard, Lock, Building2, Globe, Award, Stamp } from 'lucide-react';
+import { ShieldCheck, Search, FileText, CheckCircle, XCircle, AlertTriangle, ExternalLink, Eye, Download, CheckSquare, Square, Filter, FileSpreadsheet, Printer, X, ShieldAlert, Sparkles, Clock, Users, Shield, Bot, AlertCircle, RefreshCw, Bell, Wallet, Clipboard, Lock, Building2, Globe, Award, Stamp, LayoutGrid, Table, ArrowLeftRight, Check, Copy, CheckCheck, RotateCcw } from 'lucide-react';
 import { blockchainAPI, authAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
@@ -15,6 +15,15 @@ const GovernmentPanel = ({ adminData }) => {
   const [verifying, setVerifying] = useState(null);
   const [selectedHashes, setSelectedHashes] = useState([]);
   const [batchVerifying, setBatchVerifying] = useState(false);
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'cards'
+  const [copiedHash, setCopiedHash] = useState(null);
+
+  const handleCopyHash = (hash) => {
+    if (!hash) return;
+    navigator.clipboard.writeText(hash);
+    setCopiedHash(hash);
+    setTimeout(() => setCopiedHash(null), 2000);
+  };
 
   // Obtener datos del funcionario actual logueado
   const storedAdmin = adminData || JSON.parse(localStorage.getItem('admin_data') || '{}');
@@ -400,7 +409,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
   const efficiencyRate = totalCount > 0 ? (((verifiedCount + rejectedCount) / totalCount) * 100).toFixed(1) : '100.0';
 
   return (
-    <div className="view-container" style={{ maxWidth: '1280px', margin: '0 auto' }}>
+    <div className="view-container" style={{ maxWidth: '1400px', width: '100%', margin: '0 auto', height: 'auto', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       
       {/* ─── SELECTOR DE ROL MINISTERIAL (ARQUITECTURA DE TESIS) ─── */}
       <div style={{
@@ -1097,31 +1106,32 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
         )}
       </AnimatePresence>
 
-      {/* ─── FILTROS Y BÚSQUEDA ─── */}
+            {/* ─── FILTROS Y BÚSQUEDA ─── */}
       <div style={{
         background: '#ffffff',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-cards)',
         marginBottom: '1.5rem',
         display: 'flex',
-        gap: '1rem',
+        gap: '0.85rem',
         alignItems: 'center',
+        justifyContent: 'space-between',
         flexWrap: 'wrap',
-        padding: '1rem 1.4rem',
+        padding: '0.9rem 1.4rem',
         boxShadow: 'var(--shadow-subtle)'
       }}>
         
-        {/* Buscador */}
+        {/* Buscador con botón para limpiar */}
         <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
           <Search size={17} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-slate-gray)' }} />
           <input 
             type="text" 
-            placeholder="Buscar por Nombre, Cédula o Hash..." 
+            placeholder="Buscar por Solicitante, Cédula, Trámite o Hash..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               width: '100%',
-              padding: '0.65rem 1rem 0.65rem 2.6rem',
+              padding: '0.65rem 2.4rem 0.65rem 2.6rem',
               background: 'var(--color-fog-white)',
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-inputs)',
@@ -1130,6 +1140,28 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
               fontSize: '0.88rem'
             }}
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              style={{
+                position: 'absolute',
+                right: '0.75rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--color-slate-gray)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.2rem'
+              }}
+              title="Limpiar búsqueda"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         {/* Filtro por Estado */}
@@ -1139,7 +1171,8 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
           background: 'var(--color-fog-white)',
           padding: '0.25rem',
           borderRadius: 'var(--radius-pill)',
-          border: '1px solid var(--border)'
+          border: '1px solid var(--border)',
+          flexWrap: 'wrap'
         }}>
           {[
             { id: 'ALL', label: 'Todos' },
@@ -1151,20 +1184,74 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
               key={f.id}
               onClick={() => setFilterStatus(f.id)}
               style={{
-                padding: '0.45rem 0.9rem',
+                padding: '0.42rem 0.85rem',
                 borderRadius: 'var(--radius-pill)',
                 border: 'none',
                 cursor: 'pointer',
                 fontWeight: 500,
                 fontSize: '0.8rem',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.15s ease',
                 background: filterStatus === f.id ? 'var(--color-ink-black)' : 'transparent',
-                color: filterStatus === f.id ? '#ffffff' : 'var(--color-slate-gray)'
+                color: filterStatus === f.id ? '#ffffff' : 'var(--color-slate-gray)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem'
               }}
             >
-              {f.label}
+              <span>{f.label}</span>
             </button>
           ))}
+        </div>
+
+        {/* Selector de Modo de Visualización: Tabla o Tarjetas */}
+        <div style={{
+          display: 'flex',
+          gap: '0.25rem',
+          background: 'var(--color-fog-white)',
+          padding: '0.25rem',
+          borderRadius: 'var(--radius-pill)',
+          border: '1px solid var(--border)'
+        }}>
+          <button
+            onClick={() => setViewMode('table')}
+            style={{
+              padding: '0.42rem 0.85rem',
+              borderRadius: 'var(--radius-pill)',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '0.8rem',
+              transition: 'all 0.15s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              background: viewMode === 'table' ? 'var(--color-ink-black)' : 'transparent',
+              color: viewMode === 'table' ? '#ffffff' : 'var(--color-slate-gray)'
+            }}
+            title="Vista de Tabla Ministerial con Scroll Horizontal y Vertical"
+          >
+            <Table size={14} /> Tabla
+          </button>
+          <button
+            onClick={() => setViewMode('cards')}
+            style={{
+              padding: '0.42rem 0.85rem',
+              borderRadius: 'var(--radius-pill)',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '0.8rem',
+              transition: 'all 0.15s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              background: viewMode === 'cards' ? 'var(--color-ink-black)' : 'transparent',
+              color: viewMode === 'cards' ? '#ffffff' : 'var(--color-slate-gray)'
+            }}
+            title="Vista de Tarjetas Adaptativas"
+          >
+            <LayoutGrid size={14} /> Tarjetas
+          </button>
         </div>
 
         {/* Botón de Auditoría Masiva en Lote */}
@@ -1178,7 +1265,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
               background: 'var(--color-blush-peach)',
               color: 'var(--color-sienna-brown)',
               border: '1px solid rgba(93, 42, 26, 0.2)',
-              padding: '0.55rem 1.1rem',
+              padding: '0.5rem 1.1rem',
               borderRadius: 'var(--radius-pill)',
               fontWeight: 600,
               fontSize: '0.82rem',
@@ -1189,428 +1276,1143 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
               boxShadow: 'var(--shadow-subtle)'
             }}
           >
-            <CheckSquare size={16} /> {batchVerifying ? 'Auditando...' : `Aprobar (${selectedHashes.length}) Seleccionados`}
+            <CheckSquare size={16} /> {batchVerifying ? 'Auditando...' : `Aprobar (${selectedHashes.length})`}
           </motion.button>
         )}
 
       </div>
 
+      {/* ─── VISTA PRINCIPAL DE EXPEDIENTES (TABLA CON SCROLL FLUIDO O TARJETAS) ─── */}
+      {loading ? (
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-cards)',
+          padding: '4rem 2rem',
+          textAlign: 'center',
+          color: 'var(--color-slate-gray)',
+          boxShadow: 'var(--shadow-subtle)',
+          marginBottom: '2rem'
+        }}>
+          <RefreshCw size={26} className="animate-spin" style={{ margin: '0 auto 0.75rem auto', color: 'var(--color-ink-black)' }} />
+          <p style={{ margin: 0, fontSize: '0.92rem' }}>Cargando expedientes académicos en la Blockchain...</p>
+        </div>
+      ) : filteredRecords.length === 0 ? (
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-cards)',
+          padding: '4rem 2rem',
+          textAlign: 'center',
+          color: 'var(--color-slate-gray)',
+          boxShadow: 'var(--shadow-subtle)',
+          marginBottom: '2rem'
+        }}>
+          <FileText size={36} style={{ margin: '0 auto 0.85rem auto', opacity: 0.35 }} />
+          <h4 style={{ margin: '0 0 0.35rem 0', color: 'var(--color-ink-black)', fontSize: '1.05rem', fontWeight: 600 }}>
+            No se encontraron trámites con los criterios seleccionados
+          </h4>
+          <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.88rem' }}>
+            Prueba ajustando el término de búsqueda o cambiando el filtro de estado ministerial.
+          </p>
+          {(searchTerm || filterStatus !== 'ALL') && (
+            <button
+              onClick={() => { setSearchTerm(''); setFilterStatus('ALL'); }}
+              style={{
+                background: 'var(--color-fog-white)',
+                border: '1px solid var(--border)',
+                color: 'var(--color-ink-black)',
+                padding: '0.5rem 1.2rem',
+                borderRadius: 'var(--radius-pill)',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem'
+              }}
+            >
+              <RotateCcw size={14} /> Restablecer filtros
+            </button>
+          )}
+        </div>
+      ) : viewMode === 'table' ? (
+        /* ──── VISTA TABLA CON SCROLL INTERNO & CABECERA STICKY ──── */
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-cards)',
+          boxShadow: 'var(--shadow-subtle)',
+          marginBottom: '2rem',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          {/* Header de la Tabla */}
+          <div style={{
+            padding: '0.85rem 1.4rem',
+            background: 'var(--color-fog-white)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-ink-black)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                {ministerialMode === 'MPPEU' ? <Building2 size={16} color="#0369a1" /> : ministerialMode === 'MPPRE' ? <Globe size={16} color="var(--color-sienna-brown)" /> : <ShieldCheck size={16} />}
+                {ministerialMode === 'MPPEU' ? 'Cola de Cotejo Presencial GTU (MPPEU)' : ministerialMode === 'MPPRE' ? 'Cola de Apostilla Electrónica de La Haya (MPPRE)' : 'Expedientes Académicos y Resoluciones'}
+              </span>
+              <span style={{
+                fontSize: '0.74rem',
+                background: '#ffffff',
+                border: '1px solid var(--border)',
+                padding: '0.2rem 0.65rem',
+                borderRadius: 'var(--radius-pill)',
+                color: 'var(--color-slate-gray)',
+                fontWeight: 600
+              }}>
+                {filteredRecords.length} en cola
+              </span>
+            </div>
 
-      {/* ─── VISTA DESKTOP: TABLA CON PREVISUALIZADOR, AUDITORIA Y RECHAZO ─── */}
-      <div style={{
-        background: '#ffffff',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-cards)',
-        overflow: 'hidden',
-        boxShadow: 'var(--shadow-subtle)',
-        marginBottom: '2rem'
-      }}>
-        {loading ? (
-          <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--color-slate-gray)' }}>
-            <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 0.75rem auto', color: 'var(--color-ink-black)' }} />
-            <p style={{ margin: 0, fontSize: '0.9rem' }}>Cargando expedientes académicos en la Blockchain...</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.76rem', color: 'var(--color-slate-gray)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <ArrowLeftRight size={13} /> Desplazamiento horizontal y vertical habilitado
+              </span>
+            </div>
           </div>
-        ) : filteredRecords.length === 0 ? (
-          <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--color-slate-gray)' }}>
-            <FileText size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4 }} />
-            <p style={{ margin: 0, fontSize: '0.92rem' }}>No se encontraron trámites con los criterios seleccionados.</p>
-          </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--color-fog-white)', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '1rem 0.8rem', width: '40px', textAlign: 'center' }}>
-                  <button onClick={toggleSelectAll} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-slate-gray)' }}>
-                    {selectedHashes.length === filteredRecords.length ? <CheckSquare size={18} color="var(--color-ink-black)" /> : <Square size={18} />}
-                  </button>
-                </th>
-                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Solicitante</th>
-                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Trámite</th>
-                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Hash Blockchain</th>
-                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Estado & Auditor Responsable</th>
-                <th style={{ padding: '1rem', fontSize: '0.74rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, textAlign: 'center' }}>Acciones de Auditoría</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRecords.map((record) => {
-                const isVerified = (record.status || '').includes('Verificado');
-                const isRejected = (record.status || '').includes('Rechazado');
-                const isSelected = selectedHashes.includes(record.hash);
-                const auditorSign = record.verifiedBy || currentAuditorName;
 
-                return (
-                  <tr
-                    key={record.hash}
-                    style={{
-                      borderBottom: '1px solid var(--border)',
-                      background: isSelected ? 'rgba(251, 225, 209, 0.25)' : 'transparent',
-                      transition: 'background 0.15s ease'
-                    }}
-                  >
-                    
-                    {/* Checkbox Selección */}
-                    <td style={{ padding: '1.1rem 0.8rem', textAlign: 'center' }}>
-                      <button onClick={() => toggleSelectHash(record.hash)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-slate-gray)' }}>
-                        {isSelected ? <CheckSquare size={18} color="var(--color-ink-black)" /> : <Square size={18} />}
+          {/* Contenedor Scrollable */}
+          <div 
+            className="gov-table-scroll-container"
+            style={{
+              overflowX: 'auto',
+              overflowY: 'auto',
+              maxHeight: 'calc(100vh - 300px)',
+              minHeight: '280px',
+              WebkitOverflowScrolling: 'touch',
+              position: 'relative'
+            }}
+          >
+            <table style={{
+              width: '100%',
+              minWidth: '1180px',
+              borderCollapse: 'separate',
+              borderSpacing: 0,
+              textAlign: 'left'
+            }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                <tr style={{ background: '#f8fafc' }}>
+                  <th style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#f8fafc',
+                    borderBottom: '2px solid var(--border)',
+                    padding: '0.95rem 0.8rem',
+                    width: '44px',
+                    textAlign: 'center',
+                    boxShadow: '0 1px 0 var(--border)'
+                  }}>
+                    <button onClick={toggleSelectAll} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-slate-gray)' }}>
+                      {selectedHashes.length === filteredRecords.length ? <CheckSquare size={18} color="var(--color-ink-black)" /> : <Square size={18} />}
+                    </button>
+                  </th>
+                  <th style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#f8fafc',
+                    borderBottom: '2px solid var(--border)',
+                    padding: '0.95rem 1rem',
+                    fontSize: '0.74rem',
+                    color: 'var(--color-slate-gray)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontWeight: 600,
+                    minWidth: '180px',
+                    boxShadow: '0 1px 0 var(--border)'
+                  }}>
+                    Solicitante
+                  </th>
+                  <th style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#f8fafc',
+                    borderBottom: '2px solid var(--border)',
+                    padding: '0.95rem 1rem',
+                    fontSize: '0.74rem',
+                    color: 'var(--color-slate-gray)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontWeight: 600,
+                    minWidth: '160px',
+                    boxShadow: '0 1px 0 var(--border)'
+                  }}>
+                    Trámite
+                  </th>
+                  <th style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#f8fafc',
+                    borderBottom: '2px solid var(--border)',
+                    padding: '0.95rem 1rem',
+                    fontSize: '0.74rem',
+                    color: 'var(--color-slate-gray)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontWeight: 600,
+                    minWidth: '170px',
+                    boxShadow: '0 1px 0 var(--border)'
+                  }}>
+                    Hash Blockchain
+                  </th>
+                  <th style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#f8fafc',
+                    borderBottom: '2px solid var(--border)',
+                    padding: '0.95rem 1rem',
+                    fontSize: '0.74rem',
+                    color: 'var(--color-slate-gray)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontWeight: 600,
+                    minWidth: '220px',
+                    boxShadow: '0 1px 0 var(--border)'
+                  }}>
+                    Estado & Auditor Responsable
+                  </th>
+                  <th style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#f8fafc',
+                    borderBottom: '2px solid var(--border)',
+                    padding: '0.95rem 1rem',
+                    fontSize: '0.74rem',
+                    color: 'var(--color-slate-gray)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontWeight: 600,
+                    minWidth: '350px',
+                    textAlign: 'center',
+                    boxShadow: '0 1px 0 var(--border)'
+                  }}>
+                    Acciones de Auditoría
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRecords.map((record) => {
+                  const isVerified = (record.status || '').includes('Verificado');
+                  const isRejected = (record.status || '').includes('Rechazado');
+                  const isSelected = selectedHashes.includes(record.hash);
+                  const auditorSign = record.verifiedBy || currentAuditorName;
+
+                  return (
+                    <tr
+                      key={record.hash}
+                      className="gov-table-row"
+                      style={{
+                        background: isSelected ? 'rgba(251, 225, 209, 0.3)' : 'transparent',
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      {/* Checkbox Selección */}
+                      <td style={{ padding: '0.95rem 0.8rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
+                        <button onClick={() => toggleSelectHash(record.hash)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-slate-gray)' }}>
+                          {isSelected ? <CheckSquare size={18} color="var(--color-ink-black)" /> : <Square size={18} />}
+                        </button>
+                      </td>
+
+                      {/* Solicitante */}
+                      <td style={{ padding: '0.95rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                        <p style={{ fontWeight: 600, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)', fontSize: '0.92rem' }}>{record.ownerName}</p>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--color-slate-gray)', margin: 0 }}>C.I: {record.cedula}</p>
+                      </td>
+
+                      {/* Trámite */}
+                      <td style={{ padding: '0.95rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          background: 'var(--color-mist-gray)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--color-ink-black)',
+                          padding: '0.28rem 0.7rem',
+                          borderRadius: 'var(--radius-pill)',
+                          fontSize: '0.78rem',
+                          fontWeight: 500
+                        }}>
+                          <FileText size={13} /> {record.documentType || 'Registro de Título USM'}
+                        </span>
+                      </td>
+
+                      {/* Hash Blockchain con 1-click Copy */}
+                      <td style={{ padding: '0.95rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <code style={{
+                              background: 'var(--color-mist-gray)',
+                              border: '1px solid var(--border)',
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '6px',
+                              fontSize: '0.76rem',
+                              fontFamily: 'monospace',
+                              color: 'var(--color-slate-gray)',
+                              width: 'fit-content'
+                            }}>
+                              {record.hash ? `${record.hash.substring(0, 14)}...` : 'N/A'}
+                            </code>
+                            {record.hash && (
+                              <button
+                                onClick={() => handleCopyHash(record.hash)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: copiedHash === record.hash ? '#10b981' : 'var(--color-slate-gray)',
+                                  padding: '0.2rem',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                                title="Copiar Hash SHA-256 completo"
+                              >
+                                {copiedHash === record.hash ? <CheckCheck size={13} /> : <Copy size={13} />}
+                              </button>
+                            )}
+                          </div>
+                          <a
+                            href={`https://sepolia.etherscan.io/tx/${record.txHash || ''}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: '0.74rem',
+                              color: 'var(--color-ink-black)',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              fontWeight: 500
+                            }}
+                          >
+                            Sepolia Explorer <ExternalLink size={11} />
+                          </a>
+                        </div>
+                      </td>
+
+                      {/* Estado Legal */}
+                      <td style={{ padding: '0.95rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              color: 'var(--color-sienna-brown)',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              background: 'var(--color-blush-peach)',
+                              border: '1px solid rgba(93, 42, 26, 0.18)',
+                              padding: '0.28rem 0.75rem',
+                              borderRadius: 'var(--radius-pill)',
+                              width: 'fit-content'
+                            }}>
+                              <Globe size={13} /> Apostillado MPPRE
+                            </span>
+                          ) : record.mppeuVerified || (record.status || '').includes('CERTIFICADO_MPPEU') ? (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              color: '#0369a1',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              background: '#e0f2fe',
+                              border: '1px solid rgba(3, 105, 161, 0.22)',
+                              padding: '0.28rem 0.75rem',
+                              borderRadius: 'var(--radius-pill)',
+                              width: 'fit-content'
+                            }}>
+                              <Building2 size={13} /> Certificado GTU (MPPEU)
+                            </span>
+                          ) : isVerified ? (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              color: '#15803d',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              background: '#dcfce7',
+                              border: '1px solid rgba(21, 128, 61, 0.22)',
+                              padding: '0.28rem 0.75rem',
+                              borderRadius: 'var(--radius-pill)',
+                              width: 'fit-content'
+                            }}>
+                              <CheckCircle size={13} /> Verificado
+                            </span>
+                          ) : isRejected ? (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              color: '#b91c1c',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              background: '#fee2e2',
+                              border: '1px solid rgba(185, 28, 28, 0.22)',
+                              padding: '0.28rem 0.75rem',
+                              borderRadius: 'var(--radius-pill)',
+                              width: 'fit-content'
+                            }}>
+                              <AlertOctagon size={13} /> Rechazado
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              color: 'var(--color-slate-gray)',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              background: 'var(--color-mist-gray)',
+                              border: '1px solid var(--border)',
+                              padding: '0.28rem 0.75rem',
+                              borderRadius: 'var(--radius-pill)',
+                              width: 'fit-content'
+                            }}>
+                              <Clock size={13} /> Pendiente por Cotejo
+                            </span>
+                          )}
+
+                          {(isVerified || isRejected || record.mppeuVerified || record.mppreVerified) && (
+                            <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)' }}>
+                              Firma: <strong style={{ color: 'var(--color-ink-black)' }}>{auditorSign}</strong>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Acciones de Auditoría */}
+                      <td style={{ padding: '0.95rem 1rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+                          
+                          <button
+                            onClick={() => setActivePUBRecord(record)}
+                            style={{
+                              padding: '0.42rem 0.8rem',
+                              background: '#ffffff',
+                              border: '1px solid var(--border)',
+                              color: 'var(--color-ink-black)',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 500,
+                              fontSize: '0.78rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              boxShadow: 'var(--shadow-subtle)',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title="Ver Planilla PUB y Expediente Escaneado"
+                          >
+                            <Eye size={13} /> Ver Expediente
+                          </button>
+
+                          <button
+                            onClick={() => setActiveCertHash(record.hash)}
+                            style={{
+                              padding: '0.42rem 0.8rem',
+                              background: '#ffffff',
+                              border: '1px solid var(--border)',
+                              color: 'var(--color-ink-black)',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 500,
+                              fontSize: '0.78rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              boxShadow: 'var(--shadow-subtle)',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title="Ver Certificado de Inmutabilidad Criptográfica"
+                          >
+                            <ShieldCheck size={13} /> Certificado
+                          </button>
+
+                          {ministerialMode === 'MPPEU' ? (
+                            <>
+                              {!record.mppeuVerified && !(record.status || '').includes('CERTIFICADO_MPPEU') && !(record.status || '').includes('APOSTILLADO_MPPRE') && !isRejected ? (
+                                <>
+                                  <button 
+                                    onClick={() => setActiveCotejoRecord(record)}
+                                    style={{
+                                      padding: '0.42rem 0.95rem',
+                                      fontSize: '0.78rem',
+                                      background: 'var(--color-ink-black)',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: 'var(--radius-pill)',
+                                      cursor: 'pointer',
+                                      fontWeight: 600,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.35rem',
+                                      boxShadow: 'var(--shadow-subtle)',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <Stamp size={14} /> Cotejo GTU
+                                  </button>
+
+                                  <button
+                                    onClick={() => setRejectingRecord(record)}
+                                    style={{
+                                      padding: '0.42rem 0.8rem',
+                                      fontSize: '0.78rem',
+                                      background: '#ffffff',
+                                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                                      color: '#b91c1c',
+                                      borderRadius: 'var(--radius-pill)',
+                                      cursor: 'pointer',
+                                      fontWeight: 500,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.3rem',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <XCircle size={13} /> Rechazar
+                                  </button>
+                                </>
+                              ) : (
+                                <span style={{
+                                  fontSize: '0.76rem',
+                                  color: '#0369a1',
+                                  fontWeight: 600,
+                                  background: '#e0f2fe',
+                                  border: '1px solid rgba(3, 105, 161, 0.25)',
+                                  padding: '0.3rem 0.75rem',
+                                  borderRadius: 'var(--radius-pill)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  <Building2 size={13} /> Sello GTU Listo
+                                </span>
+                              )}
+                            </>
+                          ) : ministerialMode === 'MPPRE' ? (
+                            <>
+                              {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
+                                <button
+                                  onClick={() => setActiveApostilleRecord(record)}
+                                  style={{
+                                    padding: '0.42rem 0.95rem',
+                                    fontSize: '0.78rem',
+                                    background: '#ffffff',
+                                    border: '1px solid #10b981',
+                                    color: '#047857',
+                                    borderRadius: 'var(--radius-pill)',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    boxShadow: 'var(--shadow-subtle)',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  <Globe size={14} /> Ver Apostilla de La Haya
+                                </button>
+                              ) : !isRejected ? (
+                                <>
+                                  <button
+                                    onClick={() => handleMppreApostille(record)}
+                                    disabled={apostilleLoading === record.hash}
+                                    style={{
+                                      padding: '0.42rem 0.95rem',
+                                      fontSize: '0.78rem',
+                                      background: 'var(--color-blush-peach)',
+                                      color: 'var(--color-sienna-brown)',
+                                      border: '1px solid rgba(93, 42, 26, 0.22)',
+                                      borderRadius: 'var(--radius-pill)',
+                                      cursor: 'pointer',
+                                      fontWeight: 600,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.35rem',
+                                      boxShadow: 'var(--shadow-subtle)',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Emitir Apostilla Digital'}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setRejectingRecord(record)}
+                                    style={{
+                                      padding: '0.42rem 0.8rem',
+                                      fontSize: '0.78rem',
+                                      background: '#ffffff',
+                                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                                      color: '#b91c1c',
+                                      borderRadius: 'var(--radius-pill)',
+                                      cursor: 'pointer',
+                                      fontWeight: 500,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.3rem',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <XCircle size={13} /> Rechazar
+                                  </button>
+                                </>
+                              ) : (
+                                <span style={{ fontSize: '0.76rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Rechazado</span>
+                              )}
+                            </>
+                          ) : (
+                            /* Modo General */
+                            <>
+                              {!isVerified && !isRejected ? (
+                                <>
+                                  <button 
+                                    onClick={() => handleVerify(record.hash)}
+                                    disabled={verifying === record.hash}
+                                    style={{
+                                      padding: '0.42rem 0.95rem',
+                                      fontSize: '0.78rem',
+                                      background: 'var(--color-ink-black)',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: 'var(--radius-pill)',
+                                      cursor: 'pointer',
+                                      fontWeight: 600,
+                                      boxShadow: 'var(--shadow-subtle)',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    {verifying === record.hash ? 'Auditando...' : 'Aprobar'}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setRejectingRecord(record)}
+                                    style={{
+                                      padding: '0.42rem 0.8rem',
+                                      fontSize: '0.78rem',
+                                      background: '#ffffff',
+                                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                                      color: '#b91c1c',
+                                      borderRadius: 'var(--radius-pill)',
+                                      cursor: 'pointer',
+                                      fontWeight: 500,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.3rem',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <XCircle size={13} /> Rechazar
+                                  </button>
+                                </>
+                              ) : isVerified ? (
+                                <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 600, background: '#dcfce7', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Aprobado</span>
+                              ) : (
+                                <span style={{ fontSize: '0.76rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Rechazado</span>
+                              )}
+                            </>
+                          )}
+
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer de la Tabla con Métricas de Cola */}
+          <div style={{
+            padding: '0.8rem 1.4rem',
+            background: 'var(--color-fog-white)',
+            borderTop: '1px solid var(--border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            fontSize: '0.8rem',
+            color: 'var(--color-slate-gray)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <span>
+                Mostrando <strong style={{ color: 'var(--color-ink-black)' }}>{filteredRecords.length}</strong> de <strong style={{ color: 'var(--color-ink-black)' }}>{records.length}</strong> expedientes registrados
+              </span>
+              {selectedHashes.length > 0 && (
+                <span style={{ color: 'var(--color-sienna-brown)', fontWeight: 600 }}>
+                  • {selectedHashes.length} seleccionados
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+              <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 500 }}>
+                Conectado a Ethereum Sepolia Testnet
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ──── VISTA TARJETAS RESPONSIVAS PARA AUDITORÍA RÁPIDA ──── */
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+          gap: '1.25rem',
+          marginBottom: '2rem'
+        }}>
+          {filteredRecords.map((record) => {
+            const isVerified = (record.status || '').includes('Verificado');
+            const isRejected = (record.status || '').includes('Rechazado');
+            const isSelected = selectedHashes.includes(record.hash);
+            const auditorSign = record.verifiedBy || currentAuditorName;
+
+            return (
+              <motion.div
+                key={record.hash}
+                whileHover={{ y: -3 }}
+                style={{
+                  background: '#ffffff',
+                  border: isSelected ? '1.5px solid var(--color-sienna-brown)' : '1px solid var(--border)',
+                  borderRadius: 'var(--radius-cards)',
+                  padding: '1.35rem 1.45rem',
+                  boxShadow: 'var(--shadow-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '1.1rem',
+                  background: isSelected ? 'rgba(251, 225, 209, 0.12)' : '#ffffff',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {/* Cabecera de la Tarjeta */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <button onClick={() => toggleSelectHash(record.hash)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-slate-gray)', padding: 0 }}>
+                        {isSelected ? <CheckSquare size={19} color="var(--color-ink-black)" /> : <Square size={19} />}
                       </button>
-                    </td>
-
-                    {/* Solicitante */}
-                    <td style={{ padding: '1.1rem 1rem' }}>
-                      <p style={{ fontWeight: 600, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)', fontSize: '0.92rem' }}>{record.ownerName}</p>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--color-slate-gray)', margin: 0 }}>C.I: {record.cedula}</p>
-                    </td>
-
-                    {/* Trámite */}
-                    <td style={{ padding: '1.1rem 1rem' }}>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--color-ink-black)', fontWeight: 600 }}>{record.ownerName}</h4>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-slate-gray)' }}>C.I: {record.cedula}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Badge de Estado */}
+                    {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
                       <span style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.4rem',
+                        gap: '0.35rem',
+                        color: 'var(--color-sienna-brown)',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        background: 'var(--color-blush-peach)',
+                        border: '1px solid rgba(93, 42, 26, 0.18)',
+                        padding: '0.22rem 0.65rem',
+                        borderRadius: 'var(--radius-pill)'
+                      }}>
+                        <Globe size={12} /> Apostillado
+                      </span>
+                    ) : record.mppeuVerified || (record.status || '').includes('CERTIFICADO_MPPEU') ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        color: '#0369a1',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        background: '#e0f2fe',
+                        border: '1px solid rgba(3, 105, 161, 0.22)',
+                        padding: '0.22rem 0.65rem',
+                        borderRadius: 'var(--radius-pill)'
+                      }}>
+                        <Building2 size={12} /> Cotejo GTU
+                      </span>
+                    ) : isVerified ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        color: '#15803d',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        background: '#dcfce7',
+                        border: '1px solid rgba(21, 128, 61, 0.22)',
+                        padding: '0.22rem 0.65rem',
+                        borderRadius: 'var(--radius-pill)'
+                      }}>
+                        <CheckCircle size={12} /> Verificado
+                      </span>
+                    ) : isRejected ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        color: '#b91c1c',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        background: '#fee2e2',
+                        border: '1px solid rgba(185, 28, 28, 0.22)',
+                        padding: '0.22rem 0.65rem',
+                        borderRadius: 'var(--radius-pill)'
+                      }}>
+                        <AlertOctagon size={12} /> Rechazado
+                      </span>
+                    ) : (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        color: 'var(--color-slate-gray)',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
                         background: 'var(--color-mist-gray)',
                         border: '1px solid var(--border)',
-                        color: 'var(--color-ink-black)',
-                        padding: '0.3rem 0.75rem',
-                        borderRadius: 'var(--radius-pill)',
-                        fontSize: '0.78rem',
-                        fontWeight: 500
+                        padding: '0.22rem 0.65rem',
+                        borderRadius: 'var(--radius-pill)'
                       }}>
-                        <FileText size={13} /> {record.documentType || 'Registro de Título USM'}
+                        <Clock size={12} /> Pendiente
                       </span>
-                    </td>
+                    )}
+                  </div>
 
-                    {/* Hash */}
-                    <td style={{ padding: '1.1rem 1rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <code style={{
-                          background: 'var(--color-mist-gray)',
-                          border: '1px solid var(--border)',
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '6px',
-                          fontSize: '0.76rem',
-                          fontFamily: 'monospace',
-                          color: 'var(--color-slate-gray)',
-                          width: 'fit-content'
-                        }}>
-                          {record.hash ? `${record.hash.substring(0, 14)}...` : 'N/A'}
+                  <div style={{ marginBottom: '0.85rem' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      background: 'var(--color-mist-gray)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--color-ink-black)',
+                      padding: '0.28rem 0.7rem',
+                      borderRadius: 'var(--radius-pill)',
+                      fontSize: '0.78rem',
+                      fontWeight: 500
+                    }}>
+                      <FileText size={13} /> {record.documentType || 'Registro de Título USM'}
+                    </span>
+                  </div>
+
+                  {/* Hash y Explorer */}
+                  <div style={{
+                    background: 'var(--color-fog-white)',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border)',
+                    fontSize: '0.75rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.35rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--color-slate-gray)', fontWeight: 600 }}>Hash SHA-256:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <code style={{ fontFamily: 'monospace', color: 'var(--color-ink-black)' }}>
+                          {record.hash ? `${record.hash.substring(0, 12)}...` : 'N/A'}
                         </code>
-                        <a
-                          href={`https://sepolia.etherscan.io/tx/${record.txHash || ''}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            fontSize: '0.74rem',
-                            color: 'var(--color-ink-black)',
-                            textDecoration: 'none',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            fontWeight: 500
-                          }}
-                        >
-                          Sepolia Explorer <ExternalLink size={11} />
-                        </a>
-                      </div>
-                    </td>
-
-                    {/* Estado Legal con Traza del Auditor */}
-                    <td style={{ padding: '1.1rem 1rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                        {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            color: 'var(--color-sienna-brown)',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            background: 'var(--color-blush-peach)',
-                            border: '1px solid rgba(93, 42, 26, 0.15)',
-                            padding: '0.3rem 0.75rem',
-                            borderRadius: 'var(--radius-pill)',
-                            width: 'fit-content'
-                          }}>
-                            <Globe size={13} /> Apostillado MPPRE
-                          </span>
-                        ) : record.mppeuVerified || (record.status || '').includes('CERTIFICADO_MPPEU') ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            color: '#0369a1',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            background: '#e0f2fe',
-                            border: '1px solid rgba(3, 105, 161, 0.2)',
-                            padding: '0.3rem 0.75rem',
-                            borderRadius: 'var(--radius-pill)',
-                            width: 'fit-content'
-                          }}>
-                            <Building2 size={13} /> Certificado GTU (MPPEU)
-                          </span>
-                        ) : isVerified ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            color: '#15803d',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            background: '#dcfce7',
-                            border: '1px solid rgba(21, 128, 61, 0.2)',
-                            padding: '0.3rem 0.75rem',
-                            borderRadius: 'var(--radius-pill)',
-                            width: 'fit-content'
-                          }}>
-                            <CheckCircle size={13} /> Verificado
-                          </span>
-                        ) : isRejected ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            color: '#b91c1c',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            background: '#fee2e2',
-                            border: '1px solid rgba(185, 28, 28, 0.2)',
-                            padding: '0.3rem 0.75rem',
-                            borderRadius: 'var(--radius-pill)',
-                            width: 'fit-content'
-                          }}>
-                            <AlertOctagon size={13} /> Rechazado con Observación
-                          </span>
-                        ) : (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            color: 'var(--color-slate-gray)',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            background: 'var(--color-mist-gray)',
-                            border: '1px solid var(--border)',
-                            padding: '0.3rem 0.75rem',
-                            borderRadius: 'var(--radius-pill)',
-                            width: 'fit-content'
-                          }}>
-                            <Clock size={13} /> Pendiente por Cotejo
-                          </span>
-                        )}
-                        
-                        {(isVerified || isRejected || record.mppeuVerified || record.mppreVerified) && (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)' }}>
-                            Firma: <strong style={{ color: 'var(--color-ink-black)' }}>{auditorSign}</strong>
-                          </span>
+                        {record.hash && (
+                          <button
+                            onClick={() => handleCopyHash(record.hash)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: copiedHash === record.hash ? '#10b981' : 'var(--color-slate-gray)',
+                              padding: 0
+                            }}
+                            title="Copiar Hash"
+                          >
+                            {copiedHash === record.hash ? <CheckCheck size={12} /> : <Copy size={12} />}
+                          </button>
                         )}
                       </div>
-                    </td>
+                    </div>
+                    <a
+                      href={`https://sepolia.etherscan.io/tx/${record.txHash || ''}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: 'var(--color-ink-black)',
+                        textDecoration: 'none',
+                        fontSize: '0.72rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontWeight: 500
+                      }}
+                    >
+                      Ver en Sepolia Explorer <ExternalLink size={10} />
+                    </a>
+                  </div>
+                </div>
 
-                    {/* Acciones */}
-                    <td style={{ padding: '1.1rem 1rem', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-                        
-                        {/* Botón Previsualizar Expediente / PUB */}
+                {/* Acciones de Tarjeta */}
+                <div style={{
+                  paddingTop: '0.85rem',
+                  borderTop: '1px solid var(--border)',
+                  display: 'flex',
+                  gap: '0.45rem',
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}>
+                  <button
+                    onClick={() => setActivePUBRecord(record)}
+                    style={{
+                      flex: 1,
+                      padding: '0.45rem 0.75rem',
+                      background: '#ffffff',
+                      border: '1px solid var(--border)',
+                      color: 'var(--color-ink-black)',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.78rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      boxShadow: 'var(--shadow-subtle)'
+                    }}
+                  >
+                    <Eye size={13} /> Expediente
+                  </button>
+
+                  <button
+                    onClick={() => setActiveCertHash(record.hash)}
+                    style={{
+                      flex: 1,
+                      padding: '0.45rem 0.75rem',
+                      background: '#ffffff',
+                      border: '1px solid var(--border)',
+                      color: 'var(--color-ink-black)',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.78rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      boxShadow: 'var(--shadow-subtle)'
+                    }}
+                  >
+                    <ShieldCheck size={13} /> Certificado
+                  </button>
+
+                  {ministerialMode === 'MPPEU' ? (
+                    <>
+                      {!record.mppeuVerified && !(record.status || '').includes('CERTIFICADO_MPPEU') && !(record.status || '').includes('APOSTILLADO_MPPRE') && !isRejected ? (
+                        <>
+                          <button 
+                            onClick={() => setActiveCotejoRecord(record)}
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.95rem',
+                              fontSize: '0.8rem',
+                              background: 'var(--color-ink-black)',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.4rem',
+                              boxShadow: 'var(--shadow-subtle)'
+                            }}
+                          >
+                            <Stamp size={14} /> Cotejo Presencial GTU
+                          </button>
+
+                          <button
+                            onClick={() => setRejectingRecord(record)}
+                            style={{
+                              width: '100%',
+                              padding: '0.42rem 0.8rem',
+                              fontSize: '0.78rem',
+                              background: '#ffffff',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              color: '#b91c1c',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 500,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.3rem'
+                            }}
+                          >
+                            <XCircle size={13} /> Rechazar Documento
+                          </button>
+                        </>
+                      ) : (
+                        <div style={{ width: '100%', textAlign: 'center', fontSize: '0.78rem', color: '#0369a1', fontWeight: 600, background: '#e0f2fe', padding: '0.4rem', borderRadius: 'var(--radius-pill)' }}>
+                          Sello GTU Asignado
+                        </div>
+                      )}
+                    </>
+                  ) : ministerialMode === 'MPPRE' ? (
+                    <>
+                      {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
                         <button
-                          onClick={() => setActivePUBRecord(record)}
+                          onClick={() => setActiveApostilleRecord(record)}
                           style={{
-                            padding: '0.45rem 0.85rem',
+                            width: '100%',
+                            padding: '0.5rem 0.95rem',
+                            fontSize: '0.8rem',
                             background: '#ffffff',
-                            border: '1px solid var(--border)',
-                            color: 'var(--color-ink-black)',
+                            border: '1px solid #10b981',
+                            color: '#047857',
                             borderRadius: 'var(--radius-pill)',
                             cursor: 'pointer',
-                            fontWeight: 500,
-                            fontSize: '0.78rem',
-                            display: 'flex',
+                            fontWeight: 600,
+                            display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '0.35rem',
+                            justifyContent: 'center',
+                            gap: '0.4rem',
                             boxShadow: 'var(--shadow-subtle)'
                           }}
-                          title="Ver Planilla PUB y Expediente Escaneado"
                         >
-                          <Eye size={13} /> Ver Expediente
+                          <Globe size={14} /> Ver Apostilla de La Haya
                         </button>
+                      ) : !isRejected ? (
+                        <>
+                          <button
+                            onClick={() => handleMppreApostille(record)}
+                            disabled={apostilleLoading === record.hash}
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.95rem',
+                              fontSize: '0.8rem',
+                              background: 'var(--color-blush-peach)',
+                              color: 'var(--color-sienna-brown)',
+                              border: '1px solid rgba(93, 42, 26, 0.22)',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.4rem',
+                              boxShadow: 'var(--shadow-subtle)'
+                            }}
+                          >
+                            <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Emitir Apostilla 100% Digital'}
+                          </button>
 
-                        {/* Botón Certificado Digital */}
-                        <button
-                          onClick={() => setActiveCertHash(record.hash)}
-                          style={{
-                            padding: '0.45rem 0.85rem',
-                            background: '#ffffff',
-                            border: '1px solid var(--border)',
-                            color: 'var(--color-ink-black)',
-                            borderRadius: 'var(--radius-pill)',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            fontSize: '0.78rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                            boxShadow: 'var(--shadow-subtle)'
-                          }}
-                          title="Ver Certificado de Inmutabilidad Criptográfica"
-                        >
-                          <ShieldCheck size={13} /> Certificado
-                        </button>
+                          <button
+                            onClick={() => setRejectingRecord(record)}
+                            style={{
+                              width: '100%',
+                              padding: '0.42rem 0.8rem',
+                              fontSize: '0.78rem',
+                              background: '#ffffff',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              color: '#b91c1c',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 500,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.3rem'
+                            }}
+                          >
+                            <XCircle size={13} /> Rechazar Documento
+                          </button>
+                        </>
+                      ) : (
+                        <div style={{ width: '100%', textAlign: 'center', fontSize: '0.78rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.4rem', borderRadius: 'var(--radius-pill)' }}>
+                          Rechazado con Observación
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {!isVerified && !isRejected ? (
+                        <>
+                          <button 
+                            onClick={() => handleVerify(record.hash)}
+                            disabled={verifying === record.hash}
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.95rem',
+                              fontSize: '0.8rem',
+                              background: 'var(--color-ink-black)',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              boxShadow: 'var(--shadow-subtle)'
+                            }}
+                          >
+                            {verifying === record.hash ? 'Auditando...' : 'Aprobar'}
+                          </button>
 
-                        {/* Acciones Contextuales por Rol Ministerial */}
-                        {ministerialMode === 'MPPEU' ? (
-                          <>
-                            {!record.mppeuVerified && !(record.status || '').includes('CERTIFICADO_MPPEU') && !(record.status || '').includes('APOSTILLADO_MPPRE') && !isRejected ? (
-                              <>
-                                <button 
-                                  onClick={() => setActiveCotejoRecord(record)}
-                                  style={{
-                                    padding: '0.45rem 0.95rem',
-                                    fontSize: '0.78rem',
-                                    background: 'var(--color-ink-black)',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius-pill)',
-                                    cursor: 'pointer',
-                                    fontWeight: 500,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem',
-                                    boxShadow: 'var(--shadow-subtle)'
-                                  }}
-                                >
-                                  <Stamp size={14} /> Cotejo Físico-Digital
-                                </button>
-
-                                <button
-                                  onClick={() => setRejectingRecord(record)}
-                                  style={{
-                                    padding: '0.45rem 0.85rem',
-                                    fontSize: '0.78rem',
-                                    background: '#ffffff',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                                    color: '#b91c1c',
-                                    borderRadius: 'var(--radius-pill)',
-                                    cursor: 'pointer',
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  Rechazar
-                                </button>
-                              </>
-                            ) : (
-                              <span style={{
-                                fontSize: '0.76rem',
-                                color: '#0369a1',
-                                fontWeight: 600,
-                                background: '#e0f2fe',
-                                border: '1px solid rgba(3, 105, 161, 0.2)',
-                                padding: '0.3rem 0.75rem',
-                                borderRadius: 'var(--radius-pill)'
-                              }}>
-                                Sello GTU Listo
-                              </span>
-                            )}
-                          </>
-                        ) : ministerialMode === 'MPPRE' ? (
-                          <>
-                            {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
-                              <button
-                                onClick={() => setActiveApostilleRecord(record)}
-                                style={{
-                                  padding: '0.45rem 0.95rem',
-                                  fontSize: '0.78rem',
-                                  background: '#ffffff',
-                                  border: '1px solid #10b981',
-                                  color: '#047857',
-                                  borderRadius: 'var(--radius-pill)',
-                                  cursor: 'pointer',
-                                  fontWeight: 500,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.35rem',
-                                  boxShadow: 'var(--shadow-subtle)'
-                                }}
-                              >
-                                <Globe size={14} /> Ver Apostilla de La Haya
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleMppreApostille(record)}
-                                disabled={apostilleLoading === record.hash}
-                                style={{
-                                  padding: '0.45rem 0.95rem',
-                                  fontSize: '0.78rem',
-                                  background: 'var(--color-blush-peach)',
-                                  color: 'var(--color-sienna-brown)',
-                                  border: '1px solid rgba(93, 42, 26, 0.2)',
-                                  borderRadius: 'var(--radius-pill)',
-                                  cursor: 'pointer',
-                                  fontWeight: 600,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.35rem',
-                                  boxShadow: 'var(--shadow-subtle)'
-                                }}
-                              >
-                                <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Emitir Apostilla 100% Digital'}
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          /* Modo General */
-                          <>
-                            {!isVerified && !isRejected ? (
-                              <>
-                                <button 
-                                  onClick={() => handleVerify(record.hash)}
-                                  disabled={verifying === record.hash}
-                                  style={{
-                                    padding: '0.45rem 0.95rem',
-                                    fontSize: '0.78rem',
-                                    background: 'var(--color-ink-black)',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius-pill)',
-                                    cursor: 'pointer',
-                                    fontWeight: 500,
-                                    boxShadow: 'var(--shadow-subtle)'
-                                  }}
-                                >
-                                  {verifying === record.hash ? 'Auditando...' : 'Aprobar'}
-                                </button>
-
-                                <button
-                                  onClick={() => setRejectingRecord(record)}
-                                  style={{
-                                    padding: '0.45rem 0.85rem',
-                                    fontSize: '0.78rem',
-                                    background: '#ffffff',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                                    color: '#b91c1c',
-                                    borderRadius: 'var(--radius-pill)',
-                                    cursor: 'pointer',
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  Rechazar
-                                </button>
-                              </>
-                            ) : isVerified ? (
-                              <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 600, background: '#dcfce7', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Aprobado</span>
-                            ) : (
-                              <span style={{ fontSize: '0.76rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Rechazado</span>
-                            )}
-                          </>
-                        )}
-
-                      </div>
-                    </td>
-
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+                          <button
+                            onClick={() => setRejectingRecord(record)}
+                            style={{
+                              width: '100%',
+                              padding: '0.42rem 0.8rem',
+                              fontSize: '0.78rem',
+                              background: '#ffffff',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              color: '#b91c1c',
+                              borderRadius: 'var(--radius-pill)',
+                              cursor: 'pointer',
+                              fontWeight: 500,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.3rem'
+                            }}
+                          >
+                            <XCircle size={13} /> Rechazar
+                          </button>
+                        </>
+                      ) : isVerified ? (
+                        <div style={{ width: '100%', textAlign: 'center', fontSize: '0.78rem', color: '#15803d', fontWeight: 600, background: '#dcfce7', padding: '0.4rem', borderRadius: 'var(--radius-pill)' }}>
+                          Aprobado On-Chain
+                        </div>
+                      ) : (
+                        <div style={{ width: '100%', textAlign: 'center', fontSize: '0.78rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.4rem', borderRadius: 'var(--radius-pill)' }}>
+                          Rechazado
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ─── MODAL PREVISUALIZADOR DEL EXPEDIENTE DIGITAL & PUB ─── */}
       <AnimatePresence>
