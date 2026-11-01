@@ -18,19 +18,19 @@
       "dest": "/api/main.py"
     },
     {
-      "src": "/ocr/(.*)",
+      "src": "/ocr(.*)",
       "dest": "/api/main.py"
     },
     {
-      "src": "/blockchain/(.*)",
+      "src": "/blockchain(.*)",
       "dest": "/api/main.py"
     },
     {
-      "src": "/stats/(.*)",
+      "src": "/stats(.*)",
       "dest": "/api/main.py"
     },
     {
-      "src": "/prevalidation/(.*)",
+      "src": "/prevalidation(.*)",
       "dest": "/api/main.py"
     },
     {
@@ -42,19 +42,19 @@
       "dest": "/api/main.py"
     },
     {
-      "src": "/admin/(.*)",
+      "src": "/admin(.*)",
       "dest": "/api/main.py"
     },
     {
-      "src": "/profiles/(.*)",
+      "src": "/profiles(.*)",
       "dest": "/api/main.py"
     },
     {
-      "src": "/chat/(.*)",
+      "src": "/chat(.*)",
       "dest": "/api/main.py"
     },
     {
-      "src": "/hash/(.*)",
+      "src": "/hash(.*)",
       "dest": "/api/main.py"
     },
     {
@@ -70,7 +70,7 @@
       "dest": "/api/main.py"
     },
     {
-      "src": "/pub/(.*)",
+      "src": "/pub(.*)",
       "dest": "/api/main.py"
     },
     {
