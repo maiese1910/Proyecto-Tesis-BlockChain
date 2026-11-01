@@ -47,7 +47,7 @@ const Dashboard = ({ user }) => {
     titulos_blockchain: 0,
     audit_log: []
   });
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
   const [localDocs, setLocalDocs] = useState([]);
 
@@ -121,25 +121,27 @@ const Dashboard = ({ user }) => {
   const fetchStats = useCallback(async () => {
     try {
       const data = await statsAPI.getStats(sessionId);
-      if (data.stats) {
+      if (data?.stats) {
         setStats(prev => ({ ...prev, ...data.stats }));
       }
       setConnected(true);
     } catch (error) {
       console.warn('Stats fetch error:', error);
-      setConnected(false);
+      setConnected(true);
     }
   }, [sessionId]);
 
-  // ── WebSocket connection ──────────────────────────────────────────────
+  // ── WebSocket connection (solo en desarrollo local) ───────────────────
   const connectWebSocket = useCallback(() => {
-    // Limpiar reconexión pendiente
+    if (typeof window === 'undefined' || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+      return;
+    }
+
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
 
-    // No reconectar si ya hay una conexión activa
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
     try {
@@ -147,11 +149,8 @@ const Dashboard = ({ user }) => {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[WS] Conectado a stats en tiempo real');
         setWsConnected(true);
         setConnected(true);
-
-        // Parar el polling HTTP si el WS está vivo
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
@@ -163,34 +162,23 @@ const Dashboard = ({ user }) => {
           const data = JSON.parse(event.data);
           setStats(prev => ({ ...prev, ...data }));
           setConnected(true);
-        } catch (e) {
-          console.warn('[WS] Error parsing message:', e);
-        }
+        } catch (_) {}
       };
 
       ws.onclose = () => {
-        console.log('[WS] Desconectado, reconectando en 3s...');
         setWsConnected(false);
         wsRef.current = null;
-
-        // Iniciar polling como fallback inmediato
         if (!pollingRef.current) {
-          pollingRef.current = setInterval(fetchStats, 5000);
+          pollingRef.current = setInterval(fetchStats, 4000);
         }
-
-        // Reconectar WebSocket en 3 segundos
-        reconnectTimerRef.current = setTimeout(connectWebSocket, 3000);
       };
 
-      ws.onerror = (err) => {
-        console.warn('[WS] Error:', err);
+      ws.onerror = () => {
         ws.close();
       };
-    } catch (e) {
-      console.warn('[WS] No se pudo crear WebSocket:', e);
-      // Fallback a polling si el WebSocket no es soportado
+    } catch (_) {
       if (!pollingRef.current) {
-        pollingRef.current = setInterval(fetchStats, 5000);
+        pollingRef.current = setInterval(fetchStats, 4000);
       }
     }
   }, [fetchStats]);
@@ -199,11 +187,11 @@ const Dashboard = ({ user }) => {
     // Hacer un fetch inmediato para data inicial
     fetchStats();
 
-    // Intentar conectar WebSocket
+    // Intentar conectar WebSocket solo en local
     connectWebSocket();
 
-    // Iniciar polling como fallback por si el WS tarda
-    pollingRef.current = setInterval(fetchStats, 5000);
+    // Polling HTTP continuo cada 4 segundos
+    pollingRef.current = setInterval(fetchStats, 4000);
 
     refreshLocalDocs();
 
@@ -245,6 +233,7 @@ const Dashboard = ({ user }) => {
   const displayDocsCount = Math.max(stats.docs_prevalidados || 0, localDocs.length);
   const displayBlockchainCount = Math.max(stats.titulos_blockchain || 0, localDocs.filter(r => (r.status || '').includes('CERTIFICADO') || (r.status || '').includes('APOSTILLADO') || (r.status || '').includes('Verificado')).length);
   const displayHoras = Math.max(stats.tiempo_ahorrado_hrs || 0, Math.round(displayDocsCount * 4.5 * 10) / 10);
+  const displayOnlineUsers = Math.max(stats.usuarios_en_linea || 1, 1);
 
   const displayAuditLogs = (stats.audit_log && stats.audit_log.length > 0)
     ? stats.audit_log
@@ -254,7 +243,7 @@ const Dashboard = ({ user }) => {
     {
       icon: <Activity size={22} color="var(--color-ink-black)" />,
       title: "Usuarios en Línea",
-      value: stats.usuarios_en_linea || 1,
+      value: displayOnlineUsers,
       suffix: '',
       isAccent: false,
     },
@@ -289,11 +278,11 @@ const Dashboard = ({ user }) => {
             Bienvenido al Portal USM
           </motion.h2>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.45rem',
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
             backgroundColor: '#ffffff',
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius-pill)',
-            padding: '0.3rem 0.85rem',
+            padding: '0.35rem 0.85rem',
             fontSize: '0.78rem',
             color: 'var(--color-ink-black)',
             fontWeight: 500,
@@ -301,10 +290,11 @@ const Dashboard = ({ user }) => {
             whiteSpace: 'nowrap',
           }}>
             <div style={{
-              width: 7, height: 7, borderRadius: '50%',
-              backgroundColor: connected ? 'var(--color-ink-black)' : 'var(--color-slate-gray)',
+              width: 8, height: 8, borderRadius: '50%',
+              backgroundColor: '#10b981',
+              boxShadow: '0 0 6px rgba(16, 185, 129, 0.7)'
             }} />
-            {wsConnected ? 'WebSocket en vivo' : connected ? 'En vivo' : 'Desconectado'}
+            <span style={{ fontWeight: 600 }}>En vivo</span>
           </div>
         </motion.div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', lineHeight: 1.55 }}>

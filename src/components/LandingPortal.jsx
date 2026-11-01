@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, Shield, User, Lock, ArrowRight, CheckCircle, FileText, Globe,
@@ -41,19 +41,97 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
 
   // Stats en tiempo real
   const [stats, setStats] = useState({
-    graduandos_activos: 1240,
-    docs_prevalidados: 3890,
-    titulos_blockchain: 1250
+    usuarios_en_linea: 1,
+    graduandos_activos: 1,
+    docs_prevalidados: 0,
+    titulos_blockchain: 0,
+    tiempo_ahorrado_hrs: 0
   });
+  const [localDocs, setLocalDocs] = useState([]);
+  const [localUsersCount, setLocalUsersCount] = useState(1);
+
+  const refreshLocalData = useCallback(() => {
+    try {
+      const b = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
+      const p = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+      const u = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
+      const m = new Map();
+      b.forEach(r => r && r.hash && m.set(r.hash.toUpperCase(), r));
+      p.forEach(r => {
+        if (r && (r.hash || r.blockchainHash)) {
+          const k = (r.hash || r.blockchainHash).toUpperCase();
+          m.set(k, { ...m.get(k), ...r });
+        }
+      });
+      setLocalDocs(Array.from(m.values()));
+
+      const logged = localStorage.getItem('usm_user');
+      const count = Math.max(u.length, logged ? 1 : 0, 1);
+      setLocalUsersCount(count);
+    } catch (_) {
+      setLocalDocs([]);
+      setLocalUsersCount(1);
+    }
+  }, []);
+
+  const displayGraduandos = Math.max(stats.graduandos_activos || 0, localUsersCount, 1);
+  const displayDocs = Math.max(stats.docs_prevalidados || 0, localDocs.length);
+  const displayBlockchain = Math.max(
+    stats.titulos_blockchain || 0,
+    localDocs.filter(r => (r.status || '').includes('CERTIFICADO') || (r.status || '').includes('APOSTILLADO') || (r.status || '').includes('Verificado')).length
+  );
+  const displayHoras = Math.max(
+    stats.tiempo_ahorrado_hrs || 0,
+    Math.round(displayDocs * 4.5 * 10) / 10
+  );
+  const displayOnlineUsers = Math.max(stats.usuarios_en_linea || 1, 1);
 
   useEffect(() => {
-    statsAPI.getStats()
-      .then(res => { if (res.stats) setStats(prev => ({ ...prev, ...res.stats })); })
-      .catch(() => { });
+    refreshLocalData();
+
+    const fetchBackendStats = () => {
+      statsAPI.getStats()
+        .then(res => {
+          if (res?.stats) {
+            setStats(prev => ({ ...prev, ...res.stats }));
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchBackendStats();
+    const interval = setInterval(fetchBackendStats, 4000);
+
     dynamicDataAPI.getCarreras()
       .then(res => { if (res.carreras) setCarreras(res.carreras); })
       .catch(() => { });
-  }, []);
+
+    let channel;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        channel = new BroadcastChannel('usm_records_sync');
+        channel.onmessage = (event) => {
+          if (event.data?.type === 'USER_REGISTERED' || event.data?.type === 'RECORD_ADDED' || event.data?.type === 'RECORD_UPDATED') {
+            refreshLocalData();
+            fetchBackendStats();
+          }
+        };
+      } catch (_) {}
+    }
+
+    const handleStorage = (e) => {
+      if (e.key === 'usm_blockchain_records' || e.key === 'usm_pub_history' || e.key === 'usm_all_users') {
+        refreshLocalData();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [refreshLocalData]);
 
   const formatCedula = (raw) => {
     const digits = raw.replace(/\D/g, '');
@@ -167,29 +245,40 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
     setRegError('');
     const fullCedula = `${regForm.cedula_tipo}-${formatCedula(regForm.cedula)}`;
 
+    const newProfile = {
+      nombre: regForm.nombre.trim(),
+      cedula: fullCedula,
+      carrera: regForm.carrera,
+      semestre: regForm.semestre || '10mo',
+      registered_at: new Date().toISOString()
+    };
+
+    // 1. Guardar en usm_all_users localmente
     try {
-      const res = await profilesAPI.register({
-        nombre: regForm.nombre,
-        cedula: fullCedula,
-        carrera: regForm.carrera,
-        semestre: regForm.semestre || '10mo'
-      });
-      if (res.success && res.profile) {
-        localStorage.setItem('usm_user', JSON.stringify(res.profile));
-        onStudentLogin(res.profile);
-      } else {
-        setRegError('No se pudo completar el registro.');
+      const allU = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
+      if (!allU.some(u => (u.cedula || '').replace(/\D/g, '') === fullCedula.replace(/\D/g, ''))) {
+        allU.push(newProfile);
+        localStorage.setItem('usm_all_users', JSON.stringify(allU));
       }
-    } catch (_err) {
-      const newProfile = {
-        nombre: regForm.nombre,
-        cedula: fullCedula,
-        carrera: regForm.carrera,
-        semestre: regForm.semestre || '10mo'
-      };
-      localStorage.setItem('usm_user', JSON.stringify(newProfile));
-      onStudentLogin(newProfile);
+    } catch (_) {}
+
+    // 2. Registrar en backend
+    try {
+      await profilesAPI.register(newProfile);
+    } catch (_) {}
+
+    // 3. Notificar evento de registro para actualizar contadores en vivo
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const ch = new BroadcastChannel('usm_records_sync');
+        ch.postMessage({ type: 'USER_REGISTERED', user: newProfile });
+        ch.close();
+      } catch (_) {}
     }
+
+    refreshLocalData();
+    localStorage.setItem('usm_user', JSON.stringify(newProfile));
+    onStudentLogin(newProfile);
   };
 
   const handleGovSubmit = async (e, overrideUser, overridePass) => {
@@ -310,7 +399,11 @@ return (
             Facultad de Ingeniería y Arquitectura
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981', boxShadow: '0 0 6px rgba(16, 185, 129, 0.7)' }}></span>
+            Usuarios en línea: <strong style={{ color: 'var(--color-ink-black)', fontWeight: 600 }}>{displayOnlineUsers}</strong>
+          </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: 'var(--color-ink-black)' }}></span>
             Red Ethereum Sepolia: <strong style={{ color: 'var(--color-ink-black)', fontWeight: 500 }}>En línea</strong>
@@ -502,7 +595,7 @@ return (
         >
           <User size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
-            {stats.graduandos_activos}+
+            {displayGraduandos}
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Graduandos Registrados</p>
         </motion.div>
@@ -523,7 +616,7 @@ return (
         >
           <CheckCircle size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
-            {stats.docs_prevalidados}+
+            {displayDocs}
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Documentos Pre-validados</p>
         </motion.div>
@@ -542,7 +635,7 @@ return (
         >
           <ShieldCheck size={24} color="var(--color-sienna-brown)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-sienna-brown)' }}>
-            {stats.titulos_blockchain}+
+            {displayBlockchain}
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--color-sienna-brown)', margin: 0, fontWeight: 500 }}>
             Títulos en Blockchain (Inmutables)
@@ -565,7 +658,7 @@ return (
         >
           <Clock size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
-            2.450+ hrs
+            {displayHoras} Hrs
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Horas de Trámite Ahorradas</p>
         </motion.div>

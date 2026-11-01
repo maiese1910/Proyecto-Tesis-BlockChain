@@ -69,11 +69,11 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
   const handleExportPDF = () => {
     const element = document.getElementById('history-pub-preview-sheet');
     const opt = {
-      margin:       10,
-      filename:     `Planilla_PUB_${formData.cedula || 'USM'}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      margin: 10,
+      filename: `Planilla_PUB_${formData.cedula || 'USM'}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     html2pdf().set(opt).from(element).save();
   };
@@ -144,14 +144,14 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
           </div>
         </div>
 
-        <div 
-          ref={containerRef} 
-          style={{ 
-            width: '100%', 
-            overflow: 'auto', 
+        <div
+          ref={containerRef}
+          style={{
+            width: '100%',
+            overflow: 'auto',
             maxHeight: '70vh',
             borderRadius: '8px',
-            border: '1px solid var(--border)' 
+            border: '1px solid var(--border)'
           }}
         >
           <div
@@ -171,7 +171,7 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
             {/* Cabecera MPPRE */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1a365d', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ flex: 1 }}>
-                <img src="/images/mppre_facade.png" alt="Escudo" style={{ height: '50px', objectFit: 'contain', opacity: 0.1 }} onError={(e) => e.target.style.display='none'} />
+                <img src="/images/mppre_facade.png" alt="Escudo" style={{ height: '50px', objectFit: 'contain', opacity: 0.1 }} onError={(e) => e.target.style.display = 'none'} />
               </div>
               <div style={{ textAlign: 'center', flex: 3 }}>
                 <p style={{ fontSize: '0.6rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0, color: '#4a5568' }}>República Bolivariana de Venezuela</p>
@@ -180,18 +180,18 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
                 <p style={{ fontSize: '0.8rem', color: '#2b6cb0', fontWeight: '800', letterSpacing: '1px', margin: 0 }}>PLANILLA ÚNICA BANCARIA (PUB)</p>
               </div>
               <div style={{ flex: 1, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
-                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
-                   <div style={{ display: 'flex', height: '20px', background: '#ffffff', gap: '1px' }}>
-                     {[2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1].map((w, i) => (
-                       <div key={i} style={{ width: `${w}px`, height: '100%', background: i % 2 === 0 ? '#000000' : '#ffffff' }} />
-                     ))}
-                   </div>
-                   <p style={{ margin: 0, fontSize: '0.45rem', fontFamily: 'monospace', letterSpacing: '0.5px', fontWeight: 'bold' }}>*PUB-{hash.substring(2, 14).toUpperCase()}*</p>
-                 </div>
-                 <div style={{ border: '1px solid #cbd5e0', padding: '0.2rem 0.4rem', textAlign: 'center', background: '#f8fafc', borderRadius: '4px', display: 'inline-block' }}>
-                   <p style={{ margin: 0, fontSize: '0.4rem', color: '#718096', fontWeight: 'bold' }}>NRO. TRÁMITE</p>
-                   <p style={{ margin: 0, fontSize: '0.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{hash.substring(14, 22).replace(/[^0-9]/g, '9') || '98765432'}</p>
-                 </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
+                  <div style={{ display: 'flex', height: '20px', background: '#ffffff', gap: '1px' }}>
+                    {[2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 1].map((w, i) => (
+                      <div key={i} style={{ width: `${w}px`, height: '100%', background: i % 2 === 0 ? '#000000' : '#ffffff' }} />
+                    ))}
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.45rem', fontFamily: 'monospace', letterSpacing: '0.5px', fontWeight: 'bold' }}>*PUB-{hash.substring(2, 14).toUpperCase()}*</p>
+                </div>
+                <div style={{ border: '1px solid #cbd5e0', padding: '0.2rem 0.4rem', textAlign: 'center', background: '#f8fafc', borderRadius: '4px', display: 'inline-block' }}>
+                  <p style={{ margin: 0, fontSize: '0.4rem', color: '#718096', fontWeight: 'bold' }}>NRO. TRÁMITE</p>
+                  <p style={{ margin: 0, fontSize: '0.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{hash.substring(14, 22).replace(/[^0-9]/g, '9') || '98765432'}</p>
+                </div>
               </div>
             </div>
 
@@ -353,18 +353,17 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
     if (!status) return 0;
     const s = String(status).toUpperCase();
     if (s.includes('APOSTILL')) return 50;
-    if (s.includes('CERTIFICAD')) return 40;
-    if (s.includes('VERIFICAD')) return 30;
+    if (s.includes('CERTIFICAD') || s.includes('VERIFICAD') || s.includes('APROBAD')) return 40;
     if (s.includes('COTEJO')) return 20;
-    if (s.includes('SOLICITUD') || s.includes('EMITID')) return 10;
-    if (s.includes('RECHAZ')) return 5;
+    if (s.includes('SOLICITUD') || s.includes('EMITID') || s.includes('REGISTRADO')) return 10;
+    if (s.includes('RECHAZ') || s.includes('REVOCAD')) return 5;
     return 15;
   };
 
   const renderStatusBadge = (status, record) => {
     const s = (status || '').toUpperCase();
     const hasApostille = Boolean(s.includes('APOSTILL') || record?.apostilleNumber || record?.mppreVerified);
-    const hasCert = Boolean(s.includes('CERTIFICAD') || record?.mppeuVerified);
+    const hasCert = Boolean(s.includes('CERTIFICAD') || s.includes('VERIFICAD') || s.includes('APROBAD') || record?.mppeuVerified);
 
     if (hasApostille) {
       return (
@@ -449,7 +448,7 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
         if (allRes?.success && Array.isArray(allRes.records)) {
           dbRecords = allRes.records;
         }
-      } catch (_) {}
+      } catch (_) { }
 
       if (user?.cedula) {
         try {
@@ -463,19 +462,19 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
               }
             });
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       // 2. Obtener registros locales de usm_pub_history y usm_blockchain_records
       let localHistory = [];
       try {
         localHistory = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
-      } catch (_) {}
+      } catch (_) { }
 
       let localBc = [];
       try {
         localBc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
-      } catch (_) {}
+      } catch (_) { }
 
       // 3. Fusionar datos con jerarquía estricta de estatus
       const mergedMap = new Map();
@@ -609,7 +608,7 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
           formData: r.formData
         }));
         localStorage.setItem('usm_pub_history', JSON.stringify(nextPubHist.slice(0, 50)));
-      } catch (_) {}
+      } catch (_) { }
 
       // Ordenar: si hay usuario, priorizar cédula coincidente, y fecha descendente
       resolvedList.sort((a, b) => {
@@ -645,7 +644,7 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
             fetchRecords();
           }
         };
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const handleStorageChange = (e) => {
@@ -732,22 +731,37 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
                   alignItems: 'center',
                   gap: '1rem',
                   flexWrap: 'wrap',
-                  borderLeft: '4px solid var(--primary)',
+                  borderLeft: (Boolean(record.apostilleNumber || (record.status || '').toUpperCase().includes('APOSTILL') || record.mppreVerified))
+                    ? '4px solid #15803d'
+                    : (Boolean((record.status || '').toUpperCase().includes('CERTIFICAD') || (record.status || '').toUpperCase().includes('VERIFICAD') || record.mppeuVerified))
+                    ? '4px solid #0369a1'
+                    : '4px solid #d97706',
                   position: 'relative',
                   overflow: 'hidden'
                 }}
               >
                 {/* Detalles del Trámite */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: '1 1 300px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', padding: '0.2rem 0.65rem', background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', border: '1px solid rgba(93, 42, 26, 0.2)', borderRadius: 'var(--radius-pill)' }}>
                       {record.document_type || 'Documento'}
                     </span>
+                    {record.solicitudCode && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.15rem 0.55rem', background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', fontFamily: 'monospace' }}>
+                        📋 {record.solicitudCode}
+                      </span>
+                    )}
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <Clock size={14} />
                       {record.created_at ? `${new Date(record.created_at).toLocaleDateString()} ${new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'N/A'}
                     </span>
                   </div>
+
+                  {(record.owner_name || record.cedula) && (
+                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--color-ink-black)', fontWeight: 500 }}>
+                      <strong>Titular:</strong> {record.owner_name || 'Graduando'} {record.cedula ? `(${record.cedula})` : ''}
+                    </p>
+                  )}
 
                   <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <strong style={{ color: 'var(--color-ink-black)' }}>Document Hash:</strong>

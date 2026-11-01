@@ -132,8 +132,17 @@ export const hashAPI = {
 
 // ─── Stats & Dashboard ──────────────────────────────────────────────────────
 export const statsAPI = {
-  getStats: (sessionId = null) =>
-    apiFetch(sessionId ? `/api/stats?session_id=${sessionId}` : '/api/stats'),
+  getStats: (sessionId = null) => {
+    let sid = sessionId;
+    if (!sid && typeof sessionStorage !== 'undefined') {
+      sid = sessionStorage.getItem('usm_session_id');
+      if (!sid) {
+        sid = 's_' + Math.random().toString(36).substring(2, 10);
+        try { sessionStorage.setItem('usm_session_id', sid); } catch (_) {}
+      }
+    }
+    return apiFetch(sid ? `/api/stats?session_id=${sid}` : '/api/stats');
+  },
 
   reportPrevalidation: (filename, sessionId = null) =>
     apiFetch('/prevalidation/report', { 
@@ -141,8 +150,16 @@ export const statsAPI = {
       body: { filename, session_id: sessionId } 
     }),
 
-  heartbeat: () =>
-    apiFetch('/stats/heartbeat', { method: 'POST' }),
+  heartbeat: (sessionId = null) => {
+    let sid = sessionId;
+    if (!sid && typeof sessionStorage !== 'undefined') {
+      sid = sessionStorage.getItem('usm_session_id');
+    }
+    return apiFetch('/api/stats/heartbeat', { 
+      method: 'POST',
+      body: { session_id: sid }
+    }).catch(() => apiFetch('/stats/heartbeat', { method: 'POST', body: { session_id: sid } }));
+  },
 };
 
 // ─── Chat ───────────────────────────────────────────────────────────────────

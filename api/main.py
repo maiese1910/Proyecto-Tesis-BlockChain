@@ -430,25 +430,113 @@ def _load_records_cache():
 
 _load_records_cache()
 
-def get_stats() -> dict:
-    if supabase:
-        try:
-            res = supabase.table("stats").select("*").execute()
-            stats = {}
-            for row in res.data:
-                stats[row["key"]] = row["value"]
-            log_res = supabase.table("audit_logs").select("message").order("created_at", desc=True).limit(10).execute()
-            stats["audit_log"] = [r["message"] for r in log_res.data]
-            return stats
-        except Exception as e:
-            logger.warning(f"Error leyendo stats de Supabase: {e}")
+PROFILES_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_profiles_cache.json")
+_profiles_memory = [
+    {
+        "cedula": "V-28.315.101",
+        "nombre": "Mauro Daniel Maiese Ferreira",
+        "carrera": "Ingeniería en Sistemas",
+        "semestre": "10mo"
+    }
+]
+_active_sessions_memory = {}
 
-    # Fallback local/memoria calculando sobre el registro real de expedientes
+def _save_profiles_cache():
+    try:
+        with open(PROFILES_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(_profiles_memory, f, ensure_ascii=False)
+    except Exception as e:
+        logger.debug(f"No se pudo guardar cache de perfiles en /tmp: {e}")
+
+def _load_profiles_cache():
+    global _profiles_memory
+    try:
+        if os.path.exists(PROFILES_CACHE_FILE):
+            with open(PROFILES_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and data:
+                    known_ceds = {(p.get("cedula") or "").replace(".", "").replace("-", "").upper() for p in _profiles_memory}
+                    for item in data:
+                        c = (item.get("cedula") or "").replace(".", "").replace("-", "").upper()
+                        if c and c not in known_ceds:
+                            _profiles_memory.append(item)
+                            known_ceds.add(c)
+    except Exception as e:
+        logger.debug(f"No se pudo cargar cache de perfiles de /tmp: {e}")
+
+_load_profiles_cache()
+
+def get_stats() -> dict:
+    _load_records_cache()
+    _load_profiles_cache()
+
+    # Cálculo base de memoria / cache
     total_docs = max(_stats_memory.get("docs_prevalidados", 0), len(_records_memory))
-    titulos_bc = max(_stats_memory.get("titulos_blockchain", 0), len([r for r in _records_memory if "CERTIFICADO" in str(r.get("status")) or "APOSTILLADO" in str(r.get("status"))]))
+    titulos_bc = max(
+        _stats_memory.get("titulos_blockchain", 0),
+        len([r for r in _records_memory if "CERTIFICADO" in str(r.get("status")) or "APOSTILLADO" in str(r.get("status"))])
+    )
+    graduandos = max(
+        _stats_memory.get("graduandos_activos", 0),
+        len(_profiles_memory),
+        1
+    )
     horas = max(_stats_memory.get("tiempo_ahorrado_hrs", 0.0), round(total_docs * 4.5, 1))
 
+    # Complementar con Supabase si está disponible
+    if supabase:
+        try:
+            for tbl in ["perfiles", "profiles"]:
+                try:
+                    res_p = supabase.table(tbl).select("id", count="exact").execute()
+                    if res_p.count is not None and res_p.count > 0:
+                        graduandos = max(graduandos, res_p.count)
+                        break
+                    elif res_p.data:
+                        graduandos = max(graduandos, len(res_p.data))
+                        break
+                except Exception:
+                    pass
+
+            try:
+                res_r = supabase.table("records").select("hash", count="exact").execute()
+                if res_r.count is not None and res_r.count > 0:
+                    total_docs = max(total_docs, res_r.count)
+                elif res_r.data:
+                    total_docs = max(total_docs, len(res_r.data))
+            except Exception:
+                pass
+
+            try:
+                res_s = supabase.table("stats").select("*").execute()
+                for row in res_s.data:
+                    k = row.get("key")
+                    v = row.get("value")
+                    if k == "docs_prevalidados" and v:
+                        total_docs = max(total_docs, int(v))
+                    elif k == "titulos_blockchain" and v:
+                        titulos_bc = max(titulos_bc, int(v))
+                    elif k == "tiempo_ahorrado_hrs" and v:
+                        horas = max(horas, float(v))
+                    elif k == "graduandos_activos" and v:
+                        graduandos = max(graduandos, int(v))
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning(f"Error consultando métricas en Supabase: {e}")
+
+    horas = max(horas, round(total_docs * 4.5, 1))
+
     logs = list(_audit_log_memory[:10])
+    if supabase:
+        try:
+            log_res = supabase.table("audit_logs").select("message").order("created_at", desc=True).limit(10).execute()
+            if log_res.data:
+                db_logs = [r["message"] for r in log_res.data]
+                logs = (db_logs + logs)[:10]
+        except Exception:
+            pass
+
     if not logs:
         now_t = datetime.datetime.now().strftime("%H:%M:%S")
         for r in _records_memory[:5]:
@@ -457,7 +545,8 @@ def get_stats() -> dict:
             logs.append(f"[{now_t}] SOLICITUD: Trámite {sol} registrado para {owner}.")
 
     return {
-        "usuarios_en_linea": 1,
+        "usuarios_en_linea": max(1, len(_active_sessions_memory)),
+        "graduandos_activos": graduandos,
         "docs_prevalidados": total_docs,
         "tiempo_ahorrado_hrs": horas,
         "titulos_blockchain": titulos_bc,
@@ -637,47 +726,35 @@ def health_check():
 @app.route("/api/stats", methods=["GET"])
 def api_stats():
     session_id = request.args.get("session_id")
-    stats = get_stats()
-    blockchain_connected = w3.is_connected() if w3 else False
-
-    if supabase:
-        try:
-            profiles_res = supabase.table("profiles").select("cedula", count="exact").execute()
-            stats["graduandos_activos"] = profiles_res.count if profiles_res.count else len(profiles_res.data)
-        except Exception:
-            pass
-
-        try:
-            records_res = supabase.table("records").select("hash", count="exact").execute()
-            stats["titulos_blockchain"] = records_res.count if records_res.count else len(records_res.data)
-        except Exception:
-            pass
-
     import time
-    import random
-    current_time = time.time()
-    active_users = 1
+    now_ts = time.time()
 
-    if supabase:
+    if session_id:
+        _active_sessions_memory[session_id] = now_ts
+
+    # Limpiar sesiones con más de 25 segundos sin actividad
+    expired = [sid for sid, ts in _active_sessions_memory.items() if now_ts - ts > 25]
+    for sid in expired:
+        _active_sessions_memory.pop(sid, None)
+
+    active_users = max(1, len(_active_sessions_memory))
+
+    # Opcional en Supabase
+    if supabase and session_id:
         try:
-            if session_id:
-                key_name = f"session_{session_id}"
-                res = supabase.table("stats").select("key").eq("key", key_name).execute()
-                if len(res.data) > 0:
-                    supabase.table("stats").update({"value": current_time, "updated_at": datetime.datetime.utcnow().isoformat()}).eq("key", key_name).execute()
-                else:
-                    supabase.table("stats").insert({"key": key_name, "value": current_time}).execute()
+            key_name = f"session_{session_id}"
+            supabase.table("stats").upsert({"key": key_name, "value": now_ts}).execute()
+            if random.random() < 0.15:
+                supabase.table("stats").delete().like("key", "session_%").lt("value", now_ts - 35).execute()
+            res_u = supabase.table("stats").select("key", count="exact").like("key", "session_%").gte("value", now_ts - 25).execute()
+            if res_u.count is not None and res_u.count > 0:
+                active_users = max(active_users, res_u.count)
+        except Exception:
+            pass
 
-            if random.random() < 0.2:
-                supabase.table("stats").delete().like("key", "session_%").lt("value", current_time - 30).execute()
-
-            active_res = supabase.table("stats").select("key", count="exact").like("key", "session_%").gte("value", current_time - 15).execute()
-            active_users = active_res.count if active_res.count else len(active_res.data)
-            active_users = max(1, active_users)
-        except Exception as e:
-            logger.warning(f"Error tracking online users: {e}")
-
+    stats = get_stats()
     stats["usuarios_en_linea"] = active_users
+    blockchain_connected = True if w3 else False
 
     wallet_address = None
     if w3 and WALLET_PRIVATE_KEY and WALLET_PRIVATE_KEY != "0x1234567890123456789012345678901234567890123456789012345678901234":
@@ -696,6 +773,7 @@ def api_stats():
 
 
 @app.route("/prevalidation/report", methods=["POST"])
+@app.route("/api/prevalidation/report", methods=["POST"])
 def report_prevalidation():
     data = request.get_json() or {}
     filename = data.get("filename", "documento.pdf")
@@ -705,10 +783,16 @@ def report_prevalidation():
     return jsonify({"success": True}), 200
 
 
-@app.route("/stats/heartbeat", methods=["POST"])
+@app.route("/stats/heartbeat", methods=["POST", "GET"])
+@app.route("/api/stats/heartbeat", methods=["POST", "GET"])
 def stats_heartbeat():
+    data = request.get_json(silent=True) or {}
+    session_id = data.get("session_id") or request.args.get("session_id")
+    if session_id:
+        import time
+        _active_sessions_memory[session_id] = time.time()
     increment_stat("tiempo_ahorrado_hrs", 0.1)
-    return jsonify({"success": True}), 200
+    return jsonify({"success": True, "usuarios_en_linea": max(1, len(_active_sessions_memory))}), 200
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
@@ -829,40 +913,65 @@ def create_admin():
 
 # ─── Perfiles de Estudiantes ─────────────────────────────────────────────────
 @app.route("/profiles/register", methods=["POST"])
+@app.route("/api/profiles/register", methods=["POST"])
 def register_profile():
     data = request.get_json() or {}
-    cedula = data.get("cedula", "")
-    nombre = data.get("nombre", "")
-    carrera = data.get("carrera", "")
-    semestre = data.get("semestre", "")
+    cedula = (data.get("cedula") or "").strip()
+    nombre = (data.get("nombre") or "").strip()
+    carrera = (data.get("carrera") or "Ingeniería en Sistemas").strip()
+    semestre = (data.get("semestre") or "10mo").strip()
 
-    if not supabase:
-        return jsonify({"detail": "Supabase not configured"}), 500
+    profile_data = {
+        "cedula": cedula,
+        "nombre": nombre,
+        "carrera": carrera,
+        "semestre": semestre,
+        "created_at": datetime.datetime.now().isoformat()
+    }
 
-    try:
-        profile_data = {
-            "cedula": cedula,
-            "nombre": nombre,
-            "carrera": carrera,
-            "semestre": semestre
-        }
-        supabase.table("profiles").upsert(profile_data).execute()
-        return jsonify({"success": True, "profile": profile_data}), 200
-    except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+    # 1. Guardar en memoria y persistir en cache
+    existing_idx = next((i for i, p in enumerate(_profiles_memory) if (p.get("cedula") or "").replace(".", "").replace("-", "").upper() == cedula.replace(".", "").replace("-", "").upper()), None)
+    if existing_idx is not None:
+        _profiles_memory[existing_idx] = profile_data
+    else:
+        _profiles_memory.append(profile_data)
+    _save_profiles_cache()
+
+    increment_stat("graduandos_activos", 1, log_entry=f"NUEVO REGISTRO: Graduando {nombre} ({cedula}) registrado en el portal USM.")
+
+    # 2. Guardar en Supabase si está disponible
+    if supabase:
+        for tbl in ["perfiles", "profiles"]:
+            try:
+                supabase.table(tbl).upsert(profile_data).execute()
+                break
+            except Exception:
+                pass
+
+    return jsonify({"success": True, "profile": profile_data}), 200
 
 
 @app.route("/profiles/<cedula>", methods=["GET"])
+@app.route("/api/profiles/<cedula>", methods=["GET"])
 def get_profile(cedula: str):
-    if not supabase:
-        return jsonify({"detail": "Supabase not configured"}), 500
-    try:
-        res = supabase.table("profiles").select("*").eq("cedula", cedula).execute()
-        if len(res.data) > 0:
-            return jsonify({"success": True, "profile": res.data[0]}), 200
-        return jsonify({"detail": "Perfil no encontrado"}), 404
-    except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+    _load_profiles_cache()
+    ced_clean = cedula.replace(".", "").replace("-", "").replace(" ", "").upper()
+
+    # Buscar en memoria
+    for p in _profiles_memory:
+        if (p.get("cedula") or "").replace(".", "").replace("-", "").replace(" ", "").upper() == ced_clean:
+            return jsonify({"success": True, "profile": p}), 200
+
+    if supabase:
+        for tbl in ["perfiles", "profiles"]:
+            try:
+                res = supabase.table(tbl).select("*").ilike("cedula", f"%{ced_clean}%").execute()
+                if res.data and len(res.data) > 0:
+                    return jsonify({"success": True, "profile": res.data[0]}), 200
+            except Exception:
+                pass
+
+    return jsonify({"detail": "Perfil no encontrado"}), 404
 
 
 # ─── Blockchain & Certificación Transfronteriza ──────────────────────────────
@@ -943,7 +1052,7 @@ def verify_blockchain_document(doc_hash: str):
             logger.warning(f"Database verification fallback error: {e}")
 
     for r in _records_memory:
-        if r.get("hash") in hash_variations:
+        if r.get("hash") in hash_variations or _normalize_hex(r.get("hash")) == clean_hash.lower():
             try:
                 dt = datetime.datetime.fromisoformat(r.get("created_at").replace('Z', '+00:00'))
                 ts = int(dt.timestamp())
@@ -1037,6 +1146,13 @@ def register_blockchain_document():
     }), 200
 
 
+def _normalize_hex(h: str) -> str:
+    if not h:
+        return ''
+    s = str(h).strip().lower()
+    return s[2:] if s.startswith('0x') else s
+
+
 def _get_status_weight(status: str) -> int:
     if not status:
         return 0
@@ -1059,21 +1175,33 @@ def _get_status_weight(status: str) -> int:
 def _merge_records_lists(list_a, list_b):
     merged = {}
     for item in list(list_b) + list(list_a):
-        if not item or not item.get("hash"):
+        if not item or not item.get('hash'):
             continue
-        h = str(item.get("hash")).strip().lower()
+        h = _normalize_hex(item.get('hash'))
+        if not h:
+            continue
         if h not in merged:
             merged[h] = dict(item)
         else:
             cur = merged[h]
-            w_cur = _get_status_weight(cur.get("status"))
-            w_new = _get_status_weight(item.get("status"))
-            winner = dict(item if w_new >= w_cur else cur)
-            winner["mppeuVerified"] = bool(cur.get("mppeuVerified") or item.get("mppeuVerified") or "CERTIFICAD" in str(winner.get("status", "")).upper() or "APOSTILL" in str(winner.get("status", "")).upper())
-            winner["mppreVerified"] = bool(cur.get("mppreVerified") or item.get("mppreVerified") or "APOSTILL" in str(winner.get("status", "")).upper())
-            winner["apostilleNumber"] = item.get("apostilleNumber") or cur.get("apostilleNumber")
-            winner["solicitudCode"] = item.get("solicitudCode") or cur.get("solicitudCode") or item.get("solicitud_code") or cur.get("solicitud_code")
-            merged[h] = winner
+            w_cur = _get_status_weight(cur.get('status'))
+            w_new = _get_status_weight(item.get('status'))
+            chosen_status = item.get('status') if w_new >= w_cur else cur.get('status')
+            is_mppeu = bool(cur.get('mppeuVerified') or item.get('mppeuVerified') or 'CERTIFICADO' in str(chosen_status) or 'APOSTILLADO' in str(chosen_status) or 'Verificado' in str(chosen_status))
+            is_mppre = bool(cur.get('mppreVerified') or item.get('mppreVerified') or 'APOSTILLADO' in str(chosen_status))
+            chosen_tx = item.get('txHash') if (item.get('txHash') and 'PENDIENTE' not in str(item.get('txHash'))) else (cur.get('txHash') or item.get('txHash') or '0xPENDIENTE_COTEJO')
+            merged[h].update({
+                'ownerName': item.get('ownerName') or cur.get('ownerName'),
+                'cedula': item.get('cedula') or cur.get('cedula'),
+                'documentType': item.get('documentType') or cur.get('documentType'),
+                'status': chosen_status,
+                'mppeuVerified': is_mppeu,
+                'mppreVerified': is_mppre,
+                'apostilleNumber': item.get('apostilleNumber') or cur.get('apostilleNumber'),
+                'solicitudCode': item.get('solicitudCode') or cur.get('solicitudCode'),
+                'txHash': chosen_tx,
+                'timestamp': cur.get('timestamp') or item.get('timestamp')
+            })
     return list(merged.values())
 
 
@@ -1132,10 +1260,10 @@ def mppeu_certify_record(doc_hash: str):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     tx_hash = f"0x{secrets.token_hex(32)}"
-    clean_h = doc_hash.strip().lower()
+    clean_h = _normalize_hex(doc_hash)
 
     try:
-        rec = next((r for r in _records_memory if (r.get("hash") or "").strip().lower() == clean_h), None)
+        rec = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), None)
         if rec:
             real_tx = send_register_transaction(
                 doc_hash,
@@ -1148,28 +1276,45 @@ def mppeu_certify_record(doc_hash: str):
     except Exception:
         pass
 
+    found = False
     for r in _records_memory:
-        if (r.get("hash") or "").strip().lower() == clean_h:
+        if _normalize_hex(r.get("hash")) == clean_h:
             r["status"] = "CERTIFICADO_MPPEU"
             r["mppeu_verified"] = True
             r["mppeu_officer"] = f"{auditor_name} ({auditor_cargo})"
             r["mppeu_date"] = now_str
             r["tx_hash"] = tx_hash
             r["verified_by"] = auditor_name
+            found = True
             break
+
+    if not found:
+        _records_memory.insert(0, {
+            "hash": doc_hash if doc_hash.startswith("0x") else f"0x{doc_hash}",
+            "status": "CERTIFICADO_MPPEU",
+            "mppeu_verified": True,
+            "mppeu_officer": f"{auditor_name} ({auditor_cargo})",
+            "mppeu_date": now_str,
+            "tx_hash": tx_hash,
+            "verified_by": auditor_name,
+            "created_at": datetime.datetime.utcnow().isoformat() + "Z"
+        })
 
     _save_records_cache()
 
     if supabase:
         try:
-            supabase.table("records").update({
+            upd = {
                 "status": "CERTIFICADO_MPPEU",
                 "mppeu_verified": True,
                 "mppeu_officer": f"{auditor_name} ({auditor_cargo})",
                 "mppeu_date": now_str,
                 "tx_hash": tx_hash,
                 "verified_by": auditor_name
-            }).eq("hash", doc_hash).execute()
+            }
+            supabase.table("records").update(upd).eq("hash", doc_hash).execute()
+            supabase.table("records").update(upd).eq("hash", f"0x{clean_h}").execute()
+            supabase.table("records").update(upd).eq("hash", clean_h).execute()
         except Exception as e:
             logger.warning(f"Error actualizando certificación MPPEU en Supabase: {e}")
 
@@ -1182,6 +1327,7 @@ def mppeu_certify_record(doc_hash: str):
         "verifiedBy": auditor_name
     }), 200
 
+
 @app.route("/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 def mppre_apostille_record(doc_hash: str):
@@ -1190,30 +1336,47 @@ def mppre_apostille_record(doc_hash: str):
     auditor_name = data.get("auditor_username", "mppre_agente")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     apostille_num = f"APO-VE-2026-{secrets.token_hex(3).upper()}"
-    clean_h = doc_hash.strip().lower()
+    clean_h = _normalize_hex(doc_hash)
 
+    found = False
     for r in _records_memory:
-        if (r.get("hash") or "").strip().lower() == clean_h:
+        if _normalize_hex(r.get("hash")) == clean_h:
             r["status"] = "APOSTILLADO_MPPRE"
             r["mppre_verified"] = True
             r["mppre_officer"] = f"{auditor_name} (Cancillería)"
             r["mppre_date"] = now_str
             r["apostille_number"] = apostille_num
             r["verified_by"] = auditor_name
+            found = True
             break
+
+    if not found:
+        _records_memory.insert(0, {
+            "hash": doc_hash if doc_hash.startswith("0x") else f"0x{doc_hash}",
+            "status": "APOSTILLADO_MPPRE",
+            "mppre_verified": True,
+            "mppre_officer": f"{auditor_name} (Cancillería)",
+            "mppre_date": now_str,
+            "apostille_number": apostille_num,
+            "verified_by": auditor_name,
+            "created_at": datetime.datetime.utcnow().isoformat() + "Z"
+        })
 
     _save_records_cache()
 
     if supabase:
         try:
-            supabase.table("records").update({
+            upd = {
                 "status": "APOSTILLADO_MPPRE",
                 "mppre_verified": True,
                 "mppre_officer": f"{auditor_name} (Cancillería)",
                 "mppre_date": now_str,
                 "apostille_number": apostille_num,
                 "verified_by": auditor_name
-            }).eq("hash", doc_hash).execute()
+            }
+            supabase.table("records").update(upd).eq("hash", doc_hash).execute()
+            supabase.table("records").update(upd).eq("hash", f"0x{clean_h}").execute()
+            supabase.table("records").update(upd).eq("hash", clean_h).execute()
         except Exception as e:
             logger.warning(f"Error actualizando apostilla MPPRE en Supabase: {e}")
 
@@ -1226,26 +1389,57 @@ def mppre_apostille_record(doc_hash: str):
         "verifiedBy": auditor_name
     }), 200
 
+
 @app.route("/blockchain/records/<doc_hash>/verify", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/verify", methods=["POST"])
 def verify_record_status(doc_hash: str):
+    _load_records_cache()
     data = request.get_json() or {}
     auditor_info = data.get("auditor_username", "mppeu_agente")
     ente_info = data.get("auditor_ente", "MPPEU")
     status_str = f"Verificado por {ente_info} ({auditor_info})"
+    clean_h = _normalize_hex(doc_hash)
 
+    is_mppeu = "MPPEU" in ente_info.upper() or "GTU" in ente_info.upper()
+    is_mppre = "MPPRE" in ente_info.upper() or "CANCILLER" in ente_info.upper()
+
+    found = False
     for r in _records_memory:
-        if r.get("hash") == doc_hash:
+        if _normalize_hex(r.get("hash")) == clean_h:
             r["status"] = status_str
             r["verified_by"] = auditor_info
+            if is_mppeu:
+                r["mppeu_verified"] = True
+            if is_mppre:
+                r["mppre_verified"] = True
+            found = True
             break
+
+    if not found:
+        _records_memory.insert(0, {
+            "hash": doc_hash if doc_hash.startswith("0x") else f"0x{doc_hash}",
+            "status": status_str,
+            "verified_by": auditor_info,
+            "mppeu_verified": is_mppeu,
+            "mppre_verified": is_mppre,
+            "created_at": datetime.datetime.utcnow().isoformat() + "Z"
+        })
+
+    _save_records_cache()
 
     if supabase:
         try:
-            supabase.table("records").update({
+            upd = {
                 "status": status_str,
                 "verified_by": auditor_info
-            }).eq("hash", doc_hash).execute()
+            }
+            if is_mppeu:
+                upd["mppeu_verified"] = True
+            if is_mppre:
+                upd["mppre_verified"] = True
+            supabase.table("records").update(upd).eq("hash", doc_hash).execute()
+            supabase.table("records").update(upd).eq("hash", f"0x{clean_h}").execute()
+            supabase.table("records").update(upd).eq("hash", clean_h).execute()
         except Exception as e:
             logger.warning(f"Error actualizando verified_by en Supabase: {e}")
 
@@ -1256,25 +1450,43 @@ def verify_record_status(doc_hash: str):
 @app.route("/blockchain/records/<doc_hash>/reject", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/reject", methods=["POST"])
 def reject_record_status(doc_hash: str):
+    _load_records_cache()
     data = request.get_json() or {}
     reason = (data.get("reason") or "Inconsistencia física u observación registral").strip()
     auditor_info = data.get("auditor_username", "mppeu_agente")
     status_str = f"Rechazado: {reason}"
+    clean_h = _normalize_hex(doc_hash)
 
+    found = False
     for r in _records_memory:
-        if r.get("hash") == doc_hash:
+        if _normalize_hex(r.get("hash")) == clean_h:
             r["status"] = status_str
             r["rejection_reason"] = reason
             r["verified_by"] = auditor_info
+            found = True
             break
+
+    if not found:
+        _records_memory.insert(0, {
+            "hash": doc_hash if doc_hash.startswith("0x") else f"0x{doc_hash}",
+            "status": status_str,
+            "rejection_reason": reason,
+            "verified_by": auditor_info,
+            "created_at": datetime.datetime.utcnow().isoformat() + "Z"
+        })
+
+    _save_records_cache()
 
     if supabase:
         try:
-            supabase.table("records").update({
+            upd = {
                 "status": status_str,
                 "rejection_reason": reason,
                 "verified_by": auditor_info
-            }).eq("hash", doc_hash).execute()
+            }
+            supabase.table("records").update(upd).eq("hash", doc_hash).execute()
+            supabase.table("records").update(upd).eq("hash", f"0x{clean_h}").execute()
+            supabase.table("records").update(upd).eq("hash", clean_h).execute()
         except Exception as e:
             logger.warning(f"Error actualizando rechazo en Supabase: {e}")
 

@@ -7,8 +7,37 @@ import {
   RefreshCw, ChevronLeft, HelpCircle, Phone, Calendar
 } from 'lucide-react';
 import { authPasswordless, supabase } from '../services/supabaseClient';
-import { dynamicDataAPI } from '../services/api';
+import { dynamicDataAPI, profilesAPI } from '../services/api';
 import { securityGuard } from '../services/securityGuard';
+
+const syncUserRegistration = (profile) => {
+  if (!profile) return;
+  try {
+    const list = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
+    const cleanCed = (profile.cedula || '').replace(/\D/g, '');
+    if (!list.some(u => (u.cedula || '').replace(/\D/g, '') === cleanCed)) {
+      list.push(profile);
+      localStorage.setItem('usm_all_users', JSON.stringify(list));
+    }
+  } catch (_) {}
+
+  try {
+    profilesAPI.register({
+      nombre: profile.nombre,
+      cedula: profile.cedula,
+      carrera: profile.carrera || 'Ingeniería en Sistemas',
+      semestre: profile.semestre || '10mo'
+    }).catch(() => {});
+  } catch (_) {}
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const ch = new BroadcastChannel('usm_records_sync');
+      ch.postMessage({ type: 'USER_REGISTERED', user: profile });
+      ch.close();
+    } catch (_) {}
+  }
+};
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
 
@@ -312,6 +341,7 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
       });
 
       if (res.success && res.profile) {
+        syncUserRegistration(res.profile);
         localStorage.setItem('usm_user', JSON.stringify(res.profile));
         onLogin(res.profile);
       } else {
@@ -602,6 +632,7 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
       });
 
       if (res.success && res.profile) {
+        syncUserRegistration(res.profile);
         localStorage.setItem('usm_user', JSON.stringify(res.profile));
         onLogin(res.profile);
       } else {
