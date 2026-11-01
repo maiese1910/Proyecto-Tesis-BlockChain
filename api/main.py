@@ -21,6 +21,7 @@ import base64
 import hashlib
 import datetime
 import secrets
+import random
 import urllib.request
 import urllib.error
 import tempfile
@@ -79,18 +80,27 @@ class _LazySupabaseProxy:
     def __init__(self):
         self._client = None
         self._attempted = False
+        self._available = False
 
     def _get_client(self):
         if not self._attempted:
             self._attempted = True
             if SUPABASE_URL and SUPABASE_KEY:
                 try:
+                    import socket
+                    from urllib.parse import urlparse
+                    host = urlparse(SUPABASE_URL).hostname
+                    if host:
+                        socket.setdefaulttimeout(0.3)
+                        socket.gethostbyname(host)
                     from supabase import create_client
                     self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
+                    self._available = True
                 except Exception as e:
-                    logger.warning(f"No se pudo conectar a Supabase: {e}")
+                    logger.warning(f"Supabase inalcanzable o DNS no disponible ({e}). Operando en modo local de alta velocidad.")
                     self._client = None
-        return self._client
+                    self._available = False
+        return self._client if self._available else None
 
     def __bool__(self):
         return self._get_client() is not None

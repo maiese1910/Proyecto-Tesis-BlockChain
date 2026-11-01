@@ -5,6 +5,58 @@ import { blockchainAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
 
+const DEFAULT_THESIS_RECORDS = [
+  {
+    hash: "0x7F9A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9F0A",
+    ownerName: "MAURO DANIEL MAIESE FERREIRA",
+    cedula: "V-28.315.101",
+    documentType: "Título de Ingeniero de Sistemas — USM",
+    txHash: "0x4b7891a2bc3456def0123456789abcdef0123456789abcdef0123456789abcd1",
+    status: "CERTIFICADO_MPPEU",
+    timestamp: "2026-10-24T14:32:00Z",
+    solicitudCode: "GTU-2026-USM-8492",
+    mppeuVerified: true,
+    mppreVerified: false,
+    mppeuOfficer: "Lic. Carlos Mendoza (Analista GTU)",
+    tomo: "XVIII",
+    folio: "245",
+    libro: "Grados 2026"
+  },
+  {
+    hash: "0x1A2B3C4D5E6F7A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B",
+    ownerName: "VALENTINA SOFÍA RODRÍGUEZ SILVA",
+    cedula: "V-27.890.432",
+    documentType: "Título de Ingeniera Civil — USM",
+    txHash: "0x9876543210abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    status: "APOSTILLADO_MPPRE",
+    timestamp: "2026-10-20T09:12:00Z",
+    solicitudCode: "GTU-2026-USM-5120",
+    mppeuVerified: true,
+    mppreVerified: true,
+    mppeuOfficer: "Lic. Carlos Mendoza (Analista GTU)",
+    mppreOfficer: "Dr. Fernando Morales (Cancillería)",
+    apostilleNumber: "APO-VE-2026-004812",
+    tomo: "XIV",
+    folio: "112",
+    libro: "Grados 2026"
+  },
+  {
+    hash: "0x5E6F7A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D5E6F",
+    ownerName: "ALEJANDRO JOSÉ HERNÁNDEZ PEÑA",
+    cedula: "V-29.456.789",
+    documentType: "Título de Ingeniero Industrial — USM",
+    txHash: "0xPENDIENTE_COTEJO",
+    status: "PENDIENTE_COTEJO_MPPEU",
+    timestamp: "2026-10-26T16:00:00Z",
+    solicitudCode: "GTU-2026-USM-9304",
+    mppeuVerified: false,
+    mppreVerified: false,
+    tomo: "XXI",
+    folio: "089",
+    libro: "Grados 2026"
+  }
+];
+
 const TrackingTimeline = ({ user }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -146,6 +198,14 @@ const TrackingTimeline = ({ user }) => {
         }
       } catch (e) {
         console.warn('Error merging local pub history:', e);
+      }
+
+      // Si no hay registros de ninguna fuente, cargar los registros canónicos de la tesis
+      if (combined.length === 0) {
+        combined = [...DEFAULT_THESIS_RECORDS];
+        try {
+          localStorage.setItem('usm_blockchain_records', JSON.stringify(DEFAULT_THESIS_RECORDS));
+        } catch (_) {}
       }
 
       // 4. Desduplicar registros por hash SHA-256 canónico respetando la jerarquía estricta de estatus
