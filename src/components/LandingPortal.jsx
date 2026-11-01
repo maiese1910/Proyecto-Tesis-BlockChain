@@ -6,9 +6,11 @@ import {
   HelpCircle, ShieldCheck, Database, Server, Award, Building2, Zap, AlertCircle, X
 } from 'lucide-react';
 import { profilesAPI, authAPI, statsAPI, dynamicDataAPI } from '../services/api';
+import StudentAuth from './StudentAuth';
 
 const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
   const [roleTab, setRoleTab] = useState('student'); // 'student' | 'gov'
+  const [showPasswordlessModal, setShowPasswordlessModal] = useState(false);
 
   // Estado Login Estudiante
   const [studentCedula, setStudentCedula] = useState('');
@@ -64,10 +66,17 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
   };
 
   const fillStudentDemo = () => {
-    setRoleTab('student');
-    const demoCedula = 'V-28.315.101';
-    setStudentCedula(demoCedula);
-    handleStudentSubmit(null, demoCedula);
+    const demoUser = {
+      id: 'demo-usm-jurado',
+      nombre: 'Mauro Daniel Maiese Ferreira',
+      cedula: 'V-28.315.101',
+      carrera: 'Ingeniería en Sistemas',
+      semestre: '10mo',
+      is_profile_complete: true,
+      is_cedula_locked: true,
+    };
+    localStorage.setItem('usm_user', JSON.stringify(demoUser));
+    onStudentLogin(demoUser);
   };
 
   const fillMppeuDemo = () => {
@@ -354,28 +363,17 @@ return (
           </div>
         </div>
 
-        {/* Accesos Directos Píldora (Steep filled vs ghost) */}
+        {/* Acceso Directo Graduando */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button
-            onClick={() => { setRoleTab('student'); scrollToLogin(); }}
+            onClick={scrollToLogin}
             className="send-btn"
             style={{
               padding: '0.65rem 1.35rem',
               fontSize: '0.85rem',
             }}
           >
-            <User size={15} /> Graduando USM
-          </button>
-
-          <button
-            onClick={() => { setRoleTab('gov'); scrollToLogin(); }}
-            className="btn-ghost"
-            style={{
-              padding: '0.65rem 1.35rem',
-              fontSize: '0.85rem',
-            }}
-          >
-            <Shield size={15} /> Ente Auditor (SAREN)
+            <User size={15} /> Acceso Graduando USM
           </button>
         </div>
 
@@ -464,336 +462,11 @@ return (
               position: 'relative'
             }}
           >
-
-            {/* Selector de Pestañas Tipo Píldora Steep */}
-            <div style={{
-              display: 'flex',
-              backgroundColor: 'var(--color-fog-white)',
-              border: '1px solid var(--border)',
-              padding: '0.3rem',
-              borderRadius: 'var(--radius-pill)',
-              marginBottom: '1.75rem',
-              gap: '0.35rem'
-            }}>
-              <button
-                onClick={() => { setRoleTab('student'); setStudentError(''); setGovError(''); }}
-                style={{
-                  flex: 1,
-                  padding: '0.65rem 0.8rem',
-                  borderRadius: 'var(--radius-pill)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  fontSize: '0.84rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.4rem',
-                  transition: 'all 0.2s',
-                  backgroundColor: roleTab === 'student' ? 'var(--color-ink-black)' : 'transparent',
-                  color: roleTab === 'student' ? '#ffffff' : 'var(--color-slate-gray)'
-                }}
-              >
-                <User size={14} /> Graduando USM
-              </button>
-
-              <button
-                onClick={() => { setRoleTab('gov'); setGovUsername('mppeu_agente'); setGovPassword('admin123'); setStudentError(''); setGovError(''); }}
-                style={{
-                  flex: 1,
-                  padding: '0.65rem 0.8rem',
-                  borderRadius: 'var(--radius-pill)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  fontSize: '0.84rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.4rem',
-                  transition: 'all 0.2s',
-                  backgroundColor: roleTab === 'gov' && govUsername === 'mppeu_agente' ? 'var(--color-ink-black)' : 'transparent',
-                  color: roleTab === 'gov' && govUsername === 'mppeu_agente' ? '#ffffff' : 'var(--color-slate-gray)'
-                }}
-              >
-                <Building2 size={14} /> Taquilla MPPEU
-              </button>
-
-              <button
-                onClick={() => { setRoleTab('gov'); setGovUsername('mppre_agente'); setGovPassword('admin123'); setStudentError(''); setGovError(''); }}
-                style={{
-                  flex: 1,
-                  padding: '0.65rem 0.8rem',
-                  borderRadius: 'var(--radius-pill)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  fontSize: '0.84rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.4rem',
-                  transition: 'all 0.2s',
-                  backgroundColor: roleTab === 'gov' && govUsername === 'mppre_agente' ? 'var(--color-ink-black)' : 'transparent',
-                  color: roleTab === 'gov' && govUsername === 'mppre_agente' ? '#ffffff' : 'var(--color-slate-gray)'
-                }}
-              >
-                <Globe size={14} /> Cancillería MPPRE
-              </button>
-            </div>
-
-            {/* Formulario Estudiante */}
-            {roleTab === 'student' ? (
-              <motion.form
-                key="student-form"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                onSubmit={handleStudentSubmit}
-                style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-              >
-                <div>
-                  <label style={{ fontSize: '0.84rem', color: 'var(--color-ink-black)', marginBottom: '0.45rem', display: 'block', fontWeight: 500 }}>
-                    Cédula de Identidad del Graduando
-                  </label>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    backgroundColor: 'var(--color-fog-white)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-inputs)',
-                    padding: '0.75rem 1rem'
-                  }}>
-                    <User size={17} color="var(--color-slate-gray)" />
-                    <input
-                      type="text"
-                      placeholder="Ej: V-28.315.101"
-                      value={studentCedula}
-                      onChange={e => setStudentCedula(e.target.value)}
-                      style={{
-                        border: 'none',
-                        backgroundColor: 'transparent',
-                        color: 'var(--color-ink-black)',
-                        fontSize: '0.94rem',
-                        width: '100%',
-                        outline: 'none',
-                        fontWeight: 450
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {studentError && (
-                  <p style={{ color: 'var(--color-sienna-brown)', fontSize: '0.84rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <AlertCircle size={14} /> {studentError}
-                  </p>
-                )}
-
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="submit"
-                    disabled={studentLoading}
-                    className="send-btn"
-                    style={{
-                      flex: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem'
-                    }}
-                  >
-                    {studentLoading ? 'Validando...' : 'Ingresar a la Plataforma'} <ArrowRight size={15} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { fillStudentDemo(); handleStudentSubmit(); }}
-                    className="btn-ghost"
-                    style={{ flex: 1, whiteSpace: 'nowrap' }}
-                  >
-                    Acceso Rápido
-                  </button>
-                </div>
-
-                <div style={{ textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '0.9rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowRegModal(true)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--color-slate-gray)',
-                      fontSize: '0.82rem',
-                      cursor: 'pointer',
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    ¿No estás registrado en la base de datos? Haz clic aquí
-                  </button>
-                </div>
-              </motion.form>
-            ) : (
-              /* Formulario Funcionario Auditor */
-              <motion.form
-                key="gov-form"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                onSubmit={handleGovSubmit}
-                style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-              >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.84rem', color: 'var(--color-ink-black)', marginBottom: '0.45rem', display: 'block', fontWeight: 500 }}>
-                      Usuario Funcionario
-                    </label>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.65rem',
-                      backgroundColor: 'var(--color-fog-white)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-inputs)',
-                      padding: '0.75rem 0.9rem'
-                    }}>
-                      <User size={16} color="var(--color-slate-gray)" />
-                      <input
-                        type="text"
-                        placeholder="saren_admin"
-                        value={govUsername}
-                        onChange={e => setGovUsername(e.target.value)}
-                        style={{
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          color: 'var(--color-ink-black)',
-                          fontSize: '0.9rem',
-                          width: '100%',
-                          outline: 'none',
-                          fontWeight: 450
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.84rem', color: 'var(--color-ink-black)', marginBottom: '0.45rem', display: 'block', fontWeight: 500 }}>
-                      Contraseña
-                    </label>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.65rem',
-                      backgroundColor: 'var(--color-fog-white)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-inputs)',
-                      padding: '0.75rem 0.9rem'
-                    }}>
-                      <Lock size={16} color="var(--color-slate-gray)" />
-                      <input
-                        type="password"
-                        placeholder="••••••••"
-                        value={govPassword}
-                        onChange={e => setGovPassword(e.target.value)}
-                        style={{
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          color: 'var(--color-ink-black)',
-                          fontSize: '0.9rem',
-                          width: '100%',
-                          outline: 'none',
-                          fontWeight: 450
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {govError && (
-                  <p style={{ color: 'var(--color-sienna-brown)', fontSize: '0.84rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <AlertCircle size={14} /> {govError}
-                  </p>
-                )}
-
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button
-                    type="submit"
-                    disabled={govLoading}
-                    className="send-btn"
-                    style={{
-                      flex: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem'
-                    }}
-                  >
-                    <Lock size={15} /> {govLoading ? 'Autenticando...' : 'Acceso Seguro Funcionario'} <ArrowRight size={15} />
-                  </button>
-                </div>
-
-                {/* Acceso Rápido por Rol Ministerial */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                  <span style={{ fontSize: '0.76rem', color: 'var(--color-slate-gray)', fontWeight: 500 }}>
-                    Accesos Directos para Evaluación de Tesis:
-                  </span>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
-                    <button
-                      type="button"
-                      onClick={fillMppeuDemo}
-                      className="btn-ghost"
-                      style={{ fontSize: '0.78rem', padding: '0.45rem 0.6rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-                    >
-                      <Building2 size={13} color="#0284c7" /> Preset MPPEU
-                    </button>
-                    <button
-                      type="button"
-                      onClick={fillMppreDemo}
-                      className="btn-ghost"
-                      style={{ fontSize: '0.78rem', padding: '0.45rem 0.6rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-                    >
-                      <Globe size={13} color="#d97706" /> Preset MPPRE
-                    </button>
-                    <button
-                      type="button"
-                      onClick={fillGovDemo}
-                      className="btn-ghost"
-                      style={{ fontSize: '0.78rem', padding: '0.45rem 0.6rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-                    >
-                      <Shield size={13} color="#64748b" /> Preset SAREN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={fillUsmDemo}
-                      className="btn-ghost"
-                      style={{ fontSize: '0.78rem', padding: '0.45rem 0.6rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-                    >
-                      <GraduationCap size={13} color="var(--color-navy-deep)" /> Preset Admin USM
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{
-                  textAlign: 'center',
-                  fontSize: '0.76rem',
-                  color: 'var(--color-slate-gray)',
-                  padding: '0.5rem',
-                  backgroundColor: 'var(--color-mist-gray)',
-                  borderRadius: 'var(--radius-inputs)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.45rem'
-                }}>
-                  <Lock size={12} /> Segregación de Funciones (SoD) — PIN Institucional Requerido
-                </div>
-
-                <div style={{ textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '0.9rem' }}>
-                  <p style={{ color: 'var(--color-slate-gray)', fontSize: '0.78rem', margin: 0, lineHeight: 1.4 }}>
-                    La creación de cuentas de auditor se gestiona internamente por un administrador autorizado.
-                  </p>
-                </div>
-              </motion.form>
-            )}
-
+            <StudentAuth
+              onLogin={onStudentLogin}
+              onSwitchToDemo={fillStudentDemo}
+              embedded={true}
+            />
           </div>
         </motion.div>
 
@@ -1326,153 +999,6 @@ return (
     </footer>
 
 
-    {/* ─── MODAL DE REGISTRO PARA ESTUDIANTES NUEVOS ─── */}
-    <AnimatePresence>
-      {showRegModal && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(23, 25, 28, 0.45)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 1200,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1.5rem'
-          }}
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 15 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 15 }}
-            style={{
-              maxWidth: '460px',
-              width: '100%',
-              padding: '2.25rem',
-              borderRadius: 'var(--radius-cards)',
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-artifact)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{
-                margin: 0,
-                color: 'var(--color-ink-black)',
-                fontFamily: 'var(--font-serif)',
-                fontSize: '1.35rem',
-                fontWeight: 400,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}>
-                <User size={20} /> Registro de Graduando USM
-              </h3>
-              <button
-                onClick={() => setShowRegModal(false)}
-                style={{
-                  backgroundColor: 'var(--color-mist-gray)',
-                  border: 'none',
-                  color: 'var(--color-ink-black)',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-              <div>
-                <label style={{ fontSize: '0.82rem', color: 'var(--color-ink-black)', marginBottom: '0.35rem', display: 'block', fontWeight: 500 }}>
-                  Nombre y Apellido Completo
-                </label>
-                <input
-                  type="text"
-                  className="chat-input"
-                  placeholder="Ej: Juan Carlos Pérez"
-                  value={regForm.nombre}
-                  onChange={e => setRegForm({ ...regForm, nombre: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.82rem', color: 'var(--color-ink-black)', marginBottom: '0.35rem', display: 'block', fontWeight: 500 }}>
-                    Tipo
-                  </label>
-                  <select
-                    className="chat-input"
-                    value={regForm.cedula_tipo}
-                    onChange={e => setRegForm({ ...regForm, cedula_tipo: e.target.value })}
-                    style={{ width: '100%' }}
-                  >
-                    <option value="V">V-</option>
-                    <option value="E">E-</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.82rem', color: 'var(--color-ink-black)', marginBottom: '0.35rem', display: 'block', fontWeight: 500 }}>
-                    Número de Cédula
-                  </label>
-                  <input
-                    type="text"
-                    className="chat-input"
-                    placeholder="28.315.101"
-                    value={regForm.cedula}
-                    onChange={e => setRegForm({ ...regForm, cedula: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.82rem', color: 'var(--color-ink-black)', marginBottom: '0.35rem', display: 'block', fontWeight: 500 }}>
-                  Carrera Universitaria
-                </label>
-                <select
-                  className="chat-input"
-                  value={regForm.carrera}
-                  onChange={e => setRegForm({ ...regForm, carrera: e.target.value })}
-                  style={{ width: '100%' }}
-                >
-                  <option value="">Selecciona tu carrera...</option>
-                  {carreras.map((c, i) => <option key={i} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              {regError && <p style={{ color: 'var(--color-sienna-brown)', fontSize: '0.82rem', margin: 0 }}>{regError}</p>}
-
-              <button
-                type="submit"
-                className="send-btn"
-                style={{
-                  padding: '0.85rem',
-                  fontWeight: 450,
-                  marginTop: '0.5rem',
-                  width: '100%'
-                }}
-              >
-                Completar Registro e Iniciar Sesión
-              </button>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
 
   </div>
 );

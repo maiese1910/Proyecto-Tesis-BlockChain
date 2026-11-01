@@ -12,9 +12,14 @@
 3. [Guía de Arranque y Activación del Servidor](#3-guía-de-arranque-y-activación-del-servidor)
 4. [Arquitectura del Sistema y Flujo de Datos](#4-arquitectura-del-sistema-y-flujo-de-datos)
 5. [Módulos del Frontend (React 19 + Vite)](#5-módulos-del-frontend-react-19--vite)
+   - 5.12. [StudentAuth.jsx — Autenticación Integral de Graduandos (Clave, OTP, Registro y Recuperación)](#512-studentauthjsx--autenticación-integral-de-graduandos)
+   - 5.13. [GovernmentLoginPortal.jsx — Portal Ministerial Aislado por URL (/admin y /gobierno)](#513-governmentloginportaljsx--portal-ministerial-aislado-por-url)
 6. [Módulos del Backend y Endpoints de la API (FastAPI)](#6-módulos-del-backend-y-endpoints-de-la-api-fastapi)
 7. [Contrato Inteligente Blockchain (Solidity)](#7-contrato-inteligente-blockchain-solidity)
 8. [Base de Datos y Persistencia (Supabase / PostgreSQL)](#8-base-de-datos-y-persistencia-supabase--postgresql)
+   - 8.2. [Esquema de Autenticación Passwordless y Sincronización Reactiva (Triggers)](#82-esquema-de-autenticación-passwordless-y-sincronización-reactiva-triggers)
+   - 8.3. [Blindaje de Inmutabilidad de la Cédula de Identidad en PostgreSQL](#83-blindaje-de-inmutabilidad-de-la-cédula-de-identidad-en-postgresql)
+   - 8.4. [Matriz Comparativa de Ciberseguridad: Arquitectura USM vs. Modelo Arcaico SAREN](#84-matriz-comparativa-de-ciberseguridad-arquitectura-usm-vs-modelo-arcaico-saren)
 9. [Protocolo y Guía para la Defensa de Grado](#9-protocolo-y-guía-para-la-defensa-de-grado)
 
 ---
@@ -328,6 +333,24 @@ La interfaz de usuario está construida sobre una arquitectura de componentes re
 - **Funcionalidad:**
   - CRUD para ítems de checklist, rutas de supervivencia logística y repositorio de planillas descargables.
 
+### 5.12. `StudentAuth.jsx` — Autenticación Integral de Graduandos
+- **Propósito:** Centralizar y asegurar el ciclo completo de identidad de los graduandos de la USM combinando familiaridad, alta seguridad y modernización contra el modelo tradicional del SAREN.
+- **Modos Soportados:**
+  1. **Inicio de Sesión con Clave (Predeterminado):** Correo electrónico institucional y contraseña encriptada mediante Supabase Auth con visibilidad alternable de contraseña (`Eye`/`EyeOff`).
+  2. **Registro de Nuevos Graduandos:** Formulario de alta con Nombre Oficial, Correo, Contraseña, Cédula de Identidad con selector `V/E`, autoformato `28.315.101`, Carrera y Semestre. La cédula queda bloqueada (`is_cedula_locked = true`) desde el instante de su creación.
+  3. **Recuperación de Contraseña ("Olvidé mi clave"):** Envío automático de enlaces de restablecimiento de contraseña vía Supabase Auth. En entorno Docker local, los mensajes se inspeccionan en Mailpit (`http://localhost:54324`).
+  4. **Acceso Passwordless con OTP (Sin Contraseña):** Autenticación en dos pasos mediante código efímero de 6 dígitos y verificación anti-bot invisible con Cloudflare Turnstile.
+  5. **⚡ Acceso Rápido Modo Jurado (Defensa de Grado):** Acceso directo en 1 clic diseñado para la evaluación presencial de jurados universitarios ante contingencias de red local o ausencia de conexión a internet.
+
+### 5.13. `GovernmentLoginPortal.jsx` — Portal Ministerial Aislado por URL
+- **Propósito:** Segregación estricta de funciones (SoD). El acceso de inspectores ministeriales y auditores se encuentra **100% desacoplado** de la interfaz pública de los estudiantes y **no posee botones de acceso en la página de graduandos**.
+- **Acceso Exclusivo por URL:** Disponible únicamente navegando a `/admin`, `/gobierno` o mediante el parámetro `?portal=gobierno`.
+- **Entes de Fiscalización Soportados:**
+  - **MPPEU (Taquilla GTU):** Cotejo ministerial de actas, folios y firmas universitarias (`mppeu_agente`).
+  - **SAREN (Registro Principal):** Protocolización legal y comprobación de pago PUB (`saren_admin`).
+  - **MPPRE (Cancillería):** Emisión y certificación de Apostilla electrónica de La Haya (`mppre_agente`).
+  - **USM (Secretaría General):** Administración del catálogo dinámico institucional (`admin`).
+
 ---
 
 ## 6. MÓDULOS DEL BACKEND Y ENDPOINTS DE LA API (FASTAPI)
@@ -540,7 +563,8 @@ contract USMDocumentRegistry {
 El sistema utiliza Supabase para persistir metadatos y configuraciones dinámicas.
 
 ### 8.1. Diccionario de Tablas Principales
-- **`profiles`:** Almacena cédula (PK), nombre, carrera de ingeniería y semestre del estudiante.
+- **`perfiles` (Nuevo Esquema Seguro):** Perfil del graduando vinculado a `auth.users(id)` con clave foránea (`UUID PRIMARY KEY REFERENCES auth.users(id)`), cédula única (`cedula TEXT UNIQUE`), correo oficial, flags de inmutabilidad (`is_cedula_locked BOOLEAN`) y estado de onboarding (`is_profile_complete BOOLEAN`).
+- **`profiles` (Esquema de Compatibilidad Legacy):** Almacena cédula (PK), nombre, carrera de ingeniería y semestre del estudiante para retrocompatibilidad con scripts de prueba y modo defensa.
 - **`admins`:** Contiene los usuarios de fiscalización de los entes gubernamentales (MPPEU, SAREN, MPPRE, USM) con passwords hasheados en Bcrypt.
 - **`records`:** Registro híbrido de documentos anclados a la blockchain (`hash`, `owner_name`, `cedula`, `document_type`, `tx_hash`, `status`, `created_at`).
 - **`stats`:** Contadores globales (`graduandos_activos`, `docs_prevalidados`, `tiempo_ahorrado_hrs`, `titulos_blockchain`).
@@ -549,6 +573,112 @@ El sistema utiliza Supabase para persistir metadatos y configuraciones dinámica
 - **`guias_logistica`:** Estructura JSONB con los pasos de supervivencia para cada ente y turno.
 - **`planillas`:** Catálogo de enlaces y nombres de formatos oficiales institucionales.
 - **`carreras`:** Listado de especialidades de ingeniería autorizadas en la USM.
+
+### 8.2. Esquema de Autenticación Passwordless y Sincronización Reactiva (Triggers)
+Para garantizar la integridad referencial absoluta entre la capa de autenticación interna de Supabase (`auth.users`) y la capa de datos públicos de la aplicación (`public.perfiles`), se implementó un **Trigger PostgreSQL reactivo**:
+
+```sql
+-- Trigger que crea automáticamente el perfil base tras la emisión del usuario en auth.users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.perfiles (id, email)
+  VALUES (NEW.id, NEW.email)
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+
+### 8.3. Blindaje de Inmutabilidad de la Cédula de Identidad en PostgreSQL
+A diferencia de los sistemas tradicionales donde la cédula puede ser sobrescrita o transferida a través de vulnerabilidades en la API, esta arquitectura implementa un **candado de inmutabilidad en el motor de base de datos**:
+
+```sql
+CREATE OR REPLACE FUNCTION public.enforce_cedula_immutability()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Si la cédula ya fue registrada y bloqueada, impedir cualquier alteración posterior
+  IF OLD.is_cedula_locked = TRUE AND (OLD.cedula IS DISTINCT FROM NEW.cedula) THEN
+    RAISE EXCEPTION 'Operación denegada por seguridad: La Cédula de Identidad es inmutable tras su registro legal.';
+  END IF;
+
+  -- Si se asigna la cédula por primera vez, marcar como bloqueada y completa
+  IF NEW.cedula IS NOT NULL AND (OLD.cedula IS NULL OR OLD.cedula = '') THEN
+    NEW.is_cedula_locked := TRUE;
+    NEW.is_profile_complete := TRUE;
+  END IF;
+
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_cedula_profile_update
+  BEFORE UPDATE ON public.perfiles
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_cedula_immutability();
+```
+
+Adicionalmente, se aplica **Row Level Security (RLS)** estricto:
+- `SELECT`: `auth.uid() = id` (Un graduando solo puede leer sus propios datos).
+- `UPDATE`: `auth.uid() = id` (Solo el propio titular puede completar su formulario).
+- `SERVICE_ROLE`: Acceso exclusivo para el backend institucional y microservicios autorizados.
+
+### 8.4. Matriz Comparativa de Ciberseguridad: Arquitectura USM vs. Modelo Arcaico SAREN
+
+| Dimensión Técnica | Enfoque Tradicional / SAREN | Nueva Arquitectura USM-ApostillaBot |
+|---|---|---|
+| **Credenciales de Acceso** | Cédula + Contraseña estática vulnerable a filtraciones y reutilización. | **Passwordless (Email OTP efímero de 6 dígitos)** con expiración en 10 min. |
+| **Protección contra Bots** | Captchas de imágenes distorsionadas y rompecabezas lentos y molestos. | **Cloudflare Turnstile invisible** (0 fricción, verificación automática en segundo plano). |
+| **Flujo de Registro (UX)** | Formulario masivo inicial obligatorio antes de conocer la plataforma. | **Onboarding Progresivo:** acceso en 2 segundos; solicitud de cédula solo al requerir trámites legales. |
+| **Integridad de Identidad** | Cédula modificable en paneles vulnerables o expuesta a colisiones. | **Cédula Única e Inmutable por Trigger PL/pgSQL**, ligada a la clave criptográfica `auth.uid()`. |
+| **Protección de Sesión** | Sesiones propensas a secuestro o tokens en almacenamiento inseguro. | Sesiones gestionadas por **Supabase Auth con refresh token rotation** y RLS hermético. |
+| **Soporte Next.js 16 / Vite** | Monolito desacoplado propenso a inconsistencias de estado. | Arquitectura híbrida lista para Server Components / Server Actions y Middleware de protección. |
+
+### 8.5. Mecanismo de Entrega de Códigos OTP y Enlaces Mágicos (Mailpit Local)
+
+En el entorno de desarrollo local con contenedores Docker, los correos salientes no se envían a servidores SMTP externos reales para evitar bloqueos por spam o costos de pasarelas. En su lugar, Supabase GoTrue se conecta al servidor SMTP simulado **Mailpit**:
+
+1. **Bandeja de Entrada Local:** Accesible en el navegador en `http://localhost:54324`.
+2. **Plantilla Híbrida (`magic_link.html`):** Configurada en `supabase/config.toml` con la ruta `./supabase/templates/magic_link.html`. La plantilla incluye:
+   - El **código numérico OTP de 6 dígitos** destacado mediante la variable `{{ .Token }}` para ser copiado manualmente en el formulario de la aplicación.
+   - El **enlace seguro directo (Magic Link)** mediante `{{ .ConfirmationURL }}` para autenticación con un solo clic.
+   - Redirección automática (`site_url`) ajustada al puerto de Vite `http://localhost:5173`.
+3. **Escuchador de Sesión React (`onAuthStateChange`):** Detecta cuando el graduando pulsa el enlace en el correo y monta automáticamente su sesión académica en el cliente sin requerir teclear el código. Para evitar sesiones fantasma al revisar la bandeja en otra pestaña, sólo se auto-inicia si la URL entrante contiene explícitamente el token del Magic Link (`#access_token`).
+4. **Mecanismo de Respaldo para la Defensa:** Si en plena evaluación presencial la red o el contenedor se detienen, se acepta el código de contingencia `123456` para garantizar la continuidad sin contratiempos.
+
+### 8.6. Política de Complejidad de Contraseñas y Datos Civiles del Graduando
+
+Conforme a las recomendaciones de ciberseguridad NIST SP 800-63B y OWASP:
+
+1. **Requisitos Estrictos de Contraseña (Evaluación en Tiempo Real):**
+   - **Mínimo 8 caracteres**.
+   - **Al menos 1 letra Mayúscula** (`[A-Z]`).
+   - **Al menos 1 letra Minúscula** (`[a-z]`).
+   - **Al menos 1 Número** (`[0-9]`).
+   - **Al menos 1 Carácter Especial** (`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]`).
+   - **Confirmación Obligatoria:** Campo de verificación "Repetir Contraseña" con comprobación idéntica.
+2. **Formulario de Registro Actualizado:**
+   - Se eliminaron los campos superfluos de "Carrera" y "Semestre".
+   - Se incorporaron **Teléfono de Contacto** (formato móvil venezolano) y **Fecha de Nacimiento** (selector de calendario estandarizado `YYYY-MM-DD`), almacenados de forma segura en `public.perfiles`.
+
+### 8.7. Diagnóstico Preciso de Acceso y Validación Cédula-Correo
+
+Para erradicar la frustración del graduando y evitar ataques de denegación o suplantación:
+
+1. **Detección de Usuario No Registrado en Inicio de Sesión (`check_email_registered`):**
+   - Si un usuario ingresa credenciales fallidas, el sistema ejecuta una función PostgreSQL `SECURITY DEFINER` que verifica si el correo existe en `auth.users` o `public.perfiles`.
+   - **Si el correo no existe:** Arroja el mensaje `"El usuario no se encuentra registrado en el sistema. Debes registrarte primero."` y despliega un botón de un clic `"¿Deseas crear tu cuenta ahora? Regístrate aquí →"`.
+   - **Si el correo existe pero la clave es errónea:** Arroja `"La contraseña ingresada es incorrecta. Por favor verifica tus datos o utiliza '¿Olvidaste tu contraseña?'."` sin inducir al usuario a registrarse de nuevo.
+2. **Validación Cruzada Pre-Envío en OTP y Recuperación (`verify_cedula_email_match`):**
+   - Antes de generar cualquier código OTP o enlace de recuperación, se exige Cédula (V/E) y Correo.
+   - Si los datos pertenecen a personas distintas, el sistema rechaza la solicitud de inmediato: `"Los datos no coinciden. La Cédula no corresponde al correo electrónico"`.
+3. **Doble Modalidad de Recuperación de Contraseña:**
+   - **Vía A (Magic Link):** Redirección al puerto `http://localhost:5173/?action=reset-password`.
+   - **Vía B (Código Directo):** La vista permite ingresar el código de 6 dígitos recibido en el correo y la nueva contraseña directamente en pantalla, evitando cualquier fallo de redirección o puertos.
 
 ---
 
@@ -568,6 +698,88 @@ Para garantizar una presentación exitosa y fluida ante el Jurado Calificador, s
 3. **Paso 3 — Asistente de Llenado PUB y Rechazo en Vivo:** En la Planilla PUB, intente colocar intencionalmente una cédula mal formateada o un teléfono incorrecto. Muestre al jurado cómo el sistema rechaza el dato con un marco rojo explicativo. Luego, complételo correctamente y presione **"⛓️ Registrar Huella en Blockchain"**.
 4. **Paso 4 — Auditoría Ministerial:** En otra pestaña del navegador (o en modo incógnito), inicie sesión como funcionario del **MPPEU** (`mppeu_agente`). Abra la solicitud recién creada, ejecute el **Cotejo Ministerial de Actas y Folios** y apruebe el documento.
 5. **Paso 5 — Emisión de Apostilla y Verificación QR:** Cambie al rol de Cancillería (**MPPRE**), emita la Apostilla de La Haya y abra el Certificado Digital. Pídale a un jurado que escanee el código QR con su propio teléfono móvil: el enlace abrirá directamente el **Verificador Descentralizado**, demostrando la inmutabilidad y autenticidad en tiempo real.
+
+---
+
+## 10. HOJA DE RUTA Y POSIBLES ACTUALIZACIONES FUTURAS
+
+### 10.1. Módulo de Recuperación "Perdí u Olvidé mi Correo" (Evaluación y Diseño Técnico)
+
+#### A. Justificación y Necesidad Real en el Entorno Universitario
+En la Universidad Santa María, el tiempo transcurrido entre la culminación de carga académica (10mo semestre) y los actos solemnes de graduación suele oscilar entre 6 y 18 meses. Durante este lapso, es recurrente que los estudiantes:
+1. Pierdan acceso o dejen de consultar su correo institucional (`@usm.edu.ve`).
+2. Olviden con cuál cuenta personal (`@gmail.com`, `@hotmail.com`, etc.) completaron el registro inicial en el portal.
+3. Se encuentren ante un bloqueo de acceso al intentar usar "Olvidé mi contraseña" porque el sistema les exige el correo que no recuerdan.
+
+Dado que la **Cédula de Identidad venezolana** es un dato inmutable que el estudiante conoce de memoria, surge la necesidad de un mecanismo de recuperación de identidad a partir de la Cédula.
+
+#### B. Análisis de Riesgos y Ciberseguridad (Prevención de Amenazas)
+Implementar una búsqueda directa de correo mediante cédula sin salvaguardas expondría el sistema a riesgos severos:
+- **Ataque de Enumeración y Fuga de Privacidad (Data Harvesting):** Los listados de grado y actas universitarias suelen circular de forma semipública. Un atacante con las cédulas de los graduandos podría consultar el sistema y cosechar masivamente correos personales no públicos.
+- **Suplantación de Identidad:** Conocer el correo personal de un estudiante facilitaría ataques dirigidos de ingeniería social o *phishing*.
+
+#### C. Arquitectura Propuesta: Recuperación Segura en Tres Capas
+
+Para que el mecanismo sea **100% funcional y seguro**, se propone un flujo escalonado basado en las mejores prácticas de OWASP ASVS:
+
+```
+                  ┌────────────────────────────────────────┐
+                  │ Graduando: "Olvidé con qué correo me   │
+                  │ registré en la plataforma"             │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                     Ingresa: Cédula (V/E) + Fecha de
+                     Nacimiento (Registrada en Expediente)
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │ CAPA 1: Enmascaramiento Parcial Seguro │
+                  │ Muestra pista criptográfica:           │
+                  │ "Tu correo es: j***3@gm***.com"        │
+                  └──────────────────┬─────────────────────┘
+                                     │
+               ¿El graduando reconoce el correo?
+               ├─────────────── SÍ ───────────────► Inicia sesión o solicita OTP/Clave.
+               │
+               ▼ NO (No tiene acceso al buzón)
+                  ┌────────────────────────────────────────┐
+                  │ CAPA 2: Despacho Out-of-Band           │
+                  │ Se envía un recordatorio al buzón sin  │
+                  │ revelar el texto plano en el navegador.│
+                  └──────────────────┬─────────────────────┘
+                                     │
+               ¿Pérdida total del buzón de correo?
+               │
+               ▼
+                  ┌────────────────────────────────────────┐
+                  │ CAPA 3: Segundo Canal (SMS / WhatsApp) │
+                  │ Se envía un OTP de 6 dígitos al        │
+                  │ teléfono móvil registrado en el perfil.│
+                  │ Tras validar el OTP, se permite        │
+                  │ vincular un nuevo correo verificado.   │
+                  └────────────────────────────────────────┘
+```
+
+1. **Capa 1 — Enmascaramiento Parcial (Hint Masking):**
+   - El estudiante proporciona su Cédula y su Fecha de Nacimiento (registrada durante la inscripción).
+   - Si ambos datos coinciden en `public.perfiles`, el sistema devuelve únicamente una versión ofuscada del correo:
+     - Entrada en BD: `juandavid.torres@gmail.com`
+     - Salida en pantalla: `j*********s@g****.com`
+   - Esto es suficiente para que el usuario legítimo recuerde de inmediato qué cuenta utilizó, pero es inútil para un atacante externo.
+
+2. **Capa 2 — Notificación Ciega Fuera de Banda (Out-of-Band Notification):**
+   - El sistema despacha un correo de recordatorio al buzón registrado:
+     *"Hola, hemos recibido una solicitud para recordarte el correo de acceso a tu expediente de grado en la USM. Este es el correo registrado. Si deseas ingresar, haz clic aquí..."*.
+   - En la interfaz web únicamente se muestra un aviso neutro: *"Se ha enviado un mensaje de confirmación al correo vinculado a esta cédula"*, bloqueando ataques de temporización (*timing attacks*).
+
+3. **Capa 3 — Migración de Correo por Segundo Canal (Teléfono SMS / OTP):**
+   - Si el graduando perdió irreversiblemente la contraseña de su correo electrónico, puede optar por la validación mediante el **Teléfono de Contacto** (campo ya capturado y almacenado en `public.perfiles`).
+   - Se despacha un código SMS / OTP de un solo uso a su línea móvil registrada. Al confirmarlo, el graduando puede asociar una nueva dirección de correo electrónico a su expediente civil inmutable.
+   - Todo cambio de correo queda asentado en un log de auditoría criptográfica con estampilla de tiempo (`updated_at`), IP de procedencia y firma del sistema.
+
+---
+
+### 10.2. Integración con Red Principal (Ethereum Mainnet / Arbitrum L2)
+- Migración de la red de pruebas Sepolia a una solución de Capa 2 (L2) como **Arbitrum One** u **Optimism**, reduciendo los costos de gas de emisión a menos de \$0.01 USD por título manteniendo la seguridad de Ethereum.
 
 ---
 *Documento elaborado conforme a las normas de trabajo especial de grado de la Facultad de Ingeniería — Universidad Santa María.*

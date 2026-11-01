@@ -14,8 +14,10 @@ import OfficialFormsPanel from './components/OfficialFormsPanel';
 import LandingPortal from './components/LandingPortal';
 import GovernmentPanel from './components/GovernmentPanel';
 import AdminDashboard from './components/AdminDashboard';
+import GovernmentLoginPortal from './components/GovernmentLoginPortal';
 import ToastNotification from './components/ToastNotification';
 import { dynamicDataAPI, statsAPI } from './services/api';
+import { supabase, authPasswordless } from './services/supabaseClient';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -26,9 +28,15 @@ function App() {
 
   // Intentar recuperar sesión guardada al cargar (estudiante o admin)
   useEffect(() => {
-    const storedUser = localStorage.getItem('usm_user');
-    if (storedUser) {
-      try { setUser(JSON.parse(storedUser)); } catch (_) {}
+    const isRecovery = window.location.hash.includes('type=recovery') || window.location.search.includes('action=reset-password');
+    if (!isRecovery) {
+      const storedUser = localStorage.getItem('usm_user');
+      if (storedUser) {
+        try { setUser(JSON.parse(storedUser)); } catch (_) {}
+      }
+    } else {
+      localStorage.removeItem('usm_user');
+      setUser(null);
     }
 
     const isAdminAuth = localStorage.getItem('admin_auth') === 'true';
@@ -36,6 +44,42 @@ function App() {
     if (isAdminAuth && storedAdmin) {
       try { setAdminUser(JSON.parse(storedAdmin)); } catch (_) {}
     }
+
+    // Escuchar autenticación automática de Supabase ÚNICAMENTE cuando proviene de un Magic Link en la URL
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Si es un evento de recuperación de contraseña, no auto-iniciar para permitir ingresar la nueva clave
+      if (event === 'PASSWORD_RECOVERY' || window.location.hash.includes('type=recovery') || window.location.search.includes('action=reset-password')) {
+        return;
+      }
+
+      // Solo autenticar automáticamente si la URL contiene explícitamente el token del Magic Link
+      const isMagicLinkInUrl = window.location.hash.includes('access_token') && !window.location.hash.includes('type=recovery');
+
+      if (isMagicLinkInUrl && event === 'SIGNED_IN' && session?.user) {
+        let profile = await authPasswordless.getProfile(session.user.id);
+        if (!profile) {
+          profile = {
+            id: session.user.id,
+            email: session.user.email,
+            nombre: session.user.user_metadata?.nombre || 'Graduando USM',
+            cedula: session.user.user_metadata?.cedula || 'V-28.315.101',
+            telefono: session.user.user_metadata?.telefono || '',
+            fecha_nacimiento: session.user.user_metadata?.fecha_nacimiento || '',
+            carrera: session.user.user_metadata?.carrera || 'Ingeniería en Sistemas',
+            semestre: session.user.user_metadata?.semestre || '10mo',
+            is_profile_complete: true,
+            is_cedula_locked: true,
+          };
+        }
+        localStorage.setItem('usm_user', JSON.stringify(profile));
+        setUser(profile);
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
 
   // Latido periódico para incrementar el tiempo ahorrado por uso activo
@@ -48,10 +92,13 @@ function App() {
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleStudentLogout = () => {
+  const handleStudentLogout = async () => {
     localStorage.removeItem('usm_user');
     setUser(null);
     setActiveTab('dashboard');
+    try {
+      await authPasswordless.signOut();
+    } catch (_) {}
   };
 
   const handleAdminLogout = () => {
@@ -90,86 +137,89 @@ function App() {
     );
   }
 
-  // 1. SI ES FUNCIONARIO GUBERNAMENTAL LOGUEADO -> MOSTRAR PANEL GUBERNAMENTAL / AUDITORÍA
-  if (adminUser) {
-    return (
-      <div className="app-layout" style={{ background: 'var(--color-mist-gray)', minHeight: '100vh', color: 'var(--color-ink-black)' }}>
-        <ToastNotification />
-        <div style={{ width: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-          <div className="admin-header" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', padding: '0.9rem 2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: '50%',
-                backgroundColor: 'var(--color-fog-white)',
-                border: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--color-ink-black)'
-              }}>
-                <Shield size={18} />
-              </div>
-              <h1 style={{
-                fontSize: '1.25rem',
-                fontFamily: 'var(--font-serif)',
-                fontWeight: 400,
-                color: 'var(--color-ink-black)',
-                margin: 0
-              }}>
-                Panel de Auditoría Gubernamental — {adminUser?.ente || 'Gobierno'}
-              </h1>
-              {adminUser && (
-                <span style={{
-                  background: 'var(--color-blush-peach)',
-                  color: 'var(--color-sienna-brown)',
-                  border: '1px solid rgba(93, 42, 26, 0.15)',
-                  padding: '0.2rem 0.75rem',
-                  borderRadius: 'var(--radius-pill)',
-                  fontSize: '0.78rem',
-                  fontWeight: 500
+  const currentPath = window.location.pathname.toLowerCase();
+  const isGovUrl = currentPath === '/admin' || currentPath === '/gobierno' || currentPath.startsWith('/admin/') || searchParams.get('portal') === 'gobierno' || searchParams.get('portal') === 'admin';
+
+  // 1. RUTA GUBERNAMENTAL AISLADA (ACCESIBLE EXCLUSIVAMENTE POR URL /admin O /gobierno)
+  if (isGovUrl) {
+    if (adminUser) {
+      return (
+        <div className="app-layout" style={{ background: 'var(--color-mist-gray)', minHeight: '100vh', color: 'var(--color-ink-black)' }}>
+          <ToastNotification />
+          <div style={{ width: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+            <div className="admin-header" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', padding: '0.9rem 2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  backgroundColor: 'var(--color-fog-white)',
+                  border: '1px solid var(--border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--color-ink-black)'
                 }}>
-                  {adminUser.cargo || 'Funcionario'} ({adminUser.username})
-                </span>
+                  <Shield size={18} />
+                </div>
+                <h1 style={{
+                  fontSize: '1.25rem',
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 400,
+                  color: 'var(--color-ink-black)',
+                  margin: 0
+                }}>
+                  Panel de Auditoría Gubernamental — {adminUser?.ente || 'Gobierno'}
+                </h1>
+                {adminUser && (
+                  <span style={{
+                    background: 'var(--color-blush-peach)',
+                    color: 'var(--color-sienna-brown)',
+                    border: '1px solid rgba(93, 42, 26, 0.15)',
+                    padding: '0.2rem 0.75rem',
+                    borderRadius: 'var(--radius-pill)',
+                    fontSize: '0.78rem',
+                    fontWeight: 500
+                  }}>
+                    {adminUser.cargo || 'Funcionario'} ({adminUser.username})
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleAdminLogout}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid var(--border)',
+                  color: 'var(--color-ink-black)',
+                  padding: '0.45rem 1rem',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  boxShadow: 'var(--shadow-subtle)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Cerrar Sesión Auditoría
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem', backgroundColor: 'var(--color-mist-gray)' }}>
+              {adminUser?.ente === 'USM' ? (
+                <AdminDashboard adminData={adminUser} />
+              ) : (
+                <GovernmentPanel adminData={adminUser} />
               )}
             </div>
-            <button
-              onClick={handleAdminLogout}
-              style={{
-                background: '#ffffff',
-                border: '1px solid var(--border)',
-                color: 'var(--color-ink-black)',
-                padding: '0.45rem 1rem',
-                borderRadius: 'var(--radius-pill)',
-                fontSize: '0.82rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                boxShadow: 'var(--shadow-subtle)',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              Cerrar Sesión Auditoría
-            </button>
-          </div>
-          <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem', backgroundColor: 'var(--color-mist-gray)' }}>
-            {adminUser?.ente === 'USM' ? (
-              <AdminDashboard adminData={adminUser} />
-            ) : (
-              <GovernmentPanel adminData={adminUser} />
-            )}
           </div>
         </div>
-      </div>
-    );
+      );
+    }
+
+    // Si NO ha iniciado sesión y entró por URL gubernamental -> Mostrar Login Gubernamental
+    return <GovernmentLoginPortal onAdminLogin={(adminData) => setAdminUser(adminData)} />;
   }
 
-  // 2. SI NO HAY SESIÓN (NI ESTUDIANTE NI ADMIN) -> MOSTRAR LANDING PORTAL UNIFICADO
-  if (!user && !adminUser) {
-    return (
-      <LandingPortal
-        onStudentLogin={(userData) => setUser(userData)}
-        onAdminLogin={(adminData) => setAdminUser(adminData)}
-      />
-    );
+  // 2. PORTAL PÚBLICO DEL GRADUANDO USM (SI NO ESTÁ LOGUEADO)
+  if (!user) {
+    return <LandingPortal onStudentLogin={(userData) => setUser(userData)} />;
   }
 
   // 3. SI ES ESTUDIANTE LOGUEADO -> MOSTRAR PLATAFORMA DE GRADUANDO USM

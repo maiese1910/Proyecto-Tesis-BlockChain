@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Restablecer Contraseña USM</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
+  <div style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 22px;">🔑 Recuperación de Contraseña</h2>
+      <p style="color: #64748b; margin: 0; font-size: 14px;">Portal de Validación de Títulos USM</p>
+    </div>
+
+    <p style="font-size: 15px; line-height: 1.5; color: #334155;">
+      Hemos recibido una solicitud para restablecer tu contraseña. Haz clic en el botón a continuación para ingresar una nueva clave:
+    </p>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="{{ .ConfirmationURL }}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);">
+        Restablecer Mi Contraseña
+      </a>
+    </div>
+
+    <p style="font-size: 13px; color: #64748b; text-align: center;">
+      O si el sistema te solicita el código de seguridad de recuperación, ingresa:
+    </p>
+    <div style="background-color: #f1f5f9; border-radius: 8px; padding: 12px; text-align: center; margin: 12px auto; max-width: 200px;">
+      <span style="font-size: 24px; font-weight: 700; letter-spacing: 4px; color: #334155; font-family: monospace;">{{ .Token }}</span>
+    </div>
+
+    <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 28px; line-height: 1.4;">
+      Si no solicitaste restablecer tu clave, puedes ignorar este correo.
+    </p>
+  </div>
+</body>
+</html>
+

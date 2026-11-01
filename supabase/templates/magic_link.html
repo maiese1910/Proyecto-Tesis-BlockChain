@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Código de Seguridad USM</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
+  <div style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 22px;">🔐 Código de Acceso - USM Apostilla</h2>
+      <p style="color: #64748b; margin: 0; font-size: 14px;">Sistema de Verificación de Títulos Universitarios</p>
+    </div>
+
+    <p style="font-size: 15px; line-height: 1.5; color: #334155;">
+      Has solicitado iniciar sesión o verificar tu identidad como graduando en el portal académico. Utiliza el siguiente código de 6 dígitos:
+    </p>
+
+    <!-- CÓDIGO NUMÉRICO OTP DE 6 DÍGITOS -->
+    <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px dashed #3b82f6; border-radius: 10px; padding: 20px; text-align: center; margin: 24px 0;">
+      <span style="font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #1d4ed8; font-family: monospace;">{{ .Token }}</span>
+      <p style="margin: 8px 0 0 0; font-size: 12px; color: #475569; text-transform: uppercase; font-weight: 600;">Ingresa este código en el formulario</p>
+    </div>
+
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+      <p style="color: #64748b; font-size: 13px; margin-bottom: 14px;">¿Prefieres no escribir el código? También puedes ingresar directamente:</p>
+      <a href="{{ .ConfirmationURL }}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);">
+        Iniciar Sesión Directamente con un Clic
+      </a>
+    </div>
+
+    <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 28px; line-height: 1.4;">
+      Este código es válido por 10 minutos. Si no realizaste esta solicitud, puedes ignorar este correo de forma segura.
+    </p>
+  </div>
+</body>
+</html>
+
