@@ -40,49 +40,23 @@ logger = logging.getLogger("USM_Backend_Flask")
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# ─── Intentar importar dependencias opcionales ──────────────────────────────
-try:
-    from web3 import Web3
-    HAS_WEB3 = True
-except ImportError:
-    HAS_WEB3 = False
-
+# ─── Intentar importar dependencias opcionales (Ligeras) ──────────────────────────────
 try:
     import bcrypt
     HAS_BCRYPT = True
-except ImportError:
+except Exception:
     HAS_BCRYPT = False
 
 try:
     import jwt as pyjwt
     HAS_JWT = True
-except ImportError:
+except Exception:
     HAS_JWT = False
 
-try:
-    from supabase import create_client, Client
-    HAS_SUPABASE = True
-except ImportError:
-    HAS_SUPABASE = False
-
-# Carga independiente de Gemini Vision (sin dependencias binarias pesadas de C++ ni OpenCV)
-try:
-    from gemini_service import GeminiVisionExtractor
-    HAS_GEMINI_OCR = True
-except Exception as e:
-    HAS_GEMINI_OCR = False
-    logger.warning(f"Módulo Gemini Vision no disponible: {e}")
-
-try:
-    import cv2
-    import numpy as np
-    from PIL import Image
-    from vision_preprocessor import USMDocumentPreprocessor
-    from ocr_service import USMOcrService
-    HAS_USM_OCR = True
-except Exception as e:
-    HAS_USM_OCR = False
-    logger.warning(f"Módulo USM OCR / OpenCV no disponible o en carga fallback: {e}")
+HAS_GEMINI_OCR = True
+HAS_USM_OCR = False
+HAS_WEB3 = True
+HAS_SUPABASE = True
 
 # ─── Configuración del Entorno ───────────────────────────────────────────────
 WEB3_PROVIDER_URL = os.getenv("WEB3_PROVIDER_URL")
@@ -101,12 +75,33 @@ ALLOW_DEFENSE_DEMO_FALLBACK = os.getenv("ALLOW_DEFENSE_DEMO_FALLBACK", "true").l
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-supabase: Optional[Client] = None
-if HAS_SUPABASE and SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    except Exception as e:
-        logger.warning(f"No se pudo conectar a Supabase: {e}")
+class _LazySupabaseProxy:
+    def __init__(self):
+        self._client = None
+        self._attempted = False
+
+    def _get_client(self):
+        if not self._attempted:
+            self._attempted = True
+            if SUPABASE_URL and SUPABASE_KEY:
+                try:
+                    from supabase import create_client
+                    self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
+                except Exception as e:
+                    logger.warning(f"No se pudo conectar a Supabase: {e}")
+                    self._client = None
+        return self._client
+
+    def __bool__(self):
+        return self._get_client() is not None
+
+    def __getattr__(self, name):
+        client = self._get_client()
+        if client is None:
+            raise RuntimeError("Supabase client is not available")
+        return getattr(client, name)
+
+supabase = _LazySupabaseProxy()
 
 # ─── Helpers de IPFS (InterPlanetary File System - Multihash CID v0) ─────────
 def compute_ipfs_cid_v0_fallback(content_bytes: bytes) -> str:
@@ -222,12 +217,33 @@ CONTRACT_ABI = [
     }
 ]
 
-w3 = None
-if HAS_WEB3 and WEB3_PROVIDER_URL:
-    try:
-        w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_URL))
-    except Exception:
-        pass
+class _LazyWeb3Proxy:
+    def __init__(self):
+        self._w3 = None
+        self._attempted = False
+
+    def _get_w3(self):
+        if not self._attempted:
+            self._attempted = True
+            if WEB3_PROVIDER_URL:
+                try:
+                    from web3 import Web3
+                    self._w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER_URL, request_kwargs={'timeout': 4}))
+                except Exception as e:
+                    logger.warning(f"No se pudo conectar a Web3: {e}")
+                    self._w3 = None
+        return self._w3
+
+    def __bool__(self):
+        return self._get_w3() is not None
+
+    def __getattr__(self, name):
+        inst = self._get_w3()
+        if inst is None:
+            raise RuntimeError("Web3 client is not available")
+        return getattr(inst, name)
+
+w3 = _LazyWeb3Proxy()
 
 
 def get_contract():

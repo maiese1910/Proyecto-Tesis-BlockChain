@@ -3,9 +3,14 @@ Módulo de Visión Computacional Especializado para Títulos Universitarios y Pe
 Universidad Santa María (USM) - Proyecto de Grado
 """
 
-import cv2
-import numpy as np
-from PIL import Image
+try:
+    import cv2
+    import numpy as np
+    from PIL import Image
+except Exception:
+    cv2 = None
+    np = None
+    Image = None
 
 
 class USMDocumentPreprocessor:

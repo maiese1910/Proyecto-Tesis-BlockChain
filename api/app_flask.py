@@ -7,8 +7,12 @@ Universidad Santa María (USM) - MPPEU - MPPRE
 import os
 import base64
 import logging
-import cv2
-import numpy as np
+try:
+    import cv2
+    import numpy as np
+except Exception:
+    cv2 = None
+    np = None
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 

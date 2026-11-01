@@ -10,10 +10,16 @@ import json
 import logging
 from typing import Dict, Any, Optional
 
-import cv2
-import numpy as np
-import pytesseract
-from PIL import Image
+try:
+    import cv2
+    import numpy as np
+    import pytesseract
+    from PIL import Image
+except Exception:
+    cv2 = None
+    np = None
+    pytesseract = None
+    Image = None
 
 try:
     import ollama
