@@ -2,6 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/ping", "destination": "/api/ping.py" },
+    { "source": "/api/ping", "destination": "/api/ping.py" },
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/stats/(.*)", "destination": "/api/index.py" },
     { "source": "/stats", "destination": "/api/index.py" },
