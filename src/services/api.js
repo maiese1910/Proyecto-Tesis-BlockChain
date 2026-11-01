@@ -27,11 +27,34 @@ async function apiFetch(path, options = {}) {
     config.body = typeof body === 'string' ? body : JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_URL}${path}`, config);
+  const doRequest = async (targetPath) => {
+    return await fetch(`${API_URL}${targetPath}`, config);
+  };
+
+  let response;
+  try {
+    response = await doRequest(path);
+    if (!response.ok && !path.startsWith('/api')) {
+      const retry = await doRequest(`/api${path}`);
+      if (retry.ok) response = retry;
+    }
+  } catch (err) {
+    if (!path.startsWith('/api')) {
+      try {
+        const retry = await doRequest(`/api${path}`);
+        if (retry.ok) response = retry;
+        else throw err;
+      } catch (_) {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const error = new Error(errorData.detail || `Error ${response.status}`);
+    const error = new Error(errorData.detail || errorData.error || `Error ${response.status}`);
     error.status = response.status;
     error.data = errorData;
     throw error;
