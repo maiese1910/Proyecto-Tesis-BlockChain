@@ -1833,7 +1833,7 @@ def ocr_gemini_endpoint():
 
     if not globals().get("HAS_GEMINI_OCR", False):
         try:
-            from gemini_service import GeminiVisionExtractor
+            from _services.gemini_service import GeminiVisionExtractor
         except Exception as imp_err:
             return jsonify({
                 "success": False,
@@ -2001,7 +2001,7 @@ def chat_rest_endpoint():
 
     # 4. Intento con Google Gemini IA Especialista
     try:
-        from gemini_service import GeminiVisionExtractor
+        from _services.gemini_service import GeminiVisionExtractor
         gemini_ok, gemini_reply = GeminiVisionExtractor.generate_institutional_response(texto_usuario, user_context)
         if gemini_ok and gemini_reply and len(gemini_reply) > 20:
             return jsonify({"reply": gemini_reply}), 200
