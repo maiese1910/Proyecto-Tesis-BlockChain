@@ -17,6 +17,7 @@ import datetime
 import secrets
 import urllib.request
 import urllib.error
+import tempfile
 import logging
 from typing import Optional
 
@@ -392,6 +393,32 @@ _records_memory = [
         "libro": "Grados 2026"
     }
 ]
+
+RECORDS_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_records_cache.json")
+
+def _save_records_cache():
+    try:
+        with open(RECORDS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(_records_memory, f, ensure_ascii=False)
+    except Exception as e:
+        logger.debug(f"No se pudo guardar cache de registros en /tmp: {e}")
+
+def _load_records_cache():
+    global _records_memory
+    try:
+        if os.path.exists(RECORDS_CACHE_FILE):
+            with open(RECORDS_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and data:
+                    known_hashes = {r.get("hash") for r in _records_memory if r.get("hash")}
+                    for item in data:
+                        if item.get("hash") and item["hash"] not in known_hashes:
+                            _records_memory.append(item)
+                            known_hashes.add(item["hash"])
+    except Exception as e:
+        logger.debug(f"No se pudo cargar cache de registros de /tmp: {e}")
+
+_load_records_cache()
 
 def get_stats() -> dict:
     if supabase:
@@ -810,6 +837,7 @@ def get_profile(cedula: str):
 
 # ─── Blockchain & Certificación Transfronteriza ──────────────────────────────
 @app.route("/blockchain/verify/<doc_hash>", methods=["GET"])
+@app.route("/api/blockchain/verify/<doc_hash>", methods=["GET"])
 def verify_blockchain_document(doc_hash: str):
     raw_hash = doc_hash.strip()
     clean_hash = raw_hash[2:] if raw_hash.lower().startswith('0x') else raw_hash
@@ -916,6 +944,7 @@ def verify_blockchain_document(doc_hash: str):
 
 
 @app.route("/blockchain/register", methods=["POST"])
+@app.route("/api/blockchain/register", methods=["POST"])
 def register_blockchain_document():
     data = request.get_json() or {}
     doc_hash = data.get("hash")
@@ -930,12 +959,9 @@ def register_blockchain_document():
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
     tx_hash = "0xPENDIENTE_COTEJO"
 
-    try:
-        real_tx = send_register_transaction(doc_hash, owner_name, cedula, document_type)
-        if real_tx:
-            tx_hash = real_tx
-    except Exception:
-        pass
+    # Etapa 1: Registro preliminar de solicitud GTU previa al cotejo ministerial
+    # La firma y anclaje on-chain en Sepolia se ejecuta en Etapa 2 (Cotejo MPPEU)
+    pass
 
     new_rec = {
         "hash": doc_hash,
@@ -961,6 +987,8 @@ def register_blockchain_document():
     else:
         _records_memory.insert(0, new_rec)
 
+    _save_records_cache()
+
     if supabase:
         try:
             supabase.table("records").upsert(new_rec).execute()
@@ -980,7 +1008,9 @@ def register_blockchain_document():
 
 
 @app.route("/blockchain/records", methods=["GET"])
+@app.route("/api/blockchain/records", methods=["GET"])
 def get_all_records():
+    _load_records_cache()
     db_records = []
     if supabase:
         try:
@@ -996,6 +1026,7 @@ def get_all_records():
 
 
 @app.route("/blockchain/records/cedula/<cedula>", methods=["GET"])
+@app.route("/api/blockchain/records/cedula/<cedula>", methods=["GET"])
 def get_records_by_cedula(cedula: str):
     cedula_clean = cedula.replace(".", "").replace("-", "").replace(" ", "").upper()
     variations = list(set([cedula, cedula_clean, f"V-{cedula_clean}", f"V-{cedula_clean.replace('V', '')}"]))
@@ -1018,6 +1049,7 @@ def get_records_by_cedula(cedula: str):
 
 
 @app.route("/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
+@app.route("/api/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
 def mppeu_certify_record(doc_hash: str):
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppeu_agente")
@@ -1073,6 +1105,7 @@ def mppeu_certify_record(doc_hash: str):
 
 
 @app.route("/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
+@app.route("/api/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 def mppre_apostille_record(doc_hash: str):
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppre_agente")
@@ -1113,6 +1146,7 @@ def mppre_apostille_record(doc_hash: str):
 
 
 @app.route("/blockchain/records/<doc_hash>/verify", methods=["POST"])
+@app.route("/api/blockchain/records/<doc_hash>/verify", methods=["POST"])
 def verify_record_status(doc_hash: str):
     data = request.get_json() or {}
     auditor_info = data.get("auditor_username", "mppeu_agente")
@@ -1139,6 +1173,7 @@ def verify_record_status(doc_hash: str):
 
 
 @app.route("/blockchain/records/<doc_hash>/reject", methods=["POST"])
+@app.route("/api/blockchain/records/<doc_hash>/reject", methods=["POST"])
 def reject_record_status(doc_hash: str):
     data = request.get_json() or {}
     reason = (data.get("reason") or "Inconsistencia física u observación registral").strip()
@@ -1167,6 +1202,7 @@ def reject_record_status(doc_hash: str):
 
 
 @app.route("/blockchain/certificate/<doc_hash>", methods=["GET"])
+@app.route("/api/blockchain/certificate/<doc_hash>", methods=["GET"])
 def get_digital_certificate(doc_hash: str):
     raw_hash = doc_hash.strip()
     clean_hash = raw_hash[2:] if raw_hash.lower().startswith('0x') else raw_hash
@@ -1276,6 +1312,7 @@ def get_digital_certificate(doc_hash: str):
 
 
 @app.route("/blockchain/send-raw-tx", methods=["POST"])
+@app.route("/api/blockchain/send-raw-tx", methods=["POST"])
 def send_client_raw_transaction():
     if not w3:
         return jsonify({"detail": "Nodo Web3 no conectado"}), 503

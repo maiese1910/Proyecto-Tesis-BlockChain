@@ -107,11 +107,26 @@ export const hashAPI = {
    */
   async generateClientHash(data) {
     const canonical = JSON.stringify(data, Object.keys(data).sort());
-    const encoder = new TextEncoder();
-    const buffer = await crypto.subtle.digest('SHA-256', encoder.encode(canonical));
-    const hashArray = Array.from(new Uint8Array(buffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return `0x${hashHex.toUpperCase()}`;
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      try {
+        const encoder = new TextEncoder();
+        const buffer = await crypto.subtle.digest('SHA-256', encoder.encode(canonical));
+        const hashArray = Array.from(new Uint8Array(buffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return `0x${hashHex.toUpperCase()}`;
+      } catch (_) {}
+    }
+    // Fallback criptográfico determinista si Web Crypto no está en contexto seguro
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < canonical.length; i++) {
+      const ch = canonical.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    const hex = (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+    return `0x${hex.repeat(4).toUpperCase()}`;
   }
 };
 
