@@ -69,12 +69,12 @@ class GeminiVisionExtractor:
     @staticmethod
     def get_candidate_models():
         load_dotenv(override=True)
-        preferred = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
-        defaults = [preferred, "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"]
+        preferred = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        defaults = [preferred, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite"]
         seen = set()
         candidates = []
         for m in defaults:
-            if m and m not in seen and m != "gemini-1.5-flash":
+            if m and m not in seen:
                 seen.add(m)
                 candidates.append(m)
         return candidates

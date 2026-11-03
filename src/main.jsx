@@ -5,7 +5,8 @@ import './index.css'
 
 import AdminApp from './AdminApp.jsx'
 import QRScanner from './components/QRScanner.jsx'
-import { Analytics } from '@vercel/analytics/react';
+import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { Analytics } from '@vercel/analytics/react'
 
 const renderApp = () => {
   if (window.location.pathname === '/admin') {
@@ -19,7 +20,9 @@ const renderApp = () => {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {renderApp()}
-    <Analytics />
+    <ErrorBoundary>
+      {renderApp()}
+      <Analytics />
+    </ErrorBoundary>
   </React.StrictMode>,
 )

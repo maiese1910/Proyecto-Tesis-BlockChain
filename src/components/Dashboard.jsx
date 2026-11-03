@@ -79,14 +79,19 @@ const Dashboard = ({ user }) => {
           const wCur = getStatusWeight(cur.status);
           const wNew = getStatusWeight(r.status);
           const chosenStatus = wNew >= wCur ? r.status : cur.status;
+          const stStr = String(chosenStatus || '').toUpperCase();
+          const rTx = String(r.txHash || '');
+          const curTx = String(cur.txHash || '');
+          const chosenTx = (rTx && !rTx.includes('PENDIENTE')) ? r.txHash : ((curTx && !curTx.includes('PENDIENTE')) ? cur.txHash : (r.txHash || cur.txHash || '0xPENDIENTE_COTEJO'));
+
           m.set(k, {
             ...cur,
             ...r,
-            status: chosenStatus,
-            mppeuVerified: Boolean(cur.mppeuVerified || r.mppeuVerified || chosenStatus.includes('CERTIFICADO') || chosenStatus.includes('APOSTILLADO')),
-            mppreVerified: Boolean(cur.mppreVerified || r.mppreVerified || chosenStatus.includes('APOSTILLADO')),
+            status: chosenStatus || 'PENDIENTE_COTEJO_MPPEU',
+            mppeuVerified: Boolean(cur.mppeuVerified || r.mppeuVerified || stStr.includes('CERTIFICADO') || stStr.includes('APOSTILLADO')),
+            mppreVerified: Boolean(cur.mppreVerified || r.mppreVerified || stStr.includes('APOSTILLADO')),
             apostilleNumber: r.apostilleNumber || cur.apostilleNumber || null,
-            txHash: (r.txHash && !r.txHash.includes('PENDIENTE')) ? r.txHash : (cur.txHash || r.txHash)
+            txHash: chosenTx
           });
         }
       };

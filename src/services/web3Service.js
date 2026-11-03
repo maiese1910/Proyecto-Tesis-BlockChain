@@ -225,3 +225,4 @@ export const revokeDocumentOnChain = async (docHash, signer) => {
     blockNumber: receipt?.blockNumber,
   };
 };
+

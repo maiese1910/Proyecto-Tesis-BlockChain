@@ -246,11 +246,14 @@ const TrackingTimeline = ({ user }) => {
           const wExisting = getStatusWeight(existing.status);
           const wNew = getStatusWeight(rec.status);
           const chosenStatus = wNew >= wExisting ? rec.status : existing.status;
-          const isMppeu = Boolean(existing.mppeuVerified || rec.mppeuVerified || chosenStatus.includes('CERTIFICADO') || chosenStatus.includes('APOSTILLADO'));
-          const isMppre = Boolean(existing.mppreVerified || rec.mppreVerified || chosenStatus.includes('APOSTILLADO'));
-          const chosenTx = (rec.txHash && !rec.txHash.includes('PENDIENTE'))
+          const stStr = String(chosenStatus || '').toUpperCase();
+          const isMppeu = Boolean(existing.mppeuVerified || rec.mppeuVerified || stStr.includes('CERTIFICADO') || stStr.includes('APOSTILLADO'));
+          const isMppre = Boolean(existing.mppreVerified || rec.mppreVerified || stStr.includes('APOSTILLADO'));
+          const rTx = String(rec.txHash || '');
+          const exTx = String(existing.txHash || '');
+          const chosenTx = (rTx && !rTx.includes('PENDIENTE'))
             ? rec.txHash
-            : ((existing.txHash && !existing.txHash.includes('PENDIENTE')) ? existing.txHash : (rec.txHash || existing.txHash || '0xPENDIENTE_COTEJO'));
+            : ((exTx && !exTx.includes('PENDIENTE')) ? existing.txHash : (rec.txHash || existing.txHash || '0xPENDIENTE_COTEJO'));
 
           map.set(key, {
             ...existing,

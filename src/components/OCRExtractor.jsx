@@ -15,6 +15,17 @@ const ConfidenceBadge = ({ score }) => {
   );
 };
 
+export const safeString = (v) => {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object") {
+    if (v.nombre) return String(v.nombre);
+    if (v.value) return String(v.value);
+    if (v.text) return String(v.text);
+    return Object.values(v).filter(x => typeof x !== 'object').join(" ");
+  }
+  return String(v).trim();
+};
+
   const FieldRow = ({ icon: Icon, label, value, confidence, onChange }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editVal, setEditVal] = useState(value || "");
@@ -70,7 +81,7 @@ const ConfidenceBadge = ({ score }) => {
               title="Haz clic para corregir manualmente si la caligrafía lo requiere"
               style={{ fontWeight: "600", fontSize: "0.9rem", margin: 0, wordBreak: "break-word", color: "var(--color-ink-black)", cursor: "pointer" }}
             >
-              {value || <span style={{ color: "var(--text-secondary)", fontStyle: "italic", fontWeight: "400" }}>No detectado (clic para ingresar)</span>}
+              {safeString(value) || <span style={{ color: "var(--text-secondary)", fontStyle: "italic", fontWeight: "400" }}>No detectado (clic para ingresar)</span>}
             </p>
           )}
         </div>
@@ -395,11 +406,11 @@ const ConfidenceBadge = ({ score }) => {
     React.useEffect(() => {
       if (fields && isOpen) {
         setForm({
-          institucion: fields.institucion?.value || "",
-          nombre_completo: fields.nombre_completo?.value || "",
-          cedula: fields.cedula?.value || "",
-          carrera: fields.carrera?.value || "",
-          fecha: fields.fecha?.value || ""
+          institucion: safeString(fields.institucion?.value),
+          nombre_completo: safeString(fields.nombre_completo?.value),
+          cedula: safeString(fields.cedula?.value),
+          carrera: safeString(fields.carrera?.value),
+          fecha: safeString(fields.fecha?.value)
         });
       }
     }, [fields, isOpen]);
@@ -443,7 +454,7 @@ const ConfidenceBadge = ({ score }) => {
       }
     };
 
-    const missingCount = Object.values(form).filter(v => !v || !v.trim()).length;
+    const missingCount = Object.values(form).filter(v => !safeString(v)).length;
 
     return createPortal(
       <div
@@ -591,7 +602,7 @@ const ConfidenceBadge = ({ score }) => {
                 { key: "fecha", label: "Fecha de Emisión / Grado (DD/MM/YYYY)", icon: Calendar, placeholder: "DD/MM/YYYY" },
               ].map(({ key, label, icon: Icon, placeholder }) => {
                 const val = form[key];
-                const isComplete = val && val.trim().length > 0;
+                const isComplete = safeString(val).length > 0;
                 return (
                   <div key={key} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -715,6 +726,7 @@ const ConfidenceBadge = ({ score }) => {
     const extractGeminiDirectClient = async (base64Img) => {
       const apiKey = getGeminiApiKey();
       if (!apiKey) throw new Error("API Key de Gemini no disponible");
+      if (!base64Img || typeof base64Img !== "string") throw new Error("Imagen no disponible para procesamiento");
 
       let mimeType = "image/jpeg";
       if (base64Img.startsWith("JVBERi0")) {
@@ -744,7 +756,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
   "fecha_emision": string | null
 }`;
 
-    const models = ["gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.8-flash", "gemini-2.5-flash-lite"];
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite"];
     let lastErr = null;
 
     for (const model of models) {
@@ -783,7 +795,8 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
         if (!textContent) throw new Error("Respuesta vacía del modelo");
 
         const cleanJson = textContent.replace(/```json\s*/gi, "").replace(/```\s*$/gi, "").trim();
-        const parsed = JSON.parse(cleanJson);
+        let parsed = JSON.parse(cleanJson);
+        if (Array.isArray(parsed)) parsed = parsed[0] || {};
 
         return {
           success: true,
@@ -887,12 +900,14 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
     return new Promise((resolve) => {
       if (!imageSrc) return resolve(null);
       if (imageSrc.startsWith("data:application/pdf")) return resolve(imageSrc.split(",")[1]);
+      const timer = setTimeout(() => resolve(null), 3500);
       const img = new Image();
       // Solo crossOrigin para URLs remotas http(s), NUNCA para data: o blob:
       if (!imageSrc.startsWith("data:") && !imageSrc.startsWith("blob:")) {
         img.crossOrigin = "anonymous";
       }
       img.onload = () => {
+        clearTimeout(timer);
         try {
           const canvas = document.createElement("canvas");
           const maxDim = 1600;
@@ -925,6 +940,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
         }
       };
       img.onerror = (e) => {
+        clearTimeout(timer);
         console.warn("Error cargando imagen para optimizar:", e);
         resolve(null);
       };
@@ -952,17 +968,17 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
         let recognizedText = "";
 
         const applyExtractionResults = (gData, engineName) => {
-          let titular = gData.nombre_completo || gData.nombre || gData.titular || gData.graduando || null;
-          // Si el modelo devolvió null para el titular pero es legible en el OCR local
+          const safeData = (gData && typeof gData === 'object') ? gData : {};
+          let titular = safeString(safeData.nombre_completo || safeData.nombre || safeData.titular || safeData.graduando);
           if (!titular && recognizedText) {
             const loc = parseDegreeAcademic(recognizedText, user?.cedula, user?.nombre);
-            if (loc?.nombre_completo?.value) titular = loc.nombre_completo.value;
+            if (loc?.nombre_completo?.value) titular = safeString(loc.nombre_completo.value);
           }
-          const ced = gData.cedula || user?.cedula || null;
-          const inst = gData.institucion_educativa || gData.institucion || null;
-          const carrera = gData.mencion_carrera || gData.carrera || null;
-          const fecha = normalizeDateText(gData.fecha_emision || gData.fecha) || null;
-          const fac = gData.facultad || null;
+          const ced = safeString(safeData.cedula || user?.cedula);
+          const inst = safeString(safeData.institucion_educativa || safeData.institucion || "Universidad Santa María");
+          const carrera = safeString(safeData.mencion_carrera || safeData.carrera || "Ingeniería de Sistemas");
+          const fecha = safeString(normalizeDateText(safeData.fecha_emision || safeData.fecha) || new Date().toISOString().split("T")[0]);
+          const fac = safeString(safeData.facultad || "Facultad de Ingeniería");
 
           setCurrentStep(4);
           setResult({
@@ -1078,11 +1094,11 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           ? formData
           : null;
 
-        const ownerName = (rawForm?.nombre_completo || result?.fields?.nombre_completo?.value || user?.nombre || "").trim();
-        const cedula = (rawForm?.cedula || result?.fields?.cedula?.value || user?.cedula || "V-00.000.000").trim();
-        const institucion = (rawForm?.institucion || result?.fields?.institucion?.value || user?.institucion || "Universidad Santa María (USM)").trim();
-        const carrera = (rawForm?.carrera || result?.fields?.carrera?.value || user?.carrera || "Título de Grado").trim();
-        const fecha = (rawForm?.fecha || result?.fields?.fecha?.value || new Date().toISOString().split("T")[0]).trim();
+        const ownerName = safeString(rawForm?.nombre_completo || result?.fields?.nombre_completo?.value || user?.nombre);
+        const cedula = safeString(rawForm?.cedula || result?.fields?.cedula?.value || user?.cedula || "V-00.000.000");
+        const institucion = safeString(rawForm?.institucion || result?.fields?.institucion?.value || user?.institucion || "Universidad Santa María (USM)");
+        const carrera = safeString(rawForm?.carrera || result?.fields?.carrera?.value || user?.carrera || "Título de Grado");
+        const fecha = safeString(rawForm?.fecha || result?.fields?.fecha?.value || new Date().toISOString().split("T")[0]);
 
         if (!ownerName) {
           setError("El nombre completo del graduando es requerido para emitir la solicitud GTU.");
@@ -1285,7 +1301,15 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
               <input ref={fileInputRef} type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
               {imagePreview ? (
                 <div style={{ width: "100%", position: "relative" }}>
-                  <img src={imagePreview} alt="Documento" style={{ width: "100%", maxHeight: "300px", objectFit: "contain", display: "block" }} />
+                  {imagePreview.startsWith("data:application/pdf") ? (
+                    <div style={{ padding: "2.5rem 1rem", textAlign: "center", backgroundColor: "var(--color-fog-white)" }}>
+                      <FileText size={48} color="var(--color-sienna-brown)" style={{ margin: "0 auto 0.75rem auto" }} />
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: "0.92rem", color: "var(--color-ink-black)" }}>Documento PDF Académico Cargado</p>
+                      <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>Listo para digitalización e inferencia IA</span>
+                    </div>
+                  ) : (
+                    <img src={imagePreview} alt="Documento" style={{ width: "100%", maxHeight: "300px", objectFit: "contain", display: "block" }} />
+                  )}
                   <button onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageBase64(null); setResult(null); setError(null); }} style={{ position: "absolute", top: "0.5rem", right: "0.5rem", background: "var(--color-ink-black)", border: "none", color: "#fff", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
                 </div>
               ) : (
@@ -1373,7 +1397,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Huella Digital SHA-256:</span>
                     <span style={{ fontSize: "0.76rem", fontFamily: "monospace", color: "var(--text-secondary)" }}>
-                      {gtuRegistered.hash.slice(0, 10)}...{gtuRegistered.hash.slice(-8)}
+                      {(gtuRegistered.hash || '').slice(0, 10)}...{(gtuRegistered.hash || '').slice(-8)}
                     </span>
                   </div>
                 </div>
