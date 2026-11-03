@@ -137,10 +137,17 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
     };
     window.addEventListener('storage', handleStorage);
 
+    const handleCustomUpdate = () => {
+      refreshLocalData();
+      fetchBackendStats();
+    };
+    window.addEventListener('usm_records_updated', handleCustomUpdate);
+
     return () => {
       clearInterval(interval);
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('usm_records_updated', handleCustomUpdate);
     };
   }, [refreshLocalData]);
 

@@ -1135,12 +1135,27 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             txHash: '0xPENDIENTE_COTEJO',
             solicitudCode: solicitudCode,
             nombre: ownerName,
+            ownerName: ownerName,
             cedula: cedula,
+            tramite: docType,
             documentType: docType,
-            status: 'SOLICITUD_GTU_EMITIDA',
-            timestamp: new Date().toISOString()
+            status: 'PENDIENTE_COTEJO_MPPEU',
+            mppeuVerified: false,
+            mppreVerified: false,
+            timestamp: new Date().toISOString(),
+            createdAt: new Date().toISOString()
           });
           localStorage.setItem('usm_pub_history', JSON.stringify(localHist.slice(0, 50)));
+
+          // Establecer trámite activo para enfocarlo inmediatamente en TrackingTimeline y Dashboard
+          localStorage.setItem('usm_active_tramite_hash', docHash);
+          sessionStorage.setItem('usm_active_tramite_hash', docHash);
+
+          // Disparar eventos locales para actualización reactiva instantánea en la misma pestaña
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('usm_records_updated', { detail: newRecord }));
+            window.dispatchEvent(new Event('storage'));
+          }
 
           if (typeof BroadcastChannel !== 'undefined') {
             try {
@@ -1175,6 +1190,11 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
               const curPub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
               const nextPub = curPub.map(r => (r.hash || r.blockchainHash) === docHash ? { ...r, solicitudCode: newRecord.solicitudCode, txHash: newRecord.txHash } : r);
               localStorage.setItem('usm_pub_history', JSON.stringify(nextPub));
+
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('usm_records_updated', { detail: newRecord }));
+                window.dispatchEvent(new Event('storage'));
+              }
 
               if (typeof BroadcastChannel !== 'undefined') {
                 const ch = new BroadcastChannel('usm_records_sync');

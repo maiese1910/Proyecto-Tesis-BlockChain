@@ -153,7 +153,8 @@ const Dashboard = ({ user }) => {
         p.forEach(mergeItem);
       }
 
-      setLocalDocs(Array.from(m.values()));
+      const sortedDocs = Array.from(m.values()).sort((a, b) => new Date(b.createdAt || b.timestamp || 0) - new Date(a.createdAt || a.timestamp || 0));
+      setLocalDocs(sortedDocs);
     } catch (_) {
       setLocalDocs([]);
     }
@@ -272,9 +273,16 @@ const Dashboard = ({ user }) => {
     };
     window.addEventListener('storage', handleStorage);
 
+    const handleCustomUpdate = () => {
+      refreshLocalDocs();
+      fetchStats();
+    };
+    window.addEventListener('usm_records_updated', handleCustomUpdate);
+
     return () => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('usm_records_updated', handleCustomUpdate);
       // Cleanup
       if (wsRef.current) {
         wsRef.current.close();

@@ -203,7 +203,12 @@ const GovernmentPanel = ({ adminData }) => {
       });
       localStorage.setItem('usm_pub_history', JSON.stringify(nextPub.slice(0, 50)));
 
-      // 3. Notificar a todas las pestañas abiertas mediante BroadcastChannel
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('usm_records_updated', { detail: updated }));
+        window.dispatchEvent(new Event('storage'));
+      }
+
+            // 3. Notificar a todas las pestañas abiertas mediante BroadcastChannel
       if (typeof BroadcastChannel !== 'undefined') {
         try {
           const ch = new BroadcastChannel('usm_records_sync');

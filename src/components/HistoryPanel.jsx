@@ -610,14 +610,8 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
         localStorage.setItem('usm_pub_history', JSON.stringify(nextPubHist.slice(0, 50)));
       } catch (_) { }
 
-      // Ordenar: si hay usuario, priorizar cédula coincidente, y fecha descendente
-      resolvedList.sort((a, b) => {
-        const aNorm = normalizeCedula(a.cedula || '');
-        const bNorm = normalizeCedula(b.cedula || '');
-        if (userCedulaNorm && aNorm === userCedulaNorm && bNorm !== userCedulaNorm) return -1;
-        if (userCedulaNorm && bNorm === userCedulaNorm && aNorm !== userCedulaNorm) return 1;
-        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-      });
+      // Ordenar por fecha más reciente (descendente) para que los trámites nuevos aparezcan de primero
+      resolvedList.sort((a, b) => new Date(b.created_at || b.timestamp || 0) - new Date(a.created_at || a.timestamp || 0));
 
       setRecords(resolvedList);
     } catch (err) {
@@ -654,10 +648,16 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
     };
     window.addEventListener('storage', handleStorageChange);
 
+    const handleCustomUpdate = () => {
+      fetchRecords();
+    };
+    window.addEventListener('usm_records_updated', handleCustomUpdate);
+
     return () => {
       clearInterval(pollInterval);
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('usm_records_updated', handleCustomUpdate);
     };
   }, [user]);
 
@@ -668,14 +668,23 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
   };
 
   const filteredRecords = records.filter(r => {
-    const term = search.toLowerCase();
+    const term = search.toLowerCase().trim();
+    if (!term) return true;
     const docType = (r.document_type || '').toLowerCase();
     const hashVal = (r.hash || '').toLowerCase();
     const txHashVal = (r.tx_hash || '').toLowerCase();
+    const ownerVal = (r.owner_name || '').toLowerCase();
+    const cedulaVal = (r.cedula || '').toLowerCase();
+    const solCodeVal = (r.solicitudCode || '').toLowerCase();
+    const statusVal = (r.status || '').toLowerCase();
     return (
       docType.includes(term) ||
       hashVal.includes(term) ||
-      txHashVal.includes(term)
+      txHashVal.includes(term) ||
+      ownerVal.includes(term) ||
+      cedulaVal.includes(term) ||
+      solCodeVal.includes(term) ||
+      statusVal.includes(term)
     );
   });
 

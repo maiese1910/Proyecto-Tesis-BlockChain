@@ -85,11 +85,28 @@ const TrackingTimeline = ({ user }) => {
         setRecords(prev => prev.map(r => r.hash === record.hash ? updated : r));
         setActiveApostilleRecord(updated);
 
-        // Sincronizar en localStorage
+        // Sincronizar en localStorage tanto en blockchain_records como en pub_history
         try {
           const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
           const nextBc = bc.map(r => r.hash === record.hash ? { ...r, ...updated } : r);
           localStorage.setItem('usm_blockchain_records', JSON.stringify(nextBc));
+
+          const pub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+          const nextPub = pub.map(r => ((r.hash || r.blockchainHash) === record.hash) ? { ...r, ...updated, tramite: updated.documentType || r.tramite, status: 'APOSTILLADO_MPPRE' } : r);
+          localStorage.setItem('usm_pub_history', JSON.stringify(nextPub));
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('usm_records_updated', { detail: updated }));
+            window.dispatchEvent(new Event('storage'));
+          }
+
+          if (typeof BroadcastChannel !== 'undefined') {
+            try {
+              const ch = new BroadcastChannel('usm_records_sync');
+              ch.postMessage({ type: 'RECORD_UPDATED', record: updated });
+              ch.close();
+            } catch (_) {}
+          }
         } catch (_) {}
       }
     } catch (err) {
@@ -278,17 +295,23 @@ const TrackingTimeline = ({ user }) => {
         localStorage.setItem('usm_pub_history', JSON.stringify(nextPubHist.slice(0, 50)));
       } catch (_) {}
 
-      // 5. Ordenar: si hay cédula de usuario, priorizar las que coincidan, y luego por fecha más reciente
-      const userNorm = user?.cedula ? user.cedula.replace(/\D/g, '') : '';
-      list.sort((a, b) => {
-        const aNorm = (a.cedula || '').replace(/\D/g, '');
-        const bNorm = (b.cedula || '').replace(/\D/g, '');
-        if (userNorm && aNorm === userNorm && bNorm !== userNorm) return -1;
-        if (userNorm && bNorm === userNorm && aNorm !== userNorm) return 1;
-        return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
-      });
+      // 5. Ordenar por fecha más reciente (descendente) para que el trámite recién emitido SIEMPRE aparezca de primero
+      list.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
       setRecords(list);
+
+      // Enfocar automáticamente el trámite activo si existe en memoria
+      try {
+        const activeHash = (localStorage.getItem('usm_active_tramite_hash') || sessionStorage.getItem('usm_active_tramite_hash') || '').trim().toUpperCase();
+        if (activeHash) {
+          const targetIdx = list.findIndex(r => (r.hash || '').trim().toUpperCase() === activeHash);
+          if (targetIdx !== -1) {
+            setSelectedRecordIndex(targetIdx);
+          } else {
+            setSelectedRecordIndex(0);
+          }
+        }
+      } catch (_) {}
     } catch (err) {
       console.error("Error fetching user records:", err);
     } finally {
@@ -321,10 +344,16 @@ const TrackingTimeline = ({ user }) => {
     };
     window.addEventListener('storage', handleStorageChange);
 
+    const handleCustomUpdate = () => {
+      fetchRecords();
+    };
+    window.addEventListener('usm_records_updated', handleCustomUpdate);
+
     return () => {
       clearInterval(interval);
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('usm_records_updated', handleCustomUpdate);
     };
   }, [user]);
 
@@ -410,13 +439,22 @@ const TrackingTimeline = ({ user }) => {
 
         {/* Píldoras selectoras si el estudiante tiene más de 1 trámite */}
         {records.length > 1 && (
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+              Trámites ({records.length}):
+            </span>
             {records.map((r, idx) => (
               <button
                 key={r.hash || idx}
-                onClick={() => setSelectedRecordIndex(idx)}
+                onClick={() => {
+                  setSelectedRecordIndex(idx);
+                  if (r.hash) {
+                    localStorage.setItem('usm_active_tramite_hash', r.hash);
+                    sessionStorage.setItem('usm_active_tramite_hash', r.hash);
+                  }
+                }}
                 style={{
-                  padding: '0.25rem 0.65rem',
+                  padding: '0.28rem 0.75rem',
                   fontSize: '0.74rem',
                   borderRadius: 'var(--radius-pill)',
                   border: safeIndex === idx ? '1px solid var(--color-ink-black)' : '1px solid var(--border)',
@@ -424,10 +462,17 @@ const TrackingTimeline = ({ user }) => {
                   color: safeIndex === idx ? '#ffffff' : 'var(--color-ink-black)',
                   cursor: 'pointer',
                   fontWeight: 600,
-                  transition: 'all 0.15s ease'
+                  transition: 'all 0.15s ease',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
                 }}
               >
-                {r.solicitudCode || `Trámite ${idx + 1}`}
+                <span>{r.solicitudCode || ('Trámite ' + (idx + 1))}</span>
+                <span style={{ opacity: 0.75, fontSize: '0.7rem' }}>
+                  ({(r.ownerName || 'Graduando').split(' ')[0]})
+                </span>
+                {safeIndex === idx && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />}
               </button>
             ))}
           </div>
