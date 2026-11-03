@@ -118,6 +118,12 @@ export const blockchainAPI = {
 
   getCertificate: (hash) =>
     apiFetch(`/blockchain/certificate/${hash}`),
+
+  getContractAddress: () =>
+    apiFetch('/blockchain/contract-address'),
+
+  setContractAddress: (contractAddress) =>
+    apiFetch('/blockchain/contract-address', { method: 'POST', body: { contractAddress } }),
 };
 
 

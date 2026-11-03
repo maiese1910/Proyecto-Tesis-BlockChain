@@ -11,6 +11,7 @@ import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
 
 import MPPEUCotejoModal from './MPPEUCotejoModal';
+import { registerDocumentOnChain, connectWallet } from '../services/web3Service';
 
 import html2pdf from 'html2pdf.js';
 
@@ -450,61 +451,56 @@ const GovernmentPanel = ({ adminData }) => {
 
 
   // Etapa 2: Certificación en Taquilla Presencial MPPEU (Cotejo Físico-Digital)
-
-  const handleMppeuCertify = async (record) => {
-
+  const handleMppeuCertify = async (record, methodOptions = {}) => {
     setCotejoLoading(true);
+    let clientTxHash = null;
+
+    if (methodOptions.useMetaMask && typeof window !== 'undefined' && window.ethereum) {
+      try {
+        const conn = await connectWallet();
+        const onChainRes = await registerDocumentOnChain(
+          record.hash,
+          record.ownerName || record.owner_name || 'Graduando USM',
+          record.cedula || 'V-00.000.000',
+          record.documentType || record.document_type || 'Título Universitario USM',
+          conn.signer
+        );
+        if (onChainRes && onChainRes.txHash) {
+          clientTxHash = onChainRes.txHash;
+        }
+      } catch (errOnChain) {
+        console.warn("Firma MetaMask omitida o cancelada por usuario, procediendo con firma ministerial:", errOnChain);
+      }
+    }
 
     try {
-
       const res = await blockchainAPI.mppeuCertifyRecord(record.hash, {
-
         auditor_username: currentAuditorName,
-
         auditor_cargo: currentAuditorCargo,
-
-        auditor_ente: 'MPPEU'
-
+        auditor_ente: 'MPPEU',
+        txHash: clientTxHash
       });
 
       if (res.success) {
-
         const updated = {
-
           ...record,
-
           status: 'CERTIFICADO_MPPEU',
-
           mppeuVerified: true,
-
           mppeuOfficer: currentAuditorName,
-
-          txHash: res.txHash || record.txHash
-
+          txHash: clientTxHash || res.txHash || record.txHash
         };
 
         setRecords(prev => prev.map(r => r.hash === record.hash ? updated : r));
-
         updateLocalRecord(updated);
-
         setActiveCotejoRecord(null);
-
         setActiveCertHash(record.hash);
-
       }
-
     } catch (err) {
-
       console.error("Error certificando en MPPEU:", err);
-
       alert("Error al procesar la certificación en MPPEU.");
-
     } finally {
-
       setCotejoLoading(false);
-
     }
-
   };
 
 

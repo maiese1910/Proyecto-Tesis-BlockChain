@@ -215,6 +215,22 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
                       {certData.document_hash}
                     </p>
                   </div>
+
+                  {certData.tx_hash && certData.tx_hash.startsWith('0x') && certData.tx_hash.length === 66 && (
+                    <div>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem', fontWeight: 600 }}>
+                        Transacción en Ethereum Sepolia
+                      </p>
+                      <a
+                        href={`https://sepolia.etherscan.io/tx/${certData.tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-sienna-brown)', wordBreak: 'break-all', textDecoration: 'underline' }}
+                      >
+                        {certData.tx_hash} ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 {/* QR Code */}

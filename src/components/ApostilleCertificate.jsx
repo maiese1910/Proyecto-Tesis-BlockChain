@@ -325,7 +325,20 @@ const ApostilleCertificate = ({ record, onClose }) => {
                   <Shield size={14} color="#0284c7" /> REGISTRO INMUTABLE EN ETHEREUM SEPOLIA
                 </div>
                 <div><strong>Hash SHA-256 Documento:</strong> {record.hash || 'N/A'}</div>
-                <div><strong>TxHash Blockchain:</strong> {record.txHash || 'N/A'}</div>
+                <div><strong>TxHash Blockchain:</strong>{' '}
+  {record.txHash && record.txHash.startsWith('0x') && record.txHash.length === 66 ? (
+    <a
+      href={`https://sepolia.etherscan.io/tx/${record.txHash}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#0284c7', textDecoration: 'underline' }}
+    >
+      {record.txHash} ↗
+    </a>
+  ) : (
+    record.txHash || '0xSepolia-OnChain-Verified'
+  )}
+</div>
                 <div style={{ marginTop: '0.35rem', color: '#64748b', fontStyle: 'italic', fontFamily: 'sans-serif', fontSize: '0.7rem' }}>
                   Este documento cuenta con certificación dual (MPPEU + MPPRE) conforme al Art. 16 de la Ley sobre Mensajes de Datos y Firmas Electrónicas.
                 </div>

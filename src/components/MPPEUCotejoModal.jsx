@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isMetaMaskInstalled } from '../services/web3Service';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { X, ShieldCheck, CheckCircle2, AlertOctagon, FileText, User, Building2, Stamp, KeyRound, Check } from 'lucide-react';
@@ -12,6 +13,7 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
   });
 
   const [notes, setNotes] = useState('');
+  const [signingMode, setSigningMode] = useState(isMetaMaskInstalled() ? 'metamask' : 'custodial');
 
   if (!record) return null;
   if (typeof document === "undefined") return null;
@@ -311,6 +313,60 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
               </div>
             </div>
 
+            {/* Selector de Protocolo de Firma */}
+            <div style={{
+              marginTop: '1rem',
+              padding: '0.75rem 0.9rem',
+              background: 'var(--color-fog-white)',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.45rem'
+            }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                Protocolo de Firma y Anclaje:
+              </span>
+              <div style={{ display: 'flex', gap: '0.65rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setSigningMode('metamask')}
+                  style={{
+                    flex: 1,
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: 'var(--radius-pill)',
+                    border: `1px solid ${signingMode === 'metamask' ? 'var(--color-ink-black)' : 'var(--border)'}`,
+                    background: signingMode === 'metamask' ? 'var(--color-ink-black)' : '#ffffff',
+                    color: signingMode === 'metamask' ? '#ffffff' : 'var(--color-slate-gray)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  🦊 MetaMask Web3 (Sepolia)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSigningMode('custodial')}
+                  style={{
+                    flex: 1,
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: 'var(--radius-pill)',
+                    border: `1px solid ${signingMode === 'custodial' ? 'var(--color-ink-black)' : 'var(--border)'}`,
+                    background: signingMode === 'custodial' ? 'var(--color-ink-black)' : '#ffffff',
+                    color: signingMode === 'custodial' ? '#ffffff' : 'var(--color-slate-gray)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  🏛️ Firma Ministerial (GTU)
+                </button>
+              </div>
+            </div>
+
             {/* Actions Bar */}
             <div style={{
               display: 'flex',
@@ -336,7 +392,7 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
               </button>
 
               <button
-                onClick={() => onConfirmCertify(record)}
+                onClick={() => onConfirmCertify(record, { useMetaMask: signingMode === 'metamask' })}
                 disabled={!allChecksPassed || loading}
                 style={{
                   flex: 1,
@@ -357,7 +413,12 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
                 }}
               >
                 <ShieldCheck size={17} />
-                {loading ? 'Anclando a Ethereum Sepolia...' : 'Aprobar Cotejo y Sellar en Blockchain (GTU)'}
+                {loading
+                  ? 'Anclando a Ethereum Sepolia...'
+                  : signingMode === 'metamask'
+                    ? 'Aprobar y Sellar con MetaMask (Sepolia)'
+                    : 'Aprobar Cotejo y Sellar en Blockchain (GTU)'
+                }
               </button>
             </div>
           </div>

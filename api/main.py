@@ -256,10 +256,38 @@ class _LazyWeb3Proxy:
 w3 = _LazyWeb3Proxy()
 
 
+CONTRACT_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_contract_address.txt")
+
+def get_current_contract_address() -> str:
+    if os.path.exists(CONTRACT_CACHE_FILE):
+        try:
+            with open(CONTRACT_CACHE_FILE, "r", encoding="utf-8") as f:
+                addr = f.read().strip()
+                if addr.startswith("0x") and len(addr) == 42:
+                    return addr
+        except Exception:
+            pass
+    return CONTRACT_ADDRESS or os.getenv("CONTRACT_ADDRESS") or "0x1234567890123456789012345678901234567890"
+
+def set_current_contract_address(addr: str):
+    if addr and addr.startswith("0x") and len(addr) == 42:
+        global CONTRACT_ADDRESS
+        CONTRACT_ADDRESS = addr.strip()
+        try:
+            with open(CONTRACT_CACHE_FILE, "w", encoding="utf-8") as f:
+                f.write(addr.strip())
+        except Exception:
+            pass
+
 def get_contract():
-    if not w3 or not CONTRACT_ADDRESS or "0x" not in CONTRACT_ADDRESS:
+    addr = get_current_contract_address()
+    if not w3 or not addr or "0x" not in addr or addr == "0x1234567890123456789012345678901234567890":
         return None
-    return w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
+    try:
+        checksummed = w3.to_checksum_address(addr)
+        return w3.eth.contract(address=checksummed, abi=CONTRACT_ABI)
+    except Exception:
+        return None
 
 
 def send_register_transaction(doc_hash, owner, cedula, doc_type):
@@ -1472,6 +1500,19 @@ def get_records_by_cedula(cedula: str):
     return jsonify({"success": True, "records": final_matches}), 200
 
 
+@app.route("/blockchain/contract-address", methods=["GET", "POST"])
+@app.route("/api/blockchain/contract-address", methods=["GET", "POST"])
+def manage_contract_address():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        new_addr = data.get("contractAddress") or data.get("contract_address")
+        if not new_addr or not new_addr.startswith("0x") or len(new_addr) != 42:
+            return jsonify({"success": False, "error": "Dirección de contrato inválida (debe iniciar con 0x y tener 42 caracteres)."}), 400
+        set_current_contract_address(new_addr)
+        return jsonify({"success": True, "contractAddress": new_addr, "message": "Contrato actualizado exitosamente."}), 200
+    return jsonify({"contractAddress": get_current_contract_address()}), 200
+
+
 @app.route("/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
 def mppeu_certify_record(doc_hash: str):
@@ -1479,9 +1520,10 @@ def mppeu_certify_record(doc_hash: str):
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppeu_agente")
     auditor_cargo = data.get("auditor_cargo", "Analista Revisor de Taquilla GTU")
+    client_tx_hash = data.get("txHash") or data.get("tx_hash")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    tx_hash = f"0x{secrets.token_hex(32)}"
+    tx_hash = client_tx_hash if (client_tx_hash and str(client_tx_hash).startswith("0x")) else f"0x{secrets.token_hex(32)}"
     clean_h = _normalize_hex(doc_hash)
 
     try:
