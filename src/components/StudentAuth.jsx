@@ -217,6 +217,7 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
       if (res.success && res.profile) {
         securityGuard.resetLoginFailures();
         localStorage.setItem('usm_user', JSON.stringify(res.profile));
+        sessionStorage.setItem('usm_user', JSON.stringify(res.profile));
         onLogin(res.profile);
       } else {
         setError('No se pudo verificar la sesión. Intenta de nuevo.');
