@@ -402,6 +402,7 @@ export const safeString = (v) => {
       carrera: "",
       fecha: ""
     });
+    const [modalError, setModalError] = useState("");
 
     React.useEffect(() => {
       if (fields && isOpen) {
@@ -412,6 +413,7 @@ export const safeString = (v) => {
           carrera: safeString(fields.carrera?.value),
           fecha: safeString(fields.fecha?.value)
         });
+        setModalError("");
       }
     }, [fields, isOpen]);
 
@@ -429,11 +431,9 @@ export const safeString = (v) => {
       onClose();
     };
 
-    const [modalError, setModalError] = useState("");
-
     const handleApplyAndProceed = () => {
-      const cleanNombre = (form.nombre_completo || "").trim();
-      const cleanCedula = (form.cedula || "").trim();
+      const cleanNombre = safeString(form.nombre_completo);
+      const cleanCedula = safeString(form.cedula);
 
       if (!cleanNombre) {
         setModalError("Por favor ingresa el Nombre Completo del graduando antes de emitir la solicitud oficial ante el GTU.");
