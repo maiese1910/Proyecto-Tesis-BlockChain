@@ -85,15 +85,15 @@ class _LazySupabaseProxy:
     def _get_client(self):
         if not self._attempted:
             self._attempted = True
-            if SUPABASE_URL and SUPABASE_KEY:
+            if SUPABASE_URL and SUPABASE_KEY and 'vqxgcaxfixbyihyyvexn' not in SUPABASE_URL:
                 try:
+                    from supabase import create_client
                     import socket
                     from urllib.parse import urlparse
                     host = urlparse(SUPABASE_URL).hostname
                     if host:
                         socket.setdefaulttimeout(0.3)
                         socket.gethostbyname(host)
-                    from supabase import create_client
                     self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
                     self._available = True
                 except Exception as e:
@@ -347,7 +347,7 @@ def get_current_admin():
 
 # ─── PINs Institucionales ───────────────────────────────────────────────────
 _env_pins = os.getenv("GOV_INSTITUTIONAL_PINS", "MPPEU-2026-KEY,MPPRE-2026-KEY,SAREN-2026-GOV-KEY,USM-SECRETARIA-KEY")
-VALID_GOV_PINS: set[str] = {p.strip().upper() for p in _env_pins.split(",") if p.strip()}
+VALID_GOV_PINS = {p.strip().upper() for p in _env_pins.split(",") if p.strip()}
 
 def is_valid_pin_format(pin_str: str) -> bool:
     if not pin_str:
@@ -1833,7 +1833,7 @@ def ocr_gemini_endpoint():
 
     if not globals().get("HAS_GEMINI_OCR", False):
         try:
-            from _services.gemini_service import GeminiVisionExtractor
+            from gemini_service import GeminiVisionExtractor
         except Exception as imp_err:
             return jsonify({
                 "success": False,
@@ -2001,7 +2001,7 @@ def chat_rest_endpoint():
 
     # 4. Intento con Google Gemini IA Especialista
     try:
-        from _services.gemini_service import GeminiVisionExtractor
+        from gemini_service import GeminiVisionExtractor
         gemini_ok, gemini_reply = GeminiVisionExtractor.generate_institutional_response(texto_usuario, user_context)
         if gemini_ok and gemini_reply and len(gemini_reply) > 20:
             return jsonify({"reply": gemini_reply}), 200

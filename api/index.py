@@ -7,13 +7,12 @@ api_dir = os.path.dirname(os.path.abspath(__file__))
 if api_dir not in sys.path:
     sys.path.insert(0, api_dir)
 
-# También agregar el directorio raíz
 root_dir = os.path.dirname(api_dir)
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 try:
-    from _main import app
+    from main import app
 except BaseException as e:
     err_tb = traceback.format_exc()
     from flask import Flask, jsonify
