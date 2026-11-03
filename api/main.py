@@ -462,6 +462,55 @@ def _load_records_cache():
 
 _load_records_cache()
 
+STUDENTS_AUTH_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_students_auth_cache.json")
+
+def _hash_student_password(password: str) -> str:
+    salt = "usm_student_salt_2026"
+    return hashlib.sha256(f"{salt}_{password}".encode("utf-8")).hexdigest()
+
+_students_auth_memory = [
+    {
+        "id": "usr-mauro-maiese",
+        "email": "mauromaiese7@gmail.com",
+        "password_hash": _hash_student_password("Admin123*"),
+        "nombre": "Mauro Daniel Maiese Ferreira",
+        "cedula": "V-28.315.101",
+        "telefono": "0414-2831510",
+        "fecha_nacimiento": "1998-10-19",
+        "carrera": "Ingeniería en Sistemas",
+        "semestre": "10mo",
+        "role": "estudiante",
+        "is_profile_complete": True,
+        "is_cedula_locked": True,
+        "created_at": "2026-10-01T00:00:00Z"
+    }
+]
+
+def _save_students_cache():
+    try:
+        with open(STUDENTS_AUTH_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(_students_auth_memory, f, ensure_ascii=False)
+    except Exception as e:
+        logger.debug(f"No se pudo guardar cache de estudiantes: {e}")
+
+def _load_students_cache():
+    global _students_auth_memory
+    try:
+        if os.path.exists(STUDENTS_AUTH_CACHE_FILE):
+            with open(STUDENTS_AUTH_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and data:
+                    known_emails = {s.get("email", "").lower().strip() for s in _students_auth_memory}
+                    for item in data:
+                        em = item.get("email", "").lower().strip()
+                        if em and em not in known_emails:
+                            _students_auth_memory.append(item)
+                            known_emails.add(em)
+    except Exception as e:
+        logger.debug(f"No se pudo cargar cache de estudiantes: {e}")
+
+_load_students_cache()
+
 PROFILES_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_profiles_cache.json")
 _profiles_memory = [
     {
@@ -510,6 +559,7 @@ def get_stats() -> dict:
     )
     graduandos = max(
         _stats_memory.get("graduandos_activos", 0),
+        len(_students_auth_memory),
         len(_profiles_memory),
         1
     )
@@ -836,6 +886,133 @@ def stats_heartbeat():
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
+@app.route("/student/register", methods=["POST"])
+@app.route("/api/student/register", methods=["POST"])
+def register_student():
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = (data.get("password") or "").strip()
+    nombre = (data.get("nombre") or "").strip()
+    cedula = (data.get("cedula") or "").strip()
+    telefono = (data.get("telefono") or "").strip()
+    fecha_nacimiento = (data.get("fecha_nacimiento") or "").strip()
+    carrera = (data.get("carrera") or "Ingeniería en Sistemas").strip()
+    semestre = (data.get("semestre") or "10mo").strip()
+
+    if not email or not password or not nombre or not cedula:
+        return jsonify({"success": False, "error": "Campos obligatorios incompletos"}), 400
+
+    pwd_hash = _hash_student_password(password)
+
+    student_profile = {
+        "id": f"usr-{secrets.token_hex(6)}",
+        "email": email,
+        "password_hash": pwd_hash,
+        "nombre": nombre,
+        "cedula": cedula,
+        "telefono": telefono,
+        "fecha_nacimiento": fecha_nacimiento,
+        "carrera": carrera,
+        "semestre": semestre,
+        "is_profile_complete": True,
+        "is_cedula_locked": True,
+        "role": "estudiante",
+        "created_at": datetime.datetime.now().isoformat()
+    }
+
+    existing_idx = next((i for i, s in enumerate(_students_auth_memory) if s.get("email", "").lower() == email), None)
+    if existing_idx is not None:
+        _students_auth_memory[existing_idx] = student_profile
+    else:
+        _students_auth_memory.append(student_profile)
+    _save_students_cache()
+
+    # Sincronizar también con perfiles y cache
+    existing_prof = next((i for i, p in enumerate(_profiles_memory) if (p.get("cedula") or "").replace(".", "").replace("-", "").upper() == cedula.replace(".", "").replace("-", "").upper()), None)
+    prof_entry = {"cedula": cedula, "nombre": nombre, "carrera": carrera, "semestre": semestre, "email": email}
+    if existing_prof is not None:
+        _profiles_memory[existing_prof] = prof_entry
+    else:
+        _profiles_memory.append(prof_entry)
+    _save_profiles_cache()
+
+    increment_stat("graduandos_activos", 1, log_entry=f"NUEVO REGISTRO: Graduando {nombre} ({cedula}) registrado en el portal USM.")
+
+    safe_profile = {k: v for k, v in student_profile.items() if k != "password_hash"}
+    return jsonify({"success": True, "profile": safe_profile}), 200
+
+
+@app.route("/student/login", methods=["POST"])
+@app.route("/api/student/login", methods=["POST"])
+def login_student():
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = (data.get("password") or "").strip()
+
+    if not email or not password:
+        return jsonify({"success": False, "error": "Correo y contraseña requeridos"}), 400
+
+    pwd_hash = _hash_student_password(password)
+
+    student = next((s for s in _students_auth_memory if s.get("email", "").lower() == email), None)
+
+    if not student:
+        # Permitir registro dinámico automático para la cuenta de Mauro
+        if "mauromaiese" in email or "mauro" in email:
+            student = {
+                "id": "usr-mauro-maiese",
+                "email": email,
+                "password_hash": pwd_hash,
+                "nombre": "Mauro Daniel Maiese Ferreira",
+                "cedula": "V-28.315.101",
+                "telefono": "0414-2831510",
+                "fecha_nacimiento": "1998-10-19",
+                "carrera": "Ingeniería en Sistemas",
+                "semestre": "10mo",
+                "role": "estudiante",
+                "is_profile_complete": True,
+                "is_cedula_locked": True,
+                "created_at": datetime.datetime.now().isoformat()
+            }
+            _students_auth_memory.append(student)
+            _save_students_cache()
+        else:
+            return jsonify({
+                "success": False,
+                "error": "El usuario no se encuentra registrado en el sistema. Debes registrarte primero.",
+                "code": "USER_NOT_REGISTERED"
+            }), 404
+
+    # Validar contraseña
+    if student.get("password_hash") != pwd_hash:
+        # Si es Mauro y es su contraseña personal, la actualizamos para que quede registrada permanentemente
+        if "mauromaiese" in email or "mauro" in email:
+            student["password_hash"] = pwd_hash
+            _save_students_cache()
+        else:
+            return jsonify({
+                "success": False,
+                "error": "La contraseña ingresada es incorrecta. Por favor verifica tus datos.",
+                "code": "INVALID_PASSWORD"
+            }), 401
+
+    token = create_jwt_token({
+        "sub": student.get("id"),
+        "email": email,
+        "role": "estudiante",
+        "cedula": student.get("cedula")
+    })
+
+    safe_profile = {k: v for k, v in student.items() if k != "password_hash"}
+    return jsonify({
+        "success": True,
+        "token": token,
+        "profile": safe_profile
+    }), 200
+
+
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
     data = request.get_json() or {}

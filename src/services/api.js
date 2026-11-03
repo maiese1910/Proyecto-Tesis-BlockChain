@@ -70,6 +70,12 @@ export const authAPI = {
 
   registerAdmin: (data, token) =>
     apiFetch('/admin/users', { method: 'POST', body: data, token }),
+
+  loginStudent: (email, password) =>
+    apiFetch('/student/login', { method: 'POST', body: { email, password } }),
+
+  registerStudent: (data) =>
+    apiFetch('/student/register', { method: 'POST', body: data }),
 };
 
 // ─── Perfiles ───────────────────────────────────────────────────────────────

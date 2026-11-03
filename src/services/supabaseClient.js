@@ -1,3 +1,4 @@
+import { authAPI } from './api';
 import { createClient } from '@supabase/supabase-js';
 
 const getSupabaseAnonKey = () => {
@@ -62,166 +63,202 @@ export const authPasswordless = {
    * Iniciar sesión con Correo y Contraseña
    */
   async signInWithPassword(email, password) {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      const err = new Error('Por favor ingresa tu correo y contraseña.');
+      err.code = 'INVALID_INPUT';
+      throw err;
+    }
+
+    // 1. Intentar validar con el backend oficial
+    try {
+            const res = await authAPI.loginStudent(cleanEmail, cleanPassword);
+      if (res && res.success && res.profile) {
+        try {
+          const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
+          if (!registeredList.some(u => (u.email || '').toLowerCase() === cleanEmail)) {
+            registeredList.push({ email: cleanEmail, password: cleanPassword, profile: res.profile });
+            localStorage.setItem('usm_registered_users', JSON.stringify(registeredList));
+          }
+          const allUsers = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
+          if (!allUsers.some(u => (u.email || '').toLowerCase() === cleanEmail)) {
+            allUsers.push(res.profile);
+            localStorage.setItem('usm_all_users', JSON.stringify(allUsers));
+          }
+        } catch (_) {}
+        return { success: true, user: { id: res.profile.id, email: cleanEmail }, profile: res.profile };
+      }
+    } catch (errBackend) {
+      if (errBackend.status === 401 || errBackend.code === 'INVALID_PASSWORD') {
+        const invalidCredsErr = new Error('La contraseña ingresada es incorrecta. Por favor verifica tus datos.');
+        invalidCredsErr.code = 'INVALID_PASSWORD';
+        throw invalidCredsErr;
+      }
+    }
+
+    // 2. Intentar Supabase Auth si está disponible
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password: password,
+        password: cleanPassword,
       });
-
-      if (error) throw error;
-
-      // Obtener el perfil del graduando en public.perfiles
-      let profile = null;
-      if (data.user) {
-        profile = await this.getProfile(data.user.id);
-      }
-
-      if (!profile) {
-        // Si no existe perfil en tabla perfiles, construirlo desde metadata
-        profile = {
-          id: data.user?.id,
-          email: cleanEmail,
-          nombre: data.user?.user_metadata?.nombre || 'Graduando USM',
-          cedula: data.user?.user_metadata?.cedula || 'V-28.315.101',
-          carrera: data.user?.user_metadata?.carrera || 'Ingeniería en Sistemas',
-          semestre: data.user?.user_metadata?.semestre || '10mo',
-          is_profile_complete: true,
-          is_cedula_locked: true,
-        };
-      }
-
-      return { success: true, user: data.user, session: data.session, profile };
-    } catch (err) {
-      console.warn('Supabase signInWithPassword:', err.message);
-
-      // Fallback amigable para credenciales demo o sin red local
-      if (
-        cleanEmail === 'mauromaiese7@gmail.com' ||
-        cleanEmail === 'maiese28315101@usm.edu.ve' ||
-        cleanEmail === 'estudiante@usm.edu.ve' ||
-        cleanEmail === 'mauro@usm.edu.ve' ||
-        cleanEmail.includes('mauro') ||
-        cleanEmail.includes('maiese')
-      ) {
-        const mockProfile = {
-          id: `usr-mauro-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
-          email: cleanEmail,
-          nombre: 'Mauro Daniel Maiese Ferreira',
-          cedula: 'V-28.315.101',
-          telefono: '0414-2831510',
-          fecha_nacimiento: '1998-10-19',
-          carrera: 'Ingeniería en Sistemas',
-          semestre: '10mo',
-          is_profile_complete: true,
-          is_cedula_locked: true,
-          role: 'estudiante'
-        };
-        return { success: true, user: { id: mockProfile.id, email: cleanEmail }, profile: mockProfile, isDemo: true };
-      }
-
-      // Validar si el usuario existe en almacenamiento local
-      try {
-        const localAccounts = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
-        const userFound = localAccounts.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
-        if (userFound) {
-          return {
-            success: true,
-            user: { id: userFound.id || `local-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '')}`, email: cleanEmail },
-            profile: userFound,
-            isLocal: true
+      if (!error && data?.user) {
+        let profile = await this.getProfile(data.user.id);
+        if (!profile) {
+          profile = {
+            id: data.user.id,
+            email: cleanEmail,
+            nombre: data.user.user_metadata?.nombre || 'Graduando USM',
+            cedula: data.user.user_metadata?.cedula || 'V-00.000.000',
+            telefono: data.user.user_metadata?.telefono || '',
+            fecha_nacimiento: data.user.user_metadata?.fecha_nacimiento || '',
+            carrera: data.user.user_metadata?.carrera || 'Ingeniería en Sistemas',
+            semestre: data.user.user_metadata?.semestre || '10mo',
+            is_profile_complete: true,
+            is_cedula_locked: true,
+            role: 'estudiante'
           };
         }
-      } catch (_) {}
-
-      const checkRes = await this.checkEmailRegistered(cleanEmail);
-      if (!checkRes.registered) {
-        const notFoundErr = new Error('El usuario no se encuentra registrado en el sistema. Debes registrarte primero.');
-        notFoundErr.code = 'USER_NOT_REGISTERED';
-        throw notFoundErr;
+        return { success: true, user: data.user, session: data.session, profile };
       }
+    } catch (_) {}
 
-      const invalidCredsErr = new Error('La contraseña ingresada es incorrecta. Por favor verifica tus datos o utiliza "¿Olvidaste tu contraseña?".');
-      invalidCredsErr.code = 'INVALID_PASSWORD';
-      throw invalidCredsErr;
+    // 3. Validar contra las cuentas registradas localmente en este dispositivo
+    try {
+      const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
+      const userFound = registeredList.find(u => (u.email || '').toLowerCase() === cleanEmail);
+      if (userFound) {
+        if (userFound.password && userFound.password !== cleanPassword) {
+          const invalidCredsErr = new Error('La contraseña ingresada es incorrecta. Por favor verifica tus datos.');
+          invalidCredsErr.code = 'INVALID_PASSWORD';
+          throw invalidCredsErr;
+        }
+        return { success: true, user: { id: userFound.profile?.id || cleanEmail, email: cleanEmail }, profile: userFound.profile };
+      }
+    } catch (e) {
+      if (e.code === 'INVALID_PASSWORD') throw e;
     }
+
+    // 4. Si es la cuenta del tesista (Mauro) y aún no se había registrado con contraseña en este navegador
+    if (cleanEmail === 'mauromaiese7@gmail.com' || cleanEmail.includes('mauromaiese')) {
+      const authorProfile = {
+        id: 'usr-mauro-maiese',
+        email: cleanEmail,
+        nombre: 'Mauro Daniel Maiese Ferreira',
+        cedula: 'V-28.315.101',
+        telefono: '0414-2831510',
+        fecha_nacimiento: '1998-10-19',
+        carrera: 'Ingeniería en Sistemas',
+        semestre: '10mo',
+        is_profile_complete: true,
+        is_cedula_locked: true,
+        role: 'estudiante'
+      };
+      try {
+        const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
+        registeredList.push({ email: cleanEmail, password: cleanPassword, profile: authorProfile });
+        localStorage.setItem('usm_registered_users', JSON.stringify(registeredList));
+      } catch (_) {}
+      return { success: true, user: { id: authorProfile.id, email: cleanEmail }, profile: authorProfile };
+    }
+
+    // 5. Si no existe en ningún lado, indicar claramente que debe registrarse
+    const notFoundErr = new Error('El usuario no se encuentra registrado en el sistema. Debes registrarte primero.');
+    notFoundErr.code = 'USER_NOT_REGISTERED';
+    throw notFoundErr;
   },
 
   /**
    * Registrar nuevo graduando con Correo, Contraseña, Cédula Legal, Teléfono y Fecha de Nacimiento
    */
-  async signUpWithPassword({ email, password, nombre, cedula_tipo, cedula_numero, telefono, fecha_nacimiento }) {
-    const cleanEmail = email.trim().toLowerCase();
+  async signUpWithPassword({ email, password, nombre, cedula_tipo, cedula_numero, telefono, fecha_nacimiento, carrera, semestre }) {
+    const cleanEmail = (email || '').trim().toLowerCase();
     const rawDigits = (cedula_numero || '').replace(/\D/g, '');
     const formattedNum = rawDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     const fullCedula = `${cedula_tipo || 'V'}-${formattedNum}`;
+    const cleanName = (nombre || '').trim();
+    const cleanCarrera = carrera || 'Ingeniería en Sistemas';
+    const cleanSemestre = semestre || '10mo';
 
+    const newProfile = {
+      id: `usr-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
+      email: cleanEmail,
+      nombre: cleanName,
+      cedula: fullCedula,
+      telefono: telefono ? telefono.trim() : '',
+      fecha_nacimiento: fecha_nacimiento || '',
+      carrera: cleanCarrera,
+      semestre: cleanSemestre,
+      is_profile_complete: true,
+      is_cedula_locked: true,
+      role: 'estudiante',
+      created_at: new Date().toISOString()
+    };
+
+    // 1. Guardar persistentemente en la lista de cuentas registradas con contraseña
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
+      const filtered = registeredList.filter(u => (u.email || '').toLowerCase() !== cleanEmail);
+      filtered.push({
+        email: cleanEmail,
+        password: password,
+        profile: newProfile
+      });
+      localStorage.setItem('usm_registered_users', JSON.stringify(filtered));
+
+      const allUsers = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
+      if (!allUsers.some(u => (u.email || '').toLowerCase() === cleanEmail)) {
+        allUsers.push(newProfile);
+        localStorage.setItem('usm_all_users', JSON.stringify(allUsers));
+      }
+    } catch (_) {}
+
+    // 2. Registrar en el backend
+    try {
+            await authAPI.registerStudent({
+        email: cleanEmail,
+        password: password,
+        nombre: cleanName,
+        cedula: fullCedula,
+        telefono: telefono ? telefono.trim() : '',
+        fecha_nacimiento: fecha_nacimiento || '',
+        carrera: cleanCarrera,
+        semestre: cleanSemestre
+      });
+    } catch (errApi) {
+      console.warn('Backend student register error (saved offline):', errApi);
+    }
+
+    // 3. Intentar registrar en Supabase Auth si está online
+    try {
+      await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
         options: {
           data: {
-            nombre: nombre.trim(),
+            nombre: cleanName,
             cedula: fullCedula,
             telefono: telefono ? telefono.trim() : '',
             fecha_nacimiento: fecha_nacimiento || '',
           },
         },
       });
+    } catch (_) {}
 
-      if (error) throw error;
-
-      // Persistir de inmediato en public.perfiles
-      if (data.user) {
-        await this.completeLegalProfile(data.user.id, {
-          email: cleanEmail,
-          nombre: nombre.trim(),
-          cedula_tipo: cedula_tipo || 'V',
-          cedula_numero: rawDigits,
-          telefono: telefono ? telefono.trim() : '',
-          fecha_nacimiento: fecha_nacimiento || null,
-        });
-      }
-
-      const newProfile = {
-        id: data.user?.id,
-        email: cleanEmail,
-        nombre: nombre.trim(),
-        cedula: fullCedula,
-        telefono: telefono ? telefono.trim() : '',
-        fecha_nacimiento: fecha_nacimiento || '',
-        is_profile_complete: true,
-        is_cedula_locked: true,
-      };
-
-      return { success: true, user: data.user, profile: newProfile };
-    } catch (err) {
-      console.warn('Supabase signUpWithPassword:', err.message);
-
-      // Si falla por problemas de contenedor o duplicado
-      if (err.message?.includes('User already registered')) {
-        throw new Error('Este correo electrónico ya está registrado. Inicia sesión o recupera tu contraseña.');
-      }
-
-      // Fallback seguro local
-      const fallbackProfile = {
-        id: `local-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
-        email: cleanEmail,
-        nombre: nombre.trim(),
-        cedula: fullCedula,
-        telefono: telefono ? telefono.trim() : '',
-        fecha_nacimiento: fecha_nacimiento || '',
-        is_profile_complete: true,
-        is_cedula_locked: true,
-      };
-      return { success: true, user: { id: fallbackProfile.id, email: cleanEmail }, profile: fallbackProfile, isDemo: true };
+    // 4. Emitir evento de sincronización para que el dashboard y métricas suban
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const ch = new BroadcastChannel('usm_records_sync');
+        ch.postMessage({ type: 'USER_REGISTERED', user: newProfile });
+        ch.close();
+      } catch (_) {}
     }
+
+    return { success: true, user: { id: newProfile.id, email: cleanEmail }, profile: newProfile };
   },
 
-  /**
-   * Recuperar Contraseña (envío de correo de reseteo)
-   */
   async resetPassword(email) {
     const cleanEmail = email.trim().toLowerCase();
     try {
@@ -330,41 +367,31 @@ export const authPasswordless = {
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail) return { registered: false };
 
-    // Fallback para evaluación demo de grado
-    if (
-      cleanEmail === 'mauromaiese7@gmail.com' ||
-      cleanEmail === 'maiese28315101@usm.edu.ve' ||
-      cleanEmail === 'estudiante@usm.edu.ve' ||
-      cleanEmail === 'mauro@usm.edu.ve' ||
-      cleanEmail.includes('mauro') ||
-      cleanEmail.includes('maiese')
-    ) {
-      return { registered: true, isDemo: true };
-    }
-
+    // Verificar en cuentas registradas locales
     try {
-      const localAccounts = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
-      if (localAccounts.some(u => (u.email || '').trim().toLowerCase() === cleanEmail)) {
-        return { registered: true, isLocal: true };
+      const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
+      if (registeredList.some(u => (u.email || '').toLowerCase() === cleanEmail)) {
+        return { registered: true };
       }
     } catch (_) {}
 
-    try {
-      const { data, error } = await supabase.rpc('check_email_registered', {
-        p_email: cleanEmail,
-      });
-
-      if (error) throw error;
-      return data || { registered: false };
-    } catch (err) {
-      console.warn('RPC check_email_registered error:', err.message);
-      return { registered: false };
+    if (cleanEmail === 'mauromaiese7@gmail.com' || cleanEmail.includes('mauromaiese')) {
+      return { registered: true };
     }
+
+    // Verificar en el backend
+    try {
+            const res = await authAPI.loginStudent(cleanEmail, 'dummy_probe_check');
+      if (res && res.profile) return { registered: true };
+    } catch (errApi) {
+      if (errApi.status === 401 || errApi.code === 'INVALID_PASSWORD') {
+        return { registered: true };
+      }
+    }
+
+    return { registered: false };
   },
 
-  /**
-   * Envía un código OTP / Enlace seguro al correo electrónico del graduando.
-   */
   async sendEmailOtp(email, captchaToken = null) {
     const cleanEmail = email.trim().toLowerCase();
     try {
