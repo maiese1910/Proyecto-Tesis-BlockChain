@@ -20,22 +20,67 @@ import { dynamicDataAPI, statsAPI } from './services/api';
 import { supabase, authPasswordless } from './services/supabaseClient';
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [adminUser, setAdminUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const isRecovery = window.location.hash.includes('type=recovery') || window.location.search.includes('action=reset-password');
+        if (isRecovery) return null;
+        const stored = localStorage.getItem('usm_user') || sessionStorage.getItem('usm_user');
+        return stored ? JSON.parse(stored) : null;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  });
+
+  const [adminUser, setAdminUser] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const isAdminAuth = localStorage.getItem('admin_auth') === 'true';
+        const storedAdmin = localStorage.getItem('admin_data');
+        return (isAdminAuth && storedAdmin) ? JSON.parse(storedAdmin) : null;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  });
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pubInitialData, setPubInitialData] = useState(null);
   const [verifyHashInput, setVerifyHashInput] = useState('');
 
-  // Intentar recuperar sesión guardada al cargar (estudiante o admin)
+  // Limpieza de documentos de prueba y recuperación de sesión
   useEffect(() => {
+    try {
+      const CLEANUP_KEY = 'usm_storage_cleanup_v3';
+      if (localStorage.getItem(CLEANUP_KEY) !== 'done') {
+        ['usm_blockchain_records', 'usm_pub_history'].forEach(key => {
+          const items = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(items)) {
+            const cleaned = items.filter(r => {
+              const h = (r.hash || r.blockchainHash || '').toUpperCase();
+              return !h.startsWith('0XTEST');
+            });
+            localStorage.setItem(key, JSON.stringify(cleaned));
+          }
+        });
+        localStorage.removeItem('usm_active_tramite_hash');
+        sessionStorage.removeItem('usm_active_tramite_hash');
+        localStorage.setItem(CLEANUP_KEY, 'done');
+      }
+    } catch (_) {}
+
     const isRecovery = window.location.hash.includes('type=recovery') || window.location.search.includes('action=reset-password');
     if (!isRecovery) {
-      const storedUser = localStorage.getItem('usm_user');
+      const storedUser = localStorage.getItem('usm_user') || sessionStorage.getItem('usm_user');
       if (storedUser) {
         try { setUser(JSON.parse(storedUser)); } catch (_) {}
       }
     } else {
       localStorage.removeItem('usm_user');
+      sessionStorage.removeItem('usm_user');
       setUser(null);
     }
 
@@ -47,12 +92,10 @@ function App() {
 
     // Escuchar autenticación automática de Supabase ÚNICAMENTE cuando proviene de un Magic Link en la URL
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Si es un evento de recuperación de contraseña, no auto-iniciar para permitir ingresar la nueva clave
       if (event === 'PASSWORD_RECOVERY' || window.location.hash.includes('type=recovery') || window.location.search.includes('action=reset-password')) {
         return;
       }
 
-      // Solo autenticar automáticamente si la URL contiene explícitamente el token del Magic Link
       const isMagicLinkInUrl = window.location.hash.includes('access_token') && !window.location.hash.includes('type=recovery');
 
       if (isMagicLinkInUrl && event === 'SIGNED_IN' && session?.user) {
@@ -72,6 +115,7 @@ function App() {
           };
         }
         localStorage.setItem('usm_user', JSON.stringify(profile));
+        sessionStorage.setItem('usm_user', JSON.stringify(profile));
         setUser(profile);
         window.history.replaceState(null, '', window.location.pathname);
       }
@@ -92,8 +136,18 @@ function App() {
     return () => clearInterval(interval);
   }, [user]);
 
+  const handleStudentLogin = (userData) => {
+    if (!userData) return;
+    try {
+      localStorage.setItem('usm_user', JSON.stringify(userData));
+      sessionStorage.setItem('usm_user', JSON.stringify(userData));
+    } catch (_) {}
+    setUser(userData);
+  };
+
   const handleStudentLogout = async () => {
     localStorage.removeItem('usm_user');
+    sessionStorage.removeItem('usm_user');
     setUser(null);
     setActiveTab('dashboard');
     try {
@@ -219,7 +273,7 @@ function App() {
 
   // 2. PORTAL PÚBLICO DEL GRADUANDO USM (SI NO ESTÁ LOGUEADO)
   if (!user) {
-    return <LandingPortal onStudentLogin={(userData) => setUser(userData)} />;
+    return <LandingPortal onStudentLogin={handleStudentLogin} />;
   }
 
   // 3. SI ES ESTUDIANTE LOGUEADO -> MOSTRAR PLATAFORMA DE GRADUANDO USM

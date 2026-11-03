@@ -133,22 +133,39 @@ const TrackingTimeline = ({ user }) => {
     try {
       let combined = [];
 
-      // 1. Consultar registros del backend (tanto globales como específicos por cédula)
-      try {
-        const allRes = await blockchainAPI.getAllRecords();
-        if (allRes?.success && Array.isArray(allRes.records)) {
-          allRes.records.forEach(r => {
-            if (r && r.hash) combined.push(r);
-          });
-        }
-      } catch (_) {}
+      const userCedClean = (user?.cedula || '').replace(/\D/g, '');
+      const userNameNorm = (user?.nombre || user?.ownerName || '').toLowerCase().trim();
+      const userEmailNorm = (user?.email || '').toLowerCase().trim();
 
+      const isRecordOfUser = (item) => {
+        if (!item) return false;
+        const recCed = (item.cedula || item.formData?.cedula || '').replace(/\D/g, '');
+        const recAccCed = (item.accountCedula || item.account_cedula || '').replace(/\D/g, '');
+        if (userCedClean && (recCed === userCedClean || recAccCed === userCedClean)) {
+          return true;
+        }
+        const recAccName = (item.accountNombre || item.account_nombre || '').toLowerCase().trim();
+        if (userNameNorm && recAccName && (recAccName.includes(userNameNorm) || userNameNorm.includes(recAccName))) {
+          return true;
+        }
+        const recAccEmail = (item.accountEmail || item.account_email || '').toLowerCase().trim();
+        if (userEmailNorm && recAccEmail && userEmailNorm === recAccEmail) {
+          return true;
+        }
+        const recName = (item.ownerName || item.owner_name || item.nombre || item.formData?.nombre_completo || '').toLowerCase().trim();
+        if (userNameNorm && recName && (recName.includes(userNameNorm) || userNameNorm.includes(recName))) {
+          return true;
+        }
+        return false;
+      };
+
+      // 1. Consultar registros del backend EXCLUSIVOS para este estudiante
       if (user?.cedula) {
         try {
           const data = await blockchainAPI.getRecordsByCedula(user.cedula);
           if (data && data.success && Array.isArray(data.records)) {
             data.records.forEach(r => {
-              if (r && r.hash) combined.push(r);
+              if (r && r.hash && isRecordOfUser(r)) combined.push(r);
             });
           }
         } catch (e) {
@@ -156,14 +173,14 @@ const TrackingTimeline = ({ user }) => {
         }
       }
 
-      // 2. Cargar registros locales de usm_blockchain_records (incluye los emitidos desde OCR)
+      // 2. Cargar registros locales de usm_blockchain_records exclusivos de este estudiante
       try {
         const bcRecordsStr = localStorage.getItem('usm_blockchain_records');
         if (bcRecordsStr) {
           const bcList = JSON.parse(bcRecordsStr);
           if (Array.isArray(bcList)) {
             bcList.forEach(item => {
-              if (!item || !item.hash) return;
+              if (!item || !item.hash || !isRecordOfUser(item)) return;
               combined.push({
                 hash: item.hash,
                 ownerName: item.ownerName || item.owner_name || user?.nombre || 'Graduando',
@@ -187,14 +204,14 @@ const TrackingTimeline = ({ user }) => {
         console.warn('Error reading usm_blockchain_records:', e);
       }
 
-      // 3. Cargar registros locales de usm_pub_history
+      // 3. Cargar registros locales de usm_pub_history exclusivos de este estudiante
       try {
         const localHistoryStr = localStorage.getItem('usm_pub_history');
         if (localHistoryStr) {
           const localList = JSON.parse(localHistoryStr);
           if (Array.isArray(localList)) {
             localList.forEach(item => {
-              if (!item) return;
+              if (!item || !isRecordOfUser(item)) return;
               const h = item.hash || item.blockchainHash;
               if (!h) return;
               combined.push({
@@ -215,14 +232,6 @@ const TrackingTimeline = ({ user }) => {
         }
       } catch (e) {
         console.warn('Error merging local pub history:', e);
-      }
-
-      // Si no hay registros de ninguna fuente, cargar los registros canónicos de la tesis
-      if (combined.length === 0) {
-        combined = [...DEFAULT_THESIS_RECORDS];
-        try {
-          localStorage.setItem('usm_blockchain_records', JSON.stringify(DEFAULT_THESIS_RECORDS));
-        } catch (_) {}
       }
 
       // 4. Desduplicar registros por hash SHA-256 canónico respetando la jerarquía estricta de estatus

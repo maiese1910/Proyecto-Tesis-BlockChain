@@ -440,27 +440,44 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
   const fetchRecords = async () => {
     try {
       let dbRecords = [];
-      const userCedulaNorm = user?.cedula ? normalizeCedula(user.cedula) : '';
+      const userCedClean = (user?.cedula || '').replace(/\D/g, '');
+      const userNameNorm = (user?.nombre || '').toLowerCase().trim();
+      const userEmailNorm = (user?.email || '').toLowerCase().trim();
 
-      // 1. Consultar registros del backend (tanto globales como específicos por cédula)
-      try {
-        const allRes = await blockchainAPI.getAllRecords();
-        if (allRes?.success && Array.isArray(allRes.records)) {
-          dbRecords = allRes.records;
-        }
-      } catch (_) { }
+      const isRecordOfUser = (item) => {
+        if (!item) return false;
+        if (user?.role && user.role !== 'estudiante') return true;
+        if (!user) return true;
 
-      if (user?.cedula) {
+        const recCedNorm = (item.cedula || item.formData?.cedula || '').replace(/\D/g, '');
+        const recAccCedNorm = (item.accountCedula || item.account_cedula || '').replace(/\D/g, '');
+        if (userCedClean && (recAccCedNorm === userCedClean || recCedNorm === userCedClean)) return true;
+
+        const recAccNameNorm = (item.accountNombre || item.account_nombre || '').toLowerCase().trim();
+        if (userNameNorm && recAccNameNorm && (recAccNameNorm.includes(userNameNorm) || userNameNorm.includes(recAccNameNorm))) return true;
+
+        const recAccEmailNorm = (item.accountEmail || item.account_email || '').toLowerCase().trim();
+        if (userEmailNorm && recAccEmailNorm && userEmailNorm === recAccEmailNorm) return true;
+
+        const recNameNorm = (item.owner_name || item.ownerName || item.nombre || item.formData?.nombre_completo || '').toLowerCase().trim();
+        if (userNameNorm && recNameNorm && (recNameNorm.includes(userNameNorm) || userNameNorm.includes(recNameNorm))) return true;
+
+        return false;
+      };
+
+      // 1. Consultar registros del backend
+      if (user?.role && user.role !== 'estudiante') {
+        try {
+          const allRes = await blockchainAPI.getAllRecords();
+          if (allRes?.success && Array.isArray(allRes.records)) {
+            dbRecords = allRes.records;
+          }
+        } catch (_) { }
+      } else if (user?.cedula) {
         try {
           const res = await blockchainAPI.getRecordsByCedula(user.cedula);
           if (res?.success && Array.isArray(res.records)) {
-            const known = new Set(dbRecords.map(r => (r.hash || '').toUpperCase()));
-            res.records.forEach(r => {
-              if (r?.hash && !known.has(r.hash.toUpperCase())) {
-                dbRecords.push(r);
-                known.add(r.hash.toUpperCase());
-              }
-            });
+            dbRecords = res.records.filter(r => isRecordOfUser(r));
           }
         } catch (_) { }
       }
@@ -476,7 +493,7 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
         localBc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
       } catch (_) { }
 
-      // 3. Fusionar datos con jerarquía estricta de estatus
+      // 3. Fusionar datos con jerarquia estricta de estatus
       const mergedMap = new Map();
 
       const mergeIntoMap = (incoming) => {
@@ -500,6 +517,8 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
             ...incoming,
             owner_name: incoming.owner_name || current.owner_name,
             cedula: incoming.cedula || current.cedula,
+            accountCedula: incoming.accountCedula || current.accountCedula,
+            accountNombre: incoming.accountNombre || current.accountNombre,
             document_type: incoming.document_type || current.document_type,
             status: chosenStatus,
             mppeuVerified: isMppeu,
@@ -515,11 +534,13 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
 
       // Agregar registros de backend
       dbRecords.forEach(rec => {
-        if (!rec || !rec.hash) return;
+        if (!rec || !rec.hash || !isRecordOfUser(rec)) return;
         mergeIntoMap({
           hash: rec.hash,
           owner_name: rec.owner_name || rec.ownerName,
           cedula: rec.cedula,
+          accountCedula: rec.accountCedula || rec.account_cedula,
+          accountNombre: rec.accountNombre || rec.account_nombre,
           document_type: rec.document_type || rec.documentType,
           tx_hash: rec.tx_hash || rec.txHash,
           status: rec.status,
@@ -534,11 +555,13 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
 
       // Agregar de usm_blockchain_records (incluye los emitidos desde OCR)
       localBc.forEach(rec => {
-        if (!rec || !rec.hash) return;
+        if (!rec || !rec.hash || !isRecordOfUser(rec)) return;
         mergeIntoMap({
           hash: rec.hash,
           owner_name: rec.ownerName || rec.owner_name,
           cedula: rec.cedula,
+          accountCedula: rec.accountCedula || rec.account_cedula,
+          accountNombre: rec.accountNombre || rec.account_nombre,
           document_type: rec.documentType || rec.document_type,
           tx_hash: rec.txHash || rec.tx_hash || '0xPENDIENTE_COTEJO',
           status: rec.status || 'PENDIENTE_COTEJO_MPPEU',
@@ -551,28 +574,28 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
         });
       });
 
-      // Agregar de usm_pub_history
+      // Agregar de usm_pub_history (generados via PUB)
       localHistory.forEach(rec => {
-        if (!rec) return;
         const h = rec.hash || rec.blockchainHash;
-        if (!h) return;
+        if (!h || !isRecordOfUser(rec)) return;
         mergeIntoMap({
           hash: h,
-          owner_name: rec.nombre || rec.owner_name || rec.ownerName || rec.formData?.nombre_completo,
-          cedula: rec.cedula || rec.formData?.cedula,
-          document_type: rec.tramite || rec.document_type || rec.documentType,
-          tx_hash: rec.txHash || rec.tx_hash || '0xPENDIENTE_COTEJO',
+          owner_name: rec.owner_name || rec.ownerName || rec.nombre,
+          cedula: rec.cedula,
+          accountCedula: rec.accountCedula || rec.account_cedula,
+          accountNombre: rec.accountNombre || rec.account_nombre,
+          document_type: rec.document_type || rec.documentType || rec.tramite,
+          tx_hash: rec.tx_hash || rec.txHash || '0xPENDIENTE_COTEJO',
           status: rec.status || 'SOLICITUD_GTU_EMITIDA',
-          created_at: rec.timestamp || rec.created_at || rec.fecha,
-          apostilleNumber: rec.apostilleNumber,
-          mppreVerified: Boolean(rec.mppreVerified),
-          mppeuVerified: Boolean(rec.mppeuVerified),
-          solicitudCode: rec.solicitudCode || rec.stablePubCode,
+          created_at: rec.created_at || rec.timestamp || rec.fecha,
+          apostilleNumber: rec.apostilleNumber || rec.apostille_number,
+          mppreVerified: Boolean(rec.mppreVerified || rec.mppre_verified),
+          mppeuVerified: Boolean(rec.mppeuVerified || rec.mppeu_verified),
+          solicitudCode: rec.solicitudCode || rec.solicitud_code || rec.stablePubCode,
           formData: rec.formData
         });
       });
 
-      // Convertir a array
       const resolvedList = Array.from(mergedMap.values());
 
       // Re-sincronizar los registros consolidados en localStorage para actualizar los estados de inmediato

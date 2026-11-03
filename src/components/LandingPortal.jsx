@@ -74,26 +74,10 @@ const LandingPortal = ({ onStudentLogin, onAdminLogin }) => {
     }
   }, []);
 
-  const BASE_GRADUANDOS = 1240;
-  const BASE_DOCS = 3890;
-  const BASE_BLOCKCHAIN = 1250;
-  const BASE_HORAS = 2450;
-
-  const displayGraduandos = (stats.graduandos_activos && stats.graduandos_activos >= BASE_GRADUANDOS)
-    ? stats.graduandos_activos + Math.max(localUsersCount - 1, 0)
-    : BASE_GRADUANDOS + Math.max(localUsersCount - 1, 0);
-
-  const displayDocs = (stats.docs_prevalidados && stats.docs_prevalidados >= BASE_DOCS)
-    ? stats.docs_prevalidados + localDocs.length
-    : BASE_DOCS + localDocs.length;
-
-  const displayBlockchain = (stats.titulos_blockchain && stats.titulos_blockchain >= BASE_BLOCKCHAIN)
-    ? stats.titulos_blockchain + localDocs.filter(r => (r.status || '').includes('CERTIFICADO') || (r.status || '').includes('APOSTILLADO') || (r.status || '').includes('Verificado')).length
-    : BASE_BLOCKCHAIN + localDocs.filter(r => (r.status || '').includes('CERTIFICADO') || (r.status || '').includes('APOSTILLADO') || (r.status || '').includes('Verificado')).length;
-
-  const displayHoras = (stats.tiempo_ahorrado_hrs && stats.tiempo_ahorrado_hrs >= BASE_HORAS)
-    ? Math.round((stats.tiempo_ahorrado_hrs + localDocs.length * 4.5) * 10) / 10
-    : Math.round((BASE_HORAS + localDocs.length * 4.5) * 10) / 10;
+  const displayGraduandos = Math.max(stats.graduandos_activos || 0, localUsersCount || 1);
+  const displayDocs = localDocs.length;
+  const displayBlockchain = localDocs.filter(r => (r.status || '').includes('CERTIFICADO') || (r.status || '').includes('APOSTILLADO') || (r.status || '').includes('Verificado')).length;
+  const displayHoras = Math.round(displayDocs * 4.5 * 10) / 10;
 
   const displayOnlineUsers = Math.max(stats.usuarios_en_linea || 1, 1);
 
@@ -632,7 +616,7 @@ return (
         >
           <User size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
-            {displayGraduandos}+
+            {displayGraduandos}
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Graduandos Registrados</p>
         </motion.div>
@@ -653,7 +637,7 @@ return (
         >
           <CheckCircle size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
-            {displayDocs}+
+            {displayDocs}
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Documentos Pre-validados</p>
         </motion.div>
@@ -672,7 +656,7 @@ return (
         >
           <ShieldCheck size={24} color="var(--color-sienna-brown)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-sienna-brown)' }}>
-            {displayBlockchain}+
+            {displayBlockchain}
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--color-sienna-brown)', margin: 0, fontWeight: 500 }}>
             Títulos en Blockchain (Inmutables)
@@ -695,7 +679,7 @@ return (
         >
           <Clock size={22} color="var(--color-ink-black)" style={{ margin: '0 auto 0.6rem auto' }} />
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, margin: '0 0 0.2rem 0', color: 'var(--color-ink-black)' }}>
-            {displayHoras.toLocaleString('es-VE')}+ hrs
+            {displayHoras.toLocaleString('es-VE')} hrs
           </h3>
           <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, fontWeight: 450 }}>Horas de Trámite Ahorradas</p>
         </motion.div>

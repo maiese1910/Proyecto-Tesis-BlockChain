@@ -450,7 +450,7 @@ def _load_records_cache():
                     }
                     for item in data:
                         h = (item.get("hash") or "").strip().lower()
-                        if not h:
+                        if not h or h.startswith("0xtest"):
                             continue
                         if h in index_by_hash:
                             _records_memory[index_by_hash[h]] = item
@@ -615,12 +615,20 @@ def increment_stat(key: str, amount: float = 1, log_entry: str = None):
 def map_record(r):
     return {
         "hash": r.get("hash"),
-        "ownerName": r.get("owner_name"),
+        "ownerName": r.get("owner_name") or r.get("ownerName"),
+        "owner_name": r.get("owner_name") or r.get("ownerName"),
         "cedula": r.get("cedula"),
-        "documentType": r.get("document_type"),
-        "txHash": r.get("tx_hash"),
+        "accountCedula": r.get("account_cedula") or r.get("accountCedula") or r.get("cedula"),
+        "account_cedula": r.get("account_cedula") or r.get("accountCedula") or r.get("cedula"),
+        "accountOwner": r.get("account_owner") or r.get("accountOwner") or "",
+        "accountEmail": r.get("account_email") or r.get("accountEmail") or "",
+        "documentType": r.get("document_type") or r.get("documentType"),
+        "document_type": r.get("document_type") or r.get("documentType"),
+        "txHash": r.get("tx_hash") or r.get("txHash"),
+        "tx_hash": r.get("tx_hash") or r.get("txHash"),
         "status": r.get("status"),
-        "timestamp": r.get("created_at"),
+        "timestamp": r.get("created_at") or r.get("timestamp"),
+        "created_at": r.get("created_at") or r.get("timestamp"),
         "verifiedBy": r.get("verified_by"),
         "rejectionReason": r.get("rejection_reason"),
         "solicitudCode": r.get("solicitud_code"),
@@ -1119,10 +1127,13 @@ def verify_blockchain_document(doc_hash: str):
 def register_blockchain_document():
     data = request.get_json() or {}
     doc_hash = data.get("hash")
-    owner_name = data.get("ownerName", "Graduando USM")
+    owner_name = data.get("ownerName") or data.get("owner_name") or "Graduando USM"
     cedula = data.get("cedula", "V-00.000.000")
-    document_type = data.get("documentType", "Título Universitario de Ingeniero — USM")
-    solicitud_code = data.get("solicitudCode") or f"GTU-2026-USM-{secrets.token_hex(2).upper()}"
+    account_cedula = data.get("accountCedula") or data.get("account_cedula") or cedula
+    account_owner = data.get("accountOwner") or data.get("account_owner") or data.get("accountNombre") or ""
+    account_email = data.get("accountEmail") or data.get("account_email") or ""
+    document_type = data.get("documentType") or data.get("document_type") or "Título Universitario USM"
+    solicitud_code = data.get("solicitudCode") or data.get("solicitud_code") or f"GTU-2026-USM-{secrets.token_hex(2).upper()}"
     tomo = data.get("tomo", "XVIII")
     folio = data.get("folio", "142")
     libro = data.get("libro", "Grados 2026")
@@ -1130,14 +1141,13 @@ def register_blockchain_document():
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
     tx_hash = "0xPENDIENTE_COTEJO"
 
-    # Etapa 1: Registro preliminar de solicitud GTU previa al cotejo ministerial
-    # La firma y anclaje on-chain en Sepolia se ejecuta en Etapa 2 (Cotejo MPPEU)
-    pass
-
     new_rec = {
         "hash": doc_hash,
         "owner_name": owner_name,
         "cedula": cedula,
+        "account_cedula": account_cedula,
+        "account_owner": account_owner,
+        "account_email": account_email,
         "document_type": document_type,
         "tx_hash": tx_hash,
         "status": "PENDIENTE_COTEJO_MPPEU",
@@ -1271,11 +1281,14 @@ def get_records_by_cedula(cedula: str):
         except Exception:
             pass
 
+    clean_vars = [v.replace(".", "").replace("-", "").replace(" ", "").upper() for v in variations]
+
     matched_memory = [
         map_record(r) for r in _records_memory
-        if (r.get("cedula") or "").replace(".", "").replace("-", "").replace(" ", "").upper() in [
-            v.replace(".", "").replace("-", "").replace(" ", "").upper() for v in variations
-        ]
+        if (
+            (r.get("cedula") or "").replace(".", "").replace("-", "").replace(" ", "").upper() in clean_vars
+            or (r.get("account_cedula") or r.get("accountCedula") or "").replace(".", "").replace("-", "").replace(" ", "").upper() in clean_vars
+        )
     ]
 
     final_matches = _merge_records_lists(matched_memory, db_records)

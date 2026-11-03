@@ -1215,10 +1215,7 @@ select.chat-input option {
     display: none !important;
   }
 
-  /* Forzar wrapping de contenedores flex inline */
-  div[style*="display: flex"][style*="gap"] {
-    flex-wrap: wrap;
-  }
+
 
   /* Tablas con scroll horizontal */
   table {
@@ -1263,4 +1260,49 @@ select.chat-input option {
 
 .gov-table-row:hover {
   background-color: rgba(241, 245, 249, 0.75) !important;
+}
+
+.mobile-top-bar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .mobile-top-bar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.25rem;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1000;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .main-content {
+    padding-top: calc(52px + 1.25rem) !important;
+  }
+
+  .nav-menu {
+    justify-content: flex-start !important;
+    padding: 0 0.5rem !important;
+    gap: 0.5rem !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .nav-item {
+    background: var(--color-fog-white) !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  .nav-item.active {
+    background: var(--color-ink-black) !important;
+    color: #ffffff !important;
+    border-color: var(--color-ink-black) !important;
+  }
 }

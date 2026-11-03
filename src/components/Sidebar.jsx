@@ -17,6 +17,43 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout }) => {
 
   return (
     <div className="sidebar">
+      {/* Barra superior móvil fija */}
+      <div className="mobile-top-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'var(--color-ink-black)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+            <User size={15} color="#ffffff" />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)' }}>
+              {user?.nombre ? `${user.nombre.split(' ')[0]} ${user.nombre.split(' ').slice(-1)[0]}` : 'Graduando USM'}
+            </p>
+            <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--color-slate-gray)' }}>
+              {user?.cedula || 'Portal USM'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={onLogout}
+          aria-label="Cerrar Sesión"
+          style={{
+            background: 'rgba(185, 28, 28, 0.08)',
+            border: '1px solid rgba(185, 28, 28, 0.25)',
+            borderRadius: 'var(--radius-pill)',
+            color: '#b91c1c',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.35rem 0.75rem',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          <LogOut size={13} />
+          <span>Salir</span>
+        </button>
+      </div>
       <div className="sidebar-brand">
         <h1>Universidad Santa María<br /><span style={{ fontSize: '0.86rem', color: 'var(--color-slate-gray)', fontWeight: 400 }}>Plataforma de Apostilla</span></h1>
         <p>Sistema Distribuido de Verificación Blockchain</p>
