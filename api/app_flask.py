@@ -139,6 +139,25 @@ def extract_document():
                 logger.warning(f"Ollama local no disponible, activando fallback híbrido: {e}")
                 mode = "hybrid"
 
+        # Soporte especializado para documentos PDF (PyMuPDF / fitz)
+        extracted_pdf_text = ""
+        if image_bytes and (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40]):
+            rendered_image = None
+            try:
+                import fitz
+                doc = fitz.open(stream=image_bytes, filetype="pdf")
+                for page in doc:
+                    extracted_pdf_text += page.get_text() + "\n"
+                if len(doc) > 0:
+                    pix = doc[0].get_pixmap(dpi=300)
+                    rendered_image = pix.tobytes("png")
+                doc.close()
+            except Exception as pdf_err:
+                logger.warning(f"Aviso PyMuPDF: {pdf_err}")
+
+            if rendered_image:
+                image_bytes = rendered_image
+
         # Decodificación para OpenCV
         nparr = np.frombuffer(image_bytes, np.uint8)
         image_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -146,13 +165,18 @@ def extract_document():
         if image_cv is None:
             return jsonify({"success": False, "error": "No se pudo decodificar el formato de la imagen."}), 400
 
-        # 2. Modo Híbrido (OpenCV Morfología + Tesseract frk+spa)
+        # 2. Modo Híbrido (OpenCV Morfología + Tesseract frk+spa + Texto Digital PDF)
         tess_result = USMOcrService.extract_with_tesseract(image_cv)
-        if tess_result.get("full_text"):
+        tess_text = tess_result.get("full_text", "")
+        combined_text = f"{extracted_pdf_text.strip()}\n{tess_text}".strip()
+
+        if combined_text:
+            merged_fields = AcademicDegreeNER.extract_all(combined_text)
+            engine_name = "PyMuPDF + Tesseract Fraktur Hybrid" if extracted_pdf_text else tess_result.get('engine', 'tesseract_hybrid')
             resp = USMOcrService.format_for_frontend(
-                tess_result["extracted_fields"],
-                tess_result["full_text"],
-                tess_result["engine"],
+                merged_fields,
+                combined_text,
+                engine_name,
                 user_cedula=user_cedula
             )
             resp["fraktur_enabled"] = tess_result.get("fraktur_enabled", False)

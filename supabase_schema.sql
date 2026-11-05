@@ -22,6 +22,14 @@ CREATE TABLE IF NOT EXISTS admins (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Insertar administradores iniciales por defecto para los entes
+INSERT INTO admins (username, password, cargo, ente) VALUES
+  ('mppeu_agente', 'admin123', 'Analista Revisor de Taquilla GTU', 'MPPEU'),
+  ('saren_admin', 'admin123', 'Registrador Principal / Protocolización', 'SAREN'),
+  ('mppre_agente', 'admin123', 'Oficial Consular de Legalización y Apostilla', 'MPPRE'),
+  ('admin', 'usm2026', 'Administrador Central del Sistema', 'USM')
+ON CONFLICT (username) DO NOTHING;
+
 -- ─── Tabla: records (registros blockchain) ──────────────────────────────────
 CREATE TABLE IF NOT EXISTS records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,10 +37,38 @@ CREATE TABLE IF NOT EXISTS records (
   owner_name TEXT NOT NULL,
   cedula TEXT NOT NULL,
   document_type TEXT NOT NULL,
+  document_url TEXT,
+  solicitud_code TEXT,
+  tomo TEXT DEFAULT 'XVIII',
+  folio TEXT DEFAULT '142',
+  libro TEXT DEFAULT 'Grados 2026',
   tx_hash TEXT,
-  status TEXT DEFAULT 'Pendiente de Auditoría',
+  status TEXT DEFAULT 'PENDIENTE_COTEJO_MPPEU',
+  mppeu_verified BOOLEAN DEFAULT false,
+  mppre_verified BOOLEAN DEFAULT false,
+  mppeu_officer TEXT,
+  mppeu_date TEXT,
+  mppre_officer TEXT,
+  mppre_date TEXT,
+  apostille_number TEXT,
+  rejection_reason TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Si la tabla ya existía, asegurar columnas adicionales
+ALTER TABLE records ADD COLUMN IF NOT EXISTS document_url TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS solicitud_code TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS tomo TEXT DEFAULT 'XVIII';
+ALTER TABLE records ADD COLUMN IF NOT EXISTS folio TEXT DEFAULT '142';
+ALTER TABLE records ADD COLUMN IF NOT EXISTS libro TEXT DEFAULT 'Grados 2026';
+ALTER TABLE records ADD COLUMN IF NOT EXISTS mppeu_verified BOOLEAN DEFAULT false;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS mppre_verified BOOLEAN DEFAULT false;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS mppeu_officer TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS mppeu_date TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS mppre_officer TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS mppre_date TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS apostille_number TEXT;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 
 -- ─── Tabla: stats (estadísticas persistentes del Dashboard) ─────────────────
 CREATE TABLE IF NOT EXISTS stats (
@@ -169,6 +205,38 @@ CREATE POLICY "Allow all for service role" ON guias_logistica FOR ALL USING (tru
 CREATE POLICY "Allow all for service role" ON planillas FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for service role" ON carreras FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for service role" ON pub_fields FOR ALL USING (true) WITH CHECK (true);
+
+
+-- ─── Storage Bucket: documentos (Títulos, Diplomas y Actas) ─────────────────
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'documentos',
+  'documentos',
+  true,
+  52428800,
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'application/pdf']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 52428800,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'application/pdf'];
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'Public Access to Documentos' AND tablename = 'objects' AND schemaname = 'storage'
+  ) THEN
+    CREATE POLICY "Public Access to Documentos" ON storage.objects
+      FOR SELECT USING (bucket_id = 'documentos');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'Public Upload Documentos' AND tablename = 'objects' AND schemaname = 'storage'
+  ) THEN
+    CREATE POLICY "Public Upload Documentos" ON storage.objects
+      FOR INSERT WITH CHECK (bucket_id = 'documentos');
+  END IF;
+END $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- ✅ Schema completo. Ejecutar este script en Supabase SQL Editor.

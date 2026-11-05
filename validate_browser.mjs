@@ -1,3 +1,4 @@
+
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
@@ -23,9 +24,9 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, '01_landing_login.png') });
   const hasLogin = await page.evaluate(() => {
     const text = document.body.innerText;
-    return text.includes('Acceso Graduando USM') && 
-           text.includes('Iniciar Sesión') && 
-           text.includes('Regístrate aquí');
+    return text.includes('Acceso Graduando USM') &&
+      text.includes('Iniciar Sesión') &&
+      text.includes('Regístrate aquí');
   });
   console.log('✔ [TEST 1] Formulario de Login de Graduando presente:', hasLogin);
 
@@ -40,7 +41,7 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02_vista_recuperar_clave.png') });
   const hasForgot = await page.evaluate(() => {
     return document.body.innerText.includes('Recuperar Contraseña') &&
-           document.body.innerText.includes('Enviar Enlace de Recuperación');
+      document.body.innerText.includes('Enviar Enlace de Recuperación');
   });
   console.log('✔ [TEST 2] Vista de Recuperar Contraseña operativa:', hasForgot);
 
@@ -52,9 +53,9 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
   const hasResetPassword = await page.evaluate(() => {
     const text = document.body.innerText;
     return text.includes('Establecer Nueva Contraseña') &&
-           text.includes('Nueva Contraseña') &&
-           text.includes('Confirmar Nueva Contraseña') &&
-           text.includes('Guardar Nueva Contraseña e Ingresar');
+      text.includes('Nueva Contraseña') &&
+      text.includes('Confirmar Nueva Contraseña') &&
+      text.includes('Guardar Nueva Contraseña e Ingresar');
   });
   console.log('✔ [TEST 3] Formulario para escribir Nueva Contraseña operativo:', hasResetPassword);
 
@@ -70,8 +71,8 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04_vista_registro_cedula.png') });
   const hasRegister = await page.evaluate(() => {
     return document.body.innerText.includes('Crear Cuenta de Graduando') &&
-           document.body.innerText.includes('Cédula de Identidad quedará vinculada de forma inmutable') &&
-           document.body.innerText.includes('Carrera de Grado');
+      document.body.innerText.includes('Cédula de Identidad quedará vinculada de forma inmutable') &&
+      document.body.innerText.includes('Carrera de Grado');
   });
   console.log('✔ [TEST 4] Formulario de Registro con Cédula Inmutable operativo:', hasRegister);
 
@@ -87,7 +88,7 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05_vista_solicitar_otp.png') });
   const hasOtpView = await page.evaluate(() => {
     return document.body.innerText.includes('Acceso sin Contraseña') &&
-           document.body.innerText.includes('Enviar Código de Seguridad');
+      document.body.innerText.includes('Enviar Código de Seguridad');
   });
   console.log('✔ [TEST 5] Vista de Solicitud de Código OTP operativa:', hasOtpView);
 
@@ -97,8 +98,8 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06_portal_gobierno_admin.png') });
   const hasGovPortal = await page.evaluate(() => {
     return document.body.innerText.includes('Acceso a Auditoría') &&
-           document.body.innerText.includes('Segregación de Funciones (SoD)') &&
-           document.body.innerText.includes('MPPEU / MPPRE');
+      document.body.innerText.includes('Segregación de Funciones (SoD)') &&
+      document.body.innerText.includes('MPPEU / MPPRE');
   });
   console.log('✔ [TEST 6] Portal Gubernamental aislado por URL /admin operativo:', hasGovPortal);
 
@@ -115,9 +116,9 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
   const inDashboard = await page.evaluate(() => {
     const text = document.body.innerText;
     return (text.includes('Mauro Daniel Maiese Ferreira') || text.includes('V-28.315.101')) &&
-           text.includes('Pre-Validación') &&
-           text.includes('Planilla PUB') &&
-           text.includes('Verificador Blockchain');
+      text.includes('Pre-Validación') &&
+      text.includes('Planilla PUB') &&
+      text.includes('Verificador Blockchain');
   });
   console.log('✔ [TEST 7] Dashboard de Graduando y Defensa de Grado 100% operativo:', inDashboard);
 

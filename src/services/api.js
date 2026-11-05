@@ -126,6 +126,28 @@ export const blockchainAPI = {
     apiFetch('/blockchain/contract-address', { method: 'POST', body: { contractAddress } }),
 };
 
+// ─── Documents & Storage ───────────────────────────────────────────────────
+export const documentsAPI = {
+  upload: async (fileOrBlob, metadata = {}) => {
+    const formData = new FormData();
+    if (fileOrBlob instanceof Blob || fileOrBlob instanceof File) {
+      formData.append('file', fileOrBlob, metadata.filename || 'documento.jpg');
+    } else if (typeof fileOrBlob === 'string') {
+      formData.append('dataUrl', fileOrBlob);
+    }
+    if (metadata.docHash) formData.append('docHash', metadata.docHash);
+    if (metadata.ownerName) formData.append('ownerName', metadata.ownerName);
+    if (metadata.cedula) formData.append('cedula', metadata.cedula);
+
+    const res = await fetch(`${API_URL}/api/documents/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) throw new Error('Error al subir documento al servidor');
+    return res.json();
+  }
+};
+
 
 // ─── Hash ───────────────────────────────────────────────────────────────────
 export const hashAPI = {

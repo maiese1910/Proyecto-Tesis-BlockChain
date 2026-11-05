@@ -94,6 +94,8 @@ class GeminiVisionExtractor:
                 api_key = None
         if not api_key:
             return False, {}, "GEMINI_API_KEY no configurada en las variables de entorno (.env)."
+        if api_key.startswith("AQ."):
+            return False, {}, "La clave GEMINI_API_KEY en .env no es una clave API de Google AI Studio (las claves de Gemini API comienzan con 'AIzaSy...')."
         if not genai:
             return False, {}, "La librería 'google-generativeai' no está instalada en el entorno."
 
@@ -102,13 +104,27 @@ class GeminiVisionExtractor:
         except Exception as cfg_err:
             return False, {}, f"Error configurando API Key de Gemini: {str(cfg_err)}"
 
-        try:
-            pil_image = Image.open(BytesIO(image_bytes))
-            if pil_image.mode not in ("RGB", "L"):
-                pil_image = pil_image.convert("RGB")
-        except Exception as img_err:
-            logger.error(f"Formato de imagen inválido o corrupto: {img_err}")
-            return False, {}, f"No se pudo decodificar el archivo de imagen: {str(img_err)}"
+        pil_image = None
+        # Soporte para documentos PDF (PyMuPDF fitz)
+        if image_bytes and (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40]):
+            try:
+                import fitz
+                doc = fitz.open(stream=image_bytes, filetype="pdf")
+                if len(doc) > 0:
+                    pix = doc[0].get_pixmap(dpi=200)
+                    pil_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                doc.close()
+            except Exception as pdf_raster_err:
+                logger.warning(f"Aviso rasterizando PDF en GeminiVision: {pdf_raster_err}")
+
+        if pil_image is None:
+            try:
+                pil_image = Image.open(BytesIO(image_bytes))
+                if pil_image.mode not in ("RGB", "L"):
+                    pil_image = pil_image.convert("RGB")
+            except Exception as img_err:
+                logger.error(f"Formato de imagen inválido o corrupto: {img_err}")
+                return False, {}, f"No se pudo decodificar el archivo de imagen: {str(img_err)}"
 
         generation_config = {
             "response_mime_type": "application/json",

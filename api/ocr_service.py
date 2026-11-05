@@ -32,7 +32,11 @@ from vision_preprocessor import USMDocumentPreprocessor
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("USMOcrService")
 
-# Detectar ruta por defecto de Tesseract en Windows
+# Configuración del motor Tesseract con datos locales (Español, Gótico Fraktur, Inglés)
+LOCAL_TESSDATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tessdata")
+if os.path.exists(LOCAL_TESSDATA):
+    os.environ["TESSDATA_PREFIX"] = LOCAL_TESSDATA
+
 TESSERACT_PATHS = [
     r"C:\Program Files\Tesseract-OCR\tesseract.exe",
     r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
@@ -67,24 +71,173 @@ class AcademicDegreeNER:
         'cincuenta': 50, 'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90
     }
 
-    @classmethod
-    def extract_institution(cls, text: str) -> str:
-        """
-        Extrae el nombre de la institución universitaria sin forzar una entidad predeterminada.
-        Maneja caligrafía gótica y caracteres OCR aproximados.
-        """
-        if re.search(r'Santa\s+Mar[ií1l]a\s+La\s+Antigua', text, re.IGNORECASE):
-            return "Universidad Católica Santa María La Antigua"
+    # ─── CATÁLOGO MAESTRO DE UNIVERSIDADES DE VENEZUELA (OFICIAL) ───────────────
+    CATALOGO_UNIVERSIDADES = [
+        {"nombre": "Universidad Central de Venezuela (UCV)", "siglas": "UCV", "keywords": ["central de venezuela", "universidad central", "ucv"]},
+        {"nombre": "Universidad Santa María (USM)", "siglas": "USM", "keywords": ["santa maria", "santa maría", "usm"]},
+        {"nombre": "Universidad Católica Andrés Bello (UCAB)", "siglas": "UCAB", "keywords": ["catolica andres bello", "católica andrés bello", "ucab"]},
+        {"nombre": "Universidad Simón Bolívar (USB)", "siglas": "USB", "keywords": ["simon bolivar", "simón bolívar", "usb"]},
+        {"nombre": "Universidad de Carabobo (UC)", "siglas": "UC", "keywords": ["universidad de carabobo", "carabobo"]},
+        {"nombre": "Universidad de Los Andes (ULA)", "siglas": "ULA", "keywords": ["universidad de los andes", "los andes", "ula"]},
+        {"nombre": "Universidad del Zulia (LUZ)", "siglas": "LUZ", "keywords": ["universidad del zulia", "del zulia", "luz"]},
+        {"nombre": "Universidad Metropolitana (UNIMET)", "siglas": "UNIMET", "keywords": ["universidad metropolitana", "metropolitana", "unimet"]},
+        {"nombre": "Universidad Nacional Experimental Politécnica de la Fuerza Armada (UNEFA)", "siglas": "UNEFA", "keywords": ["fuerza armada", "unefa", "politecnica de la fuerza"]},
+        {"nombre": "Universidad Nacional Experimental Simón Rodríguez (UNESR)", "siglas": "UNESR", "keywords": ["simon rodriguez", "simón rodríguez", "unesr"]},
+        {"nombre": "Universidad Pedagógica Experimental Libertador (UPEL)", "siglas": "UPEL", "keywords": ["pedagogica experimental", "libertador", "upel"]},
+        {"nombre": "Universidad Centroccidental Lisandro Alvarado (UCLA)", "siglas": "UCLA", "keywords": ["lisandro alvarado", "centroccidental", "ucla"]},
+        {"nombre": "Universidad Dr. Rafael Belloso Chacín (URBE)", "siglas": "URBE", "keywords": ["belloso chacin", "belloso chacín", "urbe"]},
+        {"nombre": "Universidad José Antonio Páez (UJAP)", "siglas": "UJAP", "keywords": ["jose antonio paez", "josé antonio páez", "ujap"]},
+        {"nombre": "Universidad Alejandro de Humboldt (UAH)", "siglas": "UAH", "keywords": ["alejandro de humboldt", "uah"]},
+        {"nombre": "Universidad Monteávila (UMA)", "siglas": "UMA", "keywords": ["monteavila", "monteávila", "uma"]},
+        {"nombre": "Universidad Bicentenaria de Aragua (UBA)", "siglas": "UBA", "keywords": ["bicentenaria de aragua", "uba"]},
+        {"nombre": "Universidad Rafael Urdaneta (URU)", "siglas": "URU", "keywords": ["rafael urdaneta", "uru"]},
+        {"nombre": "Universidad Yacambú (UNY)", "siglas": "UNY", "keywords": ["yacambu", "yacambú", "uny"]},
+        {"nombre": "Universidad Nacional Experimental de Guayana (UNEG)", "siglas": "UNEG", "keywords": ["guayana", "uneg"]},
+        {"nombre": "Universidad Nacional Experimental de los Llanos Ezequiel Zamora (UNELLEZ)", "siglas": "UNELLEZ", "keywords": ["llanos occidentales", "ezequiel zamora", "unellez"]},
+        {"nombre": "Universidad Nacional Experimental Francisco de Miranda (UNEFM)", "siglas": "UNEFM", "keywords": ["francisco de miranda", "unefm"]},
+        {"nombre": "Universidad Bolivariana de Venezuela (UBV)", "siglas": "UBV", "keywords": ["universidad bolivariana", "ubv"]},
+        {"nombre": "Universidad Nacional Experimental Politécnica Antonio José de Sucre (UNEXPO)", "siglas": "UNEXPO", "keywords": ["antonio jose de sucre", "unexpo", "politecnica antonio"]},
+        {"nombre": "Universidad Católica Santa María La Antigua (USMA)", "siglas": "USMA", "keywords": ["santa maria la antigua", "usma"]}
+    ]
 
+    # ─── CATÁLOGO OFICIAL DE CARRERAS Y TITULACIONES (OPSU / LOEU) ───────────────
+    CATALOGO_CARRERAS = [
+        # Ingenierías
+        {"titulo": "Ingeniero de Sistemas", "keywords": ["ingeniero de sistemas", "ingenieria de sistemas", "ingeniero en sistemas", "ingenieria en sistemas", "sistemas"]},
+        {"titulo": "Ingeniero en Informática", "keywords": ["ingeniero en informatica", "ingenieria informatica", "ingeniero informatico", "informatica"]},
+        {"titulo": "Ingeniero de Telecomunicaciones", "keywords": ["ingeniero de telecomunicaciones", "ingenieria de telecomunicaciones", "telecomunicaciones"]},
+        {"titulo": "Ingeniero Civil", "keywords": ["ingeniero civil", "ingenieria civil", "civil"]},
+        {"titulo": "Ingeniero Industrial", "keywords": ["ingeniero industrial", "ingenieria industrial", "industrial"]},
+        {"titulo": "Ingeniero Mecánico", "keywords": ["ingeniero mecanico", "ingenieria mecanica", "mecanico"]},
+        {"titulo": "Ingeniero Electricista", "keywords": ["ingeniero electricista", "ingeniero electrico", "ingenieria electrica", "electricista"]},
+        {"titulo": "Ingeniero Electrónico", "keywords": ["ingeniero electronico", "ingenieria electronica", "electronico"]},
+        {"titulo": "Ingeniero Químico", "keywords": ["ingeniero quimico", "ingenieria quimica", "quimico"]},
+        {"titulo": "Arquitecto", "keywords": ["arquitecto", "arquitectura"]},
+        # Ciencias Sociales y Humanidades
+        {"titulo": "Abogado", "keywords": ["abogado", "abogada", "ciencias juridicas", "derecho"]},
+        {"titulo": "Licenciada en Derecho y Ciencias Políticas", "keywords": ["derecho y ciencias politicas"]},
+        {"titulo": "Licenciado en Administración", "keywords": ["licenciado en administracion", "administracion comercial", "administracion de empresas", "administracion"]},
+        {"titulo": "Contador Público", "keywords": ["contador publico", "contaduria publica", "licenciado en contaduria"]},
+        {"titulo": "Licenciado en Comunicación Social", "keywords": ["comunicacion social", "licenciado en comunicacion", "periodista"]},
+        {"titulo": "Economista", "keywords": ["economista", "licenciado en economia", "ciencias economicas", "economia"]},
+        {"titulo": "Licenciado en Psicología", "keywords": ["psicologia", "licenciado en psicologia", "psicologo"]},
+        {"titulo": "Licenciado en Educación", "keywords": ["licenciado en educacion", "educacion integral", "educacion"]},
+        {"titulo": "Licenciado en Estudios Internacionales", "keywords": ["estudios internacionales"]},
+        {"titulo": "Licenciado en Relaciones Industriales", "keywords": ["relaciones industriales"]},
+        # Ciencias de la Salud
+        {"titulo": "Médico Cirujano", "keywords": ["medico cirujano", "medicina", "medico cirujana"]},
+        {"titulo": "Odontólogo", "keywords": ["odontologo", "odontologia", "odontologa"]},
+        {"titulo": "Farmacéutico", "keywords": ["farmaceutico", "farmacia", "farmaceutica"]},
+        {"titulo": "Licenciado en Enfermería", "keywords": ["enfermeria", "licenciado en enfermeria", "enfermero", "enfermera"]},
+        {"titulo": "Licenciado en Bioanálisis", "keywords": ["bioanalisis", "licenciado en bioanalisis"]},
+        {"titulo": "Licenciado en Fisioterapia", "keywords": ["fisioterapia", "fisioterapeuta"]},
+        {"titulo": "Licenciado en Nutrición y Dietética", "keywords": ["nutricion y dietetica", "nutricionista"]},
+        # Ciencias Básicas
+        {"titulo": "Licenciado en Computación", "keywords": ["licenciado en computacion", "ciencias de la computacion", "computacion"]},
+        {"titulo": "Licenciado en Biología", "keywords": ["licenciado en biologia", "biologo"]},
+        {"titulo": "Licenciado en Química", "keywords": ["licenciado en quimica", "quimica"]},
+        {"titulo": "Licenciado en Física", "keywords": ["licenciado en fisica", "fisica"]},
+        {"titulo": "Licenciado en Matemática", "keywords": ["licenciado en matematica", "matematica"]}
+    ]
+
+    # ─── FRASES DE CONTROL LEGAL Y DELIMITADORES DE PROTOCOLO ────────────────────
+    FRASES_CONTROL_LEGAL = [
+        "cumplio con todos los requisitos exigidos por las leyes",
+        "cumplió con todos los requisitos exigidos por las leyes",
+        "en nombre de la republica y por autoridad de la ley",
+        "en nombre de la república y por autoridad de la ley",
+        "se le confiere el titulo de",
+        "se le confiere el título de",
+        "confiere el titulo de",
+        "confiere el título de",
+        "reconozcase y tengase en toda la republica",
+        "reconózcase y téngase en toda la república",
+        "en fe de lo cual se firma el presente",
+        "quedo registrado bajo el",
+        "quedó registrado bajo el",
+        "hago saber:",
+        "hace saber:"
+    ]
+
+    @staticmethod
+    def levenshtein_similarity(s1: str, s2: str) -> float:
+        """Calcula el ratio de similitud difusa de Levenshtein entre dos cadenas (0.0 a 1.0)."""
+        if not s1 or not s2:
+            return 0.0
+        s1, s2 = s1.lower().strip(), s2.lower().strip()
+        if s1 == s2:
+            return 1.0
+        len1, len2 = len(s1), len(s2)
+        dp = [[0] * (len2 + 1) for _ in range(len1 + 1)]
+        for i in range(len1 + 1):
+            dp[i][0] = i
+        for j in range(len2 + 1):
+            dp[0][j] = j
+        for i in range(1, len1 + 1):
+            for j in range(1, len2 + 1):
+                cost = 0 if s1[i - 1] == s2[j - 1] else 1
+                dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+        distance = dp[len1][len2]
+        max_len = max(len1, len2)
+        return max(0.0, 1.0 - (distance / max_len))
+
+
+
+    @classmethod
+    def extract_institution(cls, text: str) -> Optional[str]:
+        """
+        Extrae el nombre oficial de la institución universitaria mediante:
+        1. Búsqueda exacta y coincidencia de patrones por Regex.
+        2. Búsqueda difusa (Fuzzy Matching con Levenshtein) contra el Catálogo Maestro de 23 Universidades.
+        """
+        text_lower = text.lower()
+
+        # 1. Búsqueda directa por Catálogo Maestro de Universidades (con límites de palabra exactos)
+        for u in cls.CATALOGO_UNIVERSIDADES:
+            for kw in u["keywords"]:
+                if re.search(r'\b' + re.escape(kw) + r'\b', text_lower):
+                    return u["nombre"]
+
+        # 2. Búsqueda por Regex canónico con tolerancia a ortografía gótica
         m = re.search(
-            r'(?:rep[uú]blica\s+[a-z\s]+)?\b((?:Universidad|Universidab|Instituto\s+Universitario|Colegio\s+Universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Faculta|República|El Rector|Por cuanto|Legalmente|Confiere|Contiere|$)',
+            r'(?:rep[uú]blica\s+[a-z\s]+)?\b((?:[uv]n[i1l]vers[i1l]da[db]|instituto\s+universitario|colegio\s+universitario)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|faculta|república|el rector|por cuanto|legalmente|confiere|contiere|$)',
             text, re.IGNORECASE
         )
         if m:
             clean = ' '.join(m.group(1).strip().split())
-            clean = re.sub(r'^Universidab', 'Universidad', clean, flags=re.IGNORECASE)
+            clean = re.sub(r'^[uv]n[i1l]vers[i1l]da[db]', 'Universidad', clean, flags=re.IGNORECASE)
             if len(clean) >= 8:
+                # Comprobar si coincide por Fuzzy Matching con alguna universidad oficial
+                best_match = None
+                best_score = 0.0
+                for u in cls.CATALOGO_UNIVERSIDADES:
+                    score = cls.levenshtein_similarity(clean, u["nombre"])
+                    for kw in u["keywords"]:
+                        score_kw = cls.levenshtein_similarity(clean, kw)
+                        if score_kw > score:
+                            score = score_kw
+                    if score > best_score:
+                        best_score = score
+                        best_match = u["nombre"]
+
+                if best_score >= 0.72 and best_match:
+                    return best_match
                 return clean
+
+        # 3. Fuzzy scan línea por línea contra el Catálogo Maestro
+        lines = [line.strip() for line in text.split('\n') if len(line.strip()) >= 5]
+        best_match = None
+        best_score = 0.0
+        for line in lines[:10]: # Las universidades siempre están en las primeras 10 líneas
+            for u in cls.CATALOGO_UNIVERSIDADES:
+                for kw in u["keywords"]:
+                    score = cls.levenshtein_similarity(line, kw)
+                    if score > best_score:
+                        best_score = score
+                        best_match = u["nombre"]
+
+        if best_score >= 0.75 and best_match:
+            return best_match
 
         if re.search(r'\bCentral\s+de\s+Venezuela\b|Facultad\s+de\s+Medicina|U\.?C\.?V\.?|M[eé]dic[oa]\s+Cirujan[oa]', text, re.IGNORECASE):
             return "Universidad Central de Venezuela (UCV)"
@@ -102,6 +255,24 @@ class AcademicDegreeNER:
             return "Universidad de Carabobo (UC)"
         elif re.search(r'\bMetropolitana\b|U\.?N\.?I\.?M\.?E\.?T\.?', text, re.IGNORECASE):
             return "Universidad Metropolitana (UNIMET)"
+        elif re.search(r'\bde\s+Oriente\b|U\.?D\.?O\.?', text, re.IGNORECASE):
+            return "Universidad de Oriente (UDO)"
+        elif re.search(r'\bLisandro\s+Alvarado\b|U\.?C\.?L\.?A\.?', text, re.IGNORECASE):
+            return "Universidad Centroccidental Lisandro Alvarado (UCLA)"
+        elif re.search(r'\bPolit[eé]cnica\b|U\.?N\.?E\.?X\.?P\.?O\.?', text, re.IGNORECASE):
+            return "UNEXPO"
+        elif re.search(r'\bFuerzas\s+Armadas\b|U\.?N\.?E\.?F\.?A\.?', text, re.IGNORECASE):
+            return "UNEFA"
+        elif re.search(r'\bAlejandro\s+de\s+Humboldt\b|U\.?A\.?H\.?', text, re.IGNORECASE):
+            return "Universidad Alejandro de Humboldt (UAH)"
+        elif re.search(r'\bMonte[aá]vila\b|U\.?M\.?A\.?', text, re.IGNORECASE):
+            return "Universidad Monteávila (UMA)"
+        elif re.search(r'\bJos[eé]\s+Antonio\s+P[aá]ez\b|U\.?J\.?A\.?P\.?', text, re.IGNORECASE):
+            return "Universidad José Antonio Páez (UJAP)"
+        elif re.search(r'\bBicentenaria\s+de\s+Aragua\b|U\.?B\.?A\.?', text, re.IGNORECASE):
+            return "Universidad Bicentenaria de Aragua (UBA)"
+        elif re.search(r'\bBelloso\s+Chac[ií]n\b|U\.?R\.?B\.?E\.?', text, re.IGNORECASE):
+            return "Universidad Dr. Rafael Belloso Chacín (URBE)"
 
         return None
 
@@ -115,17 +286,17 @@ class AcademicDegreeNER:
             # Patrón A (Rectoral / UCV): "Hago saber: Que: [NOMBRE] Titular de la cédula..."
             r'(?:hago\s+saber\s*:\s*(?:que\s*:\s*)?|rector\(?a?\)?\s*\n*)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|cumpli[oó]|por\s+lo\s+cual))',
             # Patrón B (Concesión): "Confiere a [NOMBRE] el título de..."
-            r'(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))',
+            r'(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:titular|el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))',
             # Patrón C (Cumplimiento): "Por cuanto [NOMBRE] ha cumplido..."
-            r'por\s+cuanto\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:ha\s+cumplido|cumpli[oó]|en\s+nombre|titular))',
-            r'(?:graduando|titular|egresado)\s*[:#-]?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{6,45})'
+            r'por\s+cuanto\s*(?:el\s+ciudadano|la\s+ciudadana|al\s+ciudadano)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular|ha\s+cumplido|cumpli[oó]|en\s+nombre|c[eé]dula|\d))',
+            r'(?:graduando|egresado|titular\s*[:#-])\s*[:#-]?\s*(?!de\s+la\s+c[eé]dula)([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{6,45})(?=\n|$)'
         ]
         for pat in patrones:
             m = re.search(pat, text, re.IGNORECASE)
             if m:
                 cand = ' '.join(m.group(1).strip().split())
                 cand = re.sub(r'^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana|de\s+la\s+c[eé]dula\s+de)\s+', '', cand, flags=re.IGNORECASE)
-                cand = re.sub(r'\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|de\s+la\s+c[eé]dula).*$', '', cand, flags=re.IGNORECASE)
+                cand = re.sub(r'\s*(?:titular\s+de\s+la\s+c[eé]dula|titular|c[eé]dula|de\s+la\s+c[eé]dula).*$', '', cand, flags=re.IGNORECASE | re.DOTALL).strip()
                 if 4 <= len(cand) <= 55 and not re.search(r'^(?:de\s+la\s+c[eé]dula|cedula\s+de)$', cand, re.IGNORECASE):
                     return cand
 
@@ -134,23 +305,77 @@ class AcademicDegreeNER:
     @classmethod
     def extract_degree(cls, text: str) -> Optional[str]:
         """
-        Extrae la denominación exacta del título o grado académico conferido.
+        Extrae la denominación exacta del título o grado académico conferido mediante:
+        1. Búsqueda exacta y coincidencia de patrones por Regex.
+        2. Fuzzy Matching contra el Catálogo Oficial de Titulaciones y Carreras (OPSU/LOEU).
         """
+        text_lower = text.lower()
+
+        # 1. Búsqueda directa por Catálogo Oficial de Carreras (Keywords de alta precisión)
+        for c in cls.CATALOGO_CARRERAS:
+            for kw in c["keywords"]:
+                if kw in text_lower:
+                    return c["titulo"]
+        # 1. Carreras de Salud
         if re.search(r'm[eé]dic[oa]\s+cirujan[oa]', text, re.IGNORECASE):
             return "Médico Cirujano"
+        if re.search(r'odont[oó]log[oa]', text, re.IGNORECASE):
+            return "Odontólogo"
+        if re.search(r'farmac[eé]utic[oa]', text, re.IGNORECASE):
+            return "Farmacéutico"
+        if re.search(r'enfermer[ií][oa]', text, re.IGNORECASE):
+            return "Licenciado en Enfermería"
+
+        # 2. Derecho y Ciencias Políticas
         if re.search(r'derecho\s+y\s+ciencias\s+pol[ií]ticas', text, re.IGNORECASE):
             return "Licenciada en Derecho y Ciencias Políticas"
-        if re.search(r'ingenier[ií][oa]\s+(?:en|de)?\s+sistemas', text, re.IGNORECASE):
-            return "Ingeniero de Sistemas"
         if re.search(r'\babogad[oa]\b', text, re.IGNORECASE):
             return "Abogado"
-        if re.search(r'administraci[oó]n\s+(?:de\s+empresas|comercial)?', text, re.IGNORECASE):
-            return "Licenciado en Administración"
-        if re.search(r'contadur[ií]a\s+p[uú]blica|contador\s+p[uú]blico', text, re.IGNORECASE):
-            return "Contador Público"
-        if re.search(r'comunicaci[oó]n\s+social', text, re.IGNORECASE):
-            return "Licenciado en Comunicación Social"
 
+        # 3. Ingenierías (Mapeo canónico exacto con tolerancia ortográfica)
+        if re.search(r'ingenier[ií][oa]\s+(?:en|de)?\s*s[i1l]st[e3]mas?', text, re.IGNORECASE):
+            return "Ingeniero de Sistemas"
+        if re.search(r'ingenier[ií][oa]\s+(?:en|de)?\s*inform[aá]t[i1]ca', text, re.IGNORECASE):
+            return "Ingeniero en Informática"
+        if re.search(r'ingenier[ií][oa]\s+(?:en|de)?\s*telecomunicacion(?:es)?', text, re.IGNORECASE):
+            return "Ingeniero de Telecomunicaciones"
+        if re.search(r'ingenier[ií][oa]\s+c[i1l]v[i1l]l', text, re.IGNORECASE):
+            return "Ingeniero Civil"
+        if re.search(r'ingenier[ií][oa]\s+[i1l]ndustr[i1l]al', text, re.IGNORECASE):
+            return "Ingeniero Industrial"
+        if re.search(r'ingenier[ií][oa]\s+mec[aá]n[i1l]c[oa]', text, re.IGNORECASE):
+            return "Ingeniero Mecánico"
+        if re.search(r'ingenier[ií][oa]\s+(?:el[eé]ctr[i1l]c[oa]|electr[i1l]c[i1l]sta)', text, re.IGNORECASE):
+            return "Ingeniero Electricista"
+        if re.search(r'ingenier[ií][oa]\s+electr[oó]n[i1l]c[oa]', text, re.IGNORECASE):
+            return "Ingeniero Electrónico"
+        if re.search(r'ingenier[ií][oa]\s+qu[ií1]m[i1l]c[oa]', text, re.IGNORECASE):
+            return "Ingeniero Químico"
+        if re.search(r'arqu[i1]tect[oa]', text, re.IGNORECASE):
+            return "Arquitecto"
+
+        # 4. Ciencias Económicas, Administrativas y Sociales
+        if re.search(r'contadur[ií]a\s+p[uú]bl[i1l]ca|contador\s+p[uú]bl[i1l]co', text, re.IGNORECASE):
+            return "Contador Público"
+        if re.search(r'adm[i1l]n[i1l]strac[i1][oó]n\s+(?:de\s+empresas|comercial)?', text, re.IGNORECASE):
+            return "Licenciado en Administración"
+        if re.search(r'comun[i1l]cac[i1][oó]n\s+soc[i1l]al', text, re.IGNORECASE):
+            return "Licenciado en Comunicación Social"
+        if re.search(r'econom[ií]a|econom[i1l]sta', text, re.IGNORECASE):
+            return "Economista"
+        if re.search(r'ps[i1l]colog[ií]a|ps[i1l]c[oó]log[oa]', text, re.IGNORECASE):
+            return "Licenciado en Psicología"
+        if re.search(r'educac[i1][oó]n', text, re.IGNORECASE):
+            return "Licenciado en Educación"
+        if re.search(r'computac[i1][oó]n', text, re.IGNORECASE):
+            return "Licenciado en Computación"
+
+        # 5. TSU (Técnico Superior Universitario)
+        tsu_m = re.search(r'(?:t[eé]cnic[oa]\s+superior\s+universitari[oa]|t\.?s\.?u\.?)\s+(?:en|de)?\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})', text, re.IGNORECASE)
+        if tsu_m:
+            return f"Técnico Superior Universitario en {tsu_m.group(1).strip()}"
+
+        # 6. Patrones regex generales con delimitadores solemnes
         patrones = [
             r'(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))',
             r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)'
@@ -162,6 +387,18 @@ class AcademicDegreeNER:
                 cand = re.sub(r'^[oO0]\s+', '', cand)
                 cand = re.sub(r'\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|t[oó]mese|tomese|raz[oó]n|por\s+haber).*$', '', cand, flags=re.IGNORECASE)
                 if len(cand) >= 4:
+                    # Aplicar Fuzzy Matching contra el Catálogo Oficial de Carreras
+                    best_match = None
+                    best_score = 0.0
+                    for c in cls.CATALOGO_CARRERAS:
+                        score_title = cls.levenshtein_similarity(cand, c["titulo"])
+                        score_kw = max([cls.levenshtein_similarity(cand, kw) for kw in c["keywords"]]) if c["keywords"] else 0.0
+                        top_s = max(score_title, score_kw)
+                        if top_s > best_score:
+                            best_score = top_s
+                            best_match = c["titulo"]
+                    if best_score >= 0.70 and best_match:
+                        return best_match
                     return cand
 
         return None
@@ -320,23 +557,55 @@ class USMOcrService:
             header_clean = preprocessor.preprocess_for_gothic(header_raw)
             body_clean = preprocessor.preprocess_for_gothic(body_raw)
 
-            has_frk = cls.check_fraktur_available()
-            header_lang = "frk+spa" if has_frk else "spa"
+            try:
+                available_langs = pytesseract.get_languages()
+            except Exception:
+                available_langs = ['eng']
 
-            config_header = f"--oem 1 --psm 6 -l {header_lang}"
-            config_body = "--oem 1 --psm 4 -l spa"
+            has_spa = "spa" in available_langs
+            has_frk = "frk" in available_langs
 
+            header_langs = []
+            if has_frk: header_langs.append("frk")
+            if has_spa: header_langs.append("spa")
+            header_langs.append("eng")
+            header_lang = "+".join(header_langs)
+
+            body_lang = "spa+eng" if has_spa else "eng"
+
+            config_header = f"--psm 6 -l {header_lang}"
+            config_body = f"--psm 4 -l {body_lang}"
+
+            header_text = ""
             try:
                 header_text = pytesseract.image_to_string(header_clean, config=config_header)
             except Exception:
-                header_text = pytesseract.image_to_string(header_clean, config="--oem 1 --psm 6 -l spa")
+                try:
+                    header_text = pytesseract.image_to_string(header_clean, config=f"-l {body_lang}")
+                except Exception:
+                    header_text = ""
 
+            body_text = ""
             try:
                 body_text = pytesseract.image_to_string(body_clean, config=config_body)
             except Exception:
-                body_text = ""
+                try:
+                    body_text = pytesseract.image_to_string(body_clean, config=f"-l {body_lang}")
+                except Exception:
+                    body_text = ""
 
             full_text = f"{header_text}\n{body_text}".strip()
+
+            # Si el texto segmentado es breve, escaneo directo de la imagen completa
+            if len(full_text) < 30:
+                try:
+                    gray_full = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY) if len(image_cv.shape) == 3 else image_cv
+                    full_raw = pytesseract.image_to_string(gray_full, config=f"--psm 3 -l {body_lang}")
+                    if len(full_raw.strip()) > len(full_text):
+                        full_text = full_raw.strip()
+                except Exception:
+                    pass
+
             extracted_fields = AcademicDegreeNER.extract_all(full_text)
 
             return {

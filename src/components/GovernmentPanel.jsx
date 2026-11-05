@@ -2971,7 +2971,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
               width: '100%',
 
-              minWidth: '1180px',
+              minWidth: '1000px',
 
               borderCollapse: 'separate',
 
@@ -3175,7 +3175,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                     fontWeight: 600,
 
-                    minWidth: '350px',
+                    minWidth: '240px',
 
                     textAlign: 'center',
 
@@ -3579,474 +3579,311 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                       {/* Acciones de Auditoría */}
 
-                      <td style={{ padding: '0.95rem 1rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-
-                        <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
-
-                          
-
-                          <button
-
-                            onClick={() => setActivePUBRecord(record)}
-
-                            style={{
-
-                              padding: '0.42rem 0.8rem',
-
-                              background: '#ffffff',
-
-                              border: '1px solid var(--border)',
-
-                              color: 'var(--color-ink-black)',
-
-                              borderRadius: 'var(--radius-pill)',
-
-                              cursor: 'pointer',
-
-                              fontWeight: 500,
-
-                              fontSize: '0.78rem',
-
-                              display: 'inline-flex',
-
-                              alignItems: 'center',
-
-                              gap: '0.35rem',
-
-                              boxShadow: 'var(--shadow-subtle)',
-
-                              whiteSpace: 'nowrap'
-
-                            }}
-
-                            title="Ver Planilla PUB y Expediente Escaneado"
-
-                          >
-
-                            <Eye size={13} /> Ver Expediente
-
-                          </button>
-
-
-
-                          <button
-
-                            onClick={() => setActiveCertHash(record.hash)}
-
-                            style={{
-
-                              padding: '0.42rem 0.8rem',
-
-                              background: '#ffffff',
-
-                              border: '1px solid var(--border)',
-
-                              color: 'var(--color-ink-black)',
-
-                              borderRadius: 'var(--radius-pill)',
-
-                              cursor: 'pointer',
-
-                              fontWeight: 500,
-
-                              fontSize: '0.78rem',
-
-                              display: 'inline-flex',
-
-                              alignItems: 'center',
-
-                              gap: '0.35rem',
-
-                              boxShadow: 'var(--shadow-subtle)',
-
-                              whiteSpace: 'nowrap'
-
-                            }}
-
-                            title="Ver Certificado de Inmutabilidad Criptográfica"
-
-                          >
-
-                            <ShieldCheck size={13} /> Certificado
-
-                          </button>
-
-
-
-                          {ministerialMode === 'MPPEU' ? (
-
-                            <>
-
-                              {!record.mppeuVerified && !(record.status || '').includes('CERTIFICADO_MPPEU') && !(record.status || '').includes('APOSTILLADO_MPPRE') && !isRejected ? (
-
-                                <>
-
-                                  <button 
-
-                                    onClick={() => setActiveCotejoRecord(record)}
-
-                                    style={{
-
-                                      padding: '0.42rem 0.95rem',
-
-                                      fontSize: '0.78rem',
-
-                                      background: 'var(--color-ink-black)',
-
-                                      color: '#ffffff',
-
-                                      border: 'none',
-
-                                      borderRadius: 'var(--radius-pill)',
-
-                                      cursor: 'pointer',
-
-                                      fontWeight: 600,
-
-                                      display: 'inline-flex',
-
-                                      alignItems: 'center',
-
-                                      gap: '0.35rem',
-
-                                      boxShadow: 'var(--shadow-subtle)',
-
-                                      whiteSpace: 'nowrap'
-
-                                    }}
-
-                                  >
-
-                                    <Stamp size={14} /> Cotejo GTU
-
-                                  </button>
-
-
-
-                                  <button
-
-                                    onClick={() => setRejectingRecord(record)}
-
-                                    style={{
-
-                                      padding: '0.42rem 0.8rem',
-
-                                      fontSize: '0.78rem',
-
-                                      background: '#ffffff',
-
-                                      border: '1px solid rgba(239, 68, 68, 0.35)',
-
-                                      color: '#b91c1c',
-
-                                      borderRadius: 'var(--radius-pill)',
-
-                                      cursor: 'pointer',
-
-                                      fontWeight: 500,
-
-                                      display: 'inline-flex',
-
-                                      alignItems: 'center',
-
-                                      gap: '0.3rem',
-
-                                      whiteSpace: 'nowrap'
-
-                                    }}
-
-                                  >
-
-                                    <XCircle size={13} /> Rechazar
-
-                                  </button>
-
-                                </>
-
-                              ) : (
-
-                                <span style={{
-
-                                  fontSize: '0.76rem',
-
-                                  color: '#0369a1',
-
-                                  fontWeight: 600,
-
-                                  background: '#e0f2fe',
-
-                                  border: '1px solid rgba(3, 105, 161, 0.25)',
-
-                                  padding: '0.3rem 0.75rem',
-
-                                  borderRadius: 'var(--radius-pill)',
-
-                                  display: 'inline-flex',
-
-                                  alignItems: 'center',
-
-                                  gap: '0.35rem',
-
-                                  whiteSpace: 'nowrap'
-
-                                }}>
-
-                                  <Building2 size={13} /> Sello GTU Listo
-
-                                </span>
-
-                              )}
-
-                            </>
-
-                          ) : ministerialMode === 'MPPRE' ? (
-
-                            <>
-
-                              {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
-
-                                <button
-
-                                  onClick={() => setActiveApostilleRecord(record)}
-
-                                  style={{
-
-                                    padding: '0.42rem 0.95rem',
-
-                                    fontSize: '0.78rem',
-
-                                    background: '#ffffff',
-
-                                    border: '1px solid #10b981',
-
-                                    color: '#047857',
-
-                                    borderRadius: 'var(--radius-pill)',
-
-                                    cursor: 'pointer',
-
+                      <td style={{ padding: '0.75rem 0.65rem', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
+
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.35rem',
+                          alignItems: 'stretch',
+                          width: '100%',
+                          maxWidth: '260px',
+                          margin: '0 auto'
+                        }}>
+
+                          {/* Fila 1: Documento, PUB y Certificado */}
+                          <div style={{ display: 'flex', gap: '0.3rem', width: '100%', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => setActiveCotejoRecord(record)}
+                              style={{
+                                flex: 1,
+                                padding: '0.32rem 0.45rem',
+                                background: 'var(--color-blush-peach)',
+                                border: '1px solid rgba(93, 42, 26, 0.25)',
+                                color: 'var(--color-sienna-brown)',
+                                borderRadius: 'var(--radius-pill)',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                fontSize: '0.74rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.22rem',
+                                boxShadow: 'var(--shadow-subtle)',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title="Ver Pergamino / Documento cargado por el usuario en Storage"
+                            >
+                              <FileText size={12} /> Doc
+                            </button>
+
+                            <button
+                              onClick={() => setActivePUBRecord(record)}
+                              style={{
+                                flex: 1,
+                                padding: '0.32rem 0.45rem',
+                                background: '#ffffff',
+                                border: '1px solid var(--border)',
+                                color: 'var(--color-ink-black)',
+                                borderRadius: 'var(--radius-pill)',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                fontSize: '0.74rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.22rem',
+                                boxShadow: 'var(--shadow-subtle)',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title="Ver Planilla PUB y Expediente Escaneado"
+                            >
+                              <Eye size={12} /> PUB
+                            </button>
+
+                            <button
+                              onClick={() => setActiveCertHash(record.hash)}
+                              style={{
+                                flex: 1,
+                                padding: '0.32rem 0.45rem',
+                                background: '#ffffff',
+                                border: '1px solid var(--border)',
+                                color: 'var(--color-ink-black)',
+                                borderRadius: 'var(--radius-pill)',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                fontSize: '0.74rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.22rem',
+                                boxShadow: 'var(--shadow-subtle)',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title="Ver Certificado de Inmutabilidad Criptográfica"
+                            >
+                              <ShieldCheck size={12} /> Cert
+                            </button>
+                          </div>
+
+                          {/* Fila 2: Acción Ministerial de Estado */}
+                          <div style={{ display: 'flex', gap: '0.3rem', width: '100%', justifyContent: 'center' }}>
+                            {ministerialMode === 'MPPEU' ? (
+                              <>
+                                {!record.mppeuVerified && !(record.status || '').includes('CERTIFICADO_MPPEU') && !(record.status || '').includes('APOSTILLADO_MPPRE') && !isRejected ? (
+                                  <>
+                                    <button
+                                      onClick={() => setActiveCotejoRecord(record)}
+                                      style={{
+                                        flex: 2,
+                                        padding: '0.35rem 0.65rem',
+                                        fontSize: '0.76rem',
+                                        background: 'var(--color-ink-black)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-pill)',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.25rem',
+                                        boxShadow: 'var(--shadow-subtle)',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      <Stamp size={13} /> Cotejo GTU
+                                    </button>
+
+                                    <button
+                                      onClick={() => setRejectingRecord(record)}
+                                      style={{
+                                        flex: 1,
+                                        padding: '0.35rem 0.5rem',
+                                        fontSize: '0.74rem',
+                                        background: '#ffffff',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#b91c1c',
+                                        borderRadius: 'var(--radius-pill)',
+                                        cursor: 'pointer',
+                                        fontWeight: 500,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.2rem',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      <XCircle size={12} /> Rechazar
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span style={{
+                                    width: '100%',
+                                    fontSize: '0.74rem',
+                                    color: '#0369a1',
                                     fontWeight: 600,
-
+                                    background: '#e0f2fe',
+                                    border: '1px solid rgba(3, 105, 161, 0.25)',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: 'var(--radius-pill)',
                                     display: 'inline-flex',
-
                                     alignItems: 'center',
-
-                                    gap: '0.35rem',
-
-                                    boxShadow: 'var(--shadow-subtle)',
-
+                                    justifyContent: 'center',
+                                    gap: '0.3rem',
                                     whiteSpace: 'nowrap'
-
-                                  }}
-
-                                >
-
-                                  <Globe size={14} /> Ver Apostilla de La Haya
-
-                                </button>
-
-                              ) : !isRejected ? (
-
-                                <>
-
+                                  }}>
+                                    <Building2 size={12} /> Sello GTU Listo
+                                  </span>
+                                )}
+                              </>
+                            ) : ministerialMode === 'MPPRE' ? (
+                              <>
+                                {record.mppreVerified || (record.status || '').includes('APOSTILLADO_MPPRE') ? (
                                   <button
-
-                                    onClick={() => handleMppreApostille(record)}
-
-                                    disabled={apostilleLoading === record.hash}
-
+                                    onClick={() => setActiveApostilleRecord(record)}
                                     style={{
-
-                                      padding: '0.42rem 0.95rem',
-
-                                      fontSize: '0.78rem',
-
-                                      background: 'var(--color-blush-peach)',
-
-                                      color: 'var(--color-sienna-brown)',
-
-                                      border: '1px solid rgba(93, 42, 26, 0.22)',
-
-                                      borderRadius: 'var(--radius-pill)',
-
-                                      cursor: 'pointer',
-
-                                      fontWeight: 600,
-
-                                      display: 'inline-flex',
-
-                                      alignItems: 'center',
-
-                                      gap: '0.35rem',
-
-                                      boxShadow: 'var(--shadow-subtle)',
-
-                                      whiteSpace: 'nowrap'
-
-                                    }}
-
-                                  >
-
-                                    <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Emitir Apostilla Digital'}
-
-                                  </button>
-
-
-
-                                  <button
-
-                                    onClick={() => setRejectingRecord(record)}
-
-                                    style={{
-
-                                      padding: '0.42rem 0.8rem',
-
-                                      fontSize: '0.78rem',
-
+                                      width: '100%',
+                                      padding: '0.35rem 0.65rem',
+                                      fontSize: '0.76rem',
                                       background: '#ffffff',
-
-                                      border: '1px solid rgba(239, 68, 68, 0.35)',
-
-                                      color: '#b91c1c',
-
+                                      border: '1px solid #10b981',
+                                      color: '#047857',
                                       borderRadius: 'var(--radius-pill)',
-
                                       cursor: 'pointer',
-
-                                      fontWeight: 500,
-
-                                      display: 'inline-flex',
-
-                                      alignItems: 'center',
-
-                                      gap: '0.3rem',
-
-                                      whiteSpace: 'nowrap'
-
-                                    }}
-
-                                  >
-
-                                    <XCircle size={13} /> Rechazar
-
-                                  </button>
-
-                                </>
-
-                              ) : (
-
-                                <span style={{ fontSize: '0.76rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Rechazado</span>
-
-                              )}
-
-                            </>
-
-                          ) : (
-
-                            /* Modo General */
-
-                            <>
-
-                              {!isVerified && !isRejected ? (
-
-                                <>
-
-                                  <button 
-
-                                    onClick={() => handleVerify(record.hash)}
-
-                                    disabled={verifying === record.hash}
-
-                                    style={{
-
-                                      padding: '0.42rem 0.95rem',
-
-                                      fontSize: '0.78rem',
-
-                                      background: 'var(--color-ink-black)',
-
-                                      color: '#ffffff',
-
-                                      border: 'none',
-
-                                      borderRadius: 'var(--radius-pill)',
-
-                                      cursor: 'pointer',
-
                                       fontWeight: 600,
-
-                                      boxShadow: 'var(--shadow-subtle)',
-
-                                      whiteSpace: 'nowrap'
-
-                                    }}
-
-                                  >
-
-                                    {verifying === record.hash ? 'Auditando...' : 'Aprobar'}
-
-                                  </button>
-
-
-
-                                  <button
-
-                                    onClick={() => setRejectingRecord(record)}
-
-                                    style={{
-
-                                      padding: '0.42rem 0.8rem',
-
-                                      fontSize: '0.78rem',
-
-                                      background: '#ffffff',
-
-                                      border: '1px solid rgba(239, 68, 68, 0.35)',
-
-                                      color: '#b91c1c',
-
-                                      borderRadius: 'var(--radius-pill)',
-
-                                      cursor: 'pointer',
-
-                                      fontWeight: 500,
-
                                       display: 'inline-flex',
-
                                       alignItems: 'center',
-
+                                      justifyContent: 'center',
                                       gap: '0.3rem',
-
+                                      boxShadow: 'var(--shadow-subtle)',
                                       whiteSpace: 'nowrap'
-
                                     }}
-
                                   >
-
-                                    <XCircle size={13} /> Rechazar
-
+                                    <Globe size={13} /> Ver Apostilla de La Haya
                                   </button>
+                                ) : !isRejected ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleMppreApostille(record)}
+                                      disabled={apostilleLoading === record.hash}
+                                      style={{
+                                        flex: 2,
+                                        padding: '0.35rem 0.65rem',
+                                        fontSize: '0.76rem',
+                                        background: 'var(--color-blush-peach)',
+                                        color: 'var(--color-sienna-brown)',
+                                        border: '1px solid rgba(93, 42, 26, 0.22)',
+                                        borderRadius: 'var(--radius-pill)',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.25rem',
+                                        boxShadow: 'var(--shadow-subtle)',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      <Award size={13} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Apostillar'}
+                                    </button>
 
-                                </>
+                                    <button
+                                      onClick={() => setRejectingRecord(record)}
+                                      style={{
+                                        flex: 1,
+                                        padding: '0.35rem 0.5rem',
+                                        fontSize: '0.74rem',
+                                        background: '#ffffff',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#b91c1c',
+                                        borderRadius: 'var(--radius-pill)',
+                                        cursor: 'pointer',
+                                        fontWeight: 500,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.2rem',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      <XCircle size={12} /> Rechazar
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span style={{ width: '100%', fontSize: '0.74rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-pill)', textAlign: 'center' }}>Rechazado</span>
+                                )}
+                              </>
+                            ) : (
+                              /* Modo General */
+                              <>
+                                {!isVerified && !isRejected ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleVerify(record.hash)}
+                                      disabled={verifying === record.hash}
+                                      style={{
+                                        flex: 2,
+                                        padding: '0.35rem 0.65rem',
+                                        fontSize: '0.76rem',
+                                        background: 'var(--color-ink-black)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-pill)',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.25rem',
+                                        boxShadow: 'var(--shadow-subtle)',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      <CheckCircle size={13} /> {verifying === record.hash ? 'Verificando...' : 'Verificar'}
+                                    </button>
 
-                              ) : isVerified ? (
-
-                                <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 600, background: '#dcfce7', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Aprobado</span>
-
-                              ) : (
-
-                                <span style={{ fontSize: '0.76rem', color: '#b91c1c', fontWeight: 600, background: '#fee2e2', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-pill)' }}>Rechazado</span>
-
-                              )}
-
-                            </>
-
-                          )}
-
-
+                                    <button
+                                      onClick={() => setRejectingRecord(record)}
+                                      style={{
+                                        flex: 1,
+                                        padding: '0.35rem 0.5rem',
+                                        fontSize: '0.74rem',
+                                        background: '#ffffff',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#b91c1c',
+                                        borderRadius: 'var(--radius-pill)',
+                                        cursor: 'pointer',
+                                        fontWeight: 500,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.2rem',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      <XCircle size={12} /> Rechazar
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span style={{
+                                    width: '100%',
+                                    fontSize: '0.74rem',
+                                    color: isVerified ? '#15803d' : '#b91c1c',
+                                    fontWeight: 600,
+                                    background: isVerified ? '#dcfce7' : '#fee2e2',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: 'var(--radius-pill)',
+                                    textAlign: 'center'
+                                  }}>
+                                    {isVerified ? '✓ Validado' : 'Rechazado'}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
 
                         </div>
-
                       </td>
 
                     </tr>
@@ -4135,7 +3972,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
           display: 'grid',
 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 330px), 1fr))',
 
           gap: '1.25rem',
 
@@ -4532,6 +4369,30 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                   alignItems: 'center'
 
                 }}>
+
+                  <button
+                    onClick={() => setActiveCotejoRecord(record)}
+                    style={{
+                      flex: 1,
+                      padding: '0.45rem 0.75rem',
+                      background: 'var(--color-blush-peach)',
+                      border: '1px solid rgba(93, 42, 26, 0.25)',
+                      color: 'var(--color-sienna-brown)',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.78rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      boxShadow: 'var(--shadow-subtle)',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Ver Pergamino / Documento cargado por el usuario en Storage"
+                  >
+                    <FileText size={13} /> Ver Documento
+                  </button>
 
                   <button
 

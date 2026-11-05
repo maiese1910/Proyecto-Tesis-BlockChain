@@ -119,6 +119,11 @@ enabled = true
 file_size_limit = "50MiB"
 
 # Uncomment to configure local storage buckets
+[storage.buckets.documentos]
+public = true
+file_size_limit = "50MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/jpg", "application/pdf"]
+
 # [storage.buckets.images]
 # public = false
 # file_size_limit = "50MiB"

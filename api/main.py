@@ -54,8 +54,27 @@ try:
 except Exception:
     HAS_JWT = False
 
-HAS_GEMINI_OCR = True
-HAS_USM_OCR = False
+try:
+    from gemini_service import GeminiVisionExtractor
+    HAS_GEMINI_OCR = True
+except Exception as e_gem:
+    logger.warning(f"No se pudo importar gemini_service: {e_gem}")
+    HAS_GEMINI_OCR = False
+    GeminiVisionExtractor = None
+try:
+    import cv2
+    import numpy as np
+except Exception as e_cv:
+    logger.warning(f"No se pudo importar cv2/numpy: {e_cv}")
+    cv2 = None
+    np = None
+
+try:
+    from ocr_service import USMOcrService, AcademicDegreeNER
+    HAS_USM_OCR = True
+except Exception as e_ocr:
+    logger.warning(f"No se pudo importar ocr_service: {e_ocr}")
+    HAS_USM_OCR = False
 HAS_WEB3 = True
 HAS_SUPABASE = True
 
@@ -393,7 +412,7 @@ _stats_memory = {
 }
 _audit_log_memory = []
 
-_records_memory = [
+CANONICAL_DEMO_RECORDS = [
     {
         "hash": "0x7F9A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9F0A",
         "owner_name": "MAURO DANIEL MAIESE FERREIRA",
@@ -454,6 +473,8 @@ _records_memory = [
     }
 ]
 
+_records_memory = []
+
 RECORDS_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_records_cache.json")
 
 def _save_records_cache():
@@ -469,22 +490,8 @@ def _load_records_cache():
         if os.path.exists(RECORDS_CACHE_FILE):
             with open(RECORDS_CACHE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, list) and data:
-                    # Indexar registros por hash normalizado (minúsculas) para sobrescribir con el estado más reciente
-                    index_by_hash = {
-                        (r.get("hash") or "").strip().lower(): i 
-                        for i, r in enumerate(_records_memory) 
-                        if r.get("hash")
-                    }
-                    for item in data:
-                        h = (item.get("hash") or "").strip().lower()
-                        if not h or h.startswith("0xtest"):
-                            continue
-                        if h in index_by_hash:
-                            _records_memory[index_by_hash[h]] = item
-                        else:
-                            _records_memory.append(item)
-                            index_by_hash[h] = len(_records_memory) - 1
+                if isinstance(data, list):
+                    _records_memory = data
     except Exception as e:
         logger.debug(f"No se pudo cargar cache de registros de /tmp: {e}")
 
@@ -702,6 +709,9 @@ def map_record(r):
         "accountEmail": r.get("account_email") or r.get("accountEmail") or "",
         "documentType": r.get("document_type") or r.get("documentType"),
         "document_type": r.get("document_type") or r.get("documentType"),
+        "documentUrl": r.get("document_url") or r.get("documentUrl") or r.get("fileUrl") or "",
+        "document_url": r.get("document_url") or r.get("documentUrl") or r.get("fileUrl") or "",
+        "fileUrl": r.get("document_url") or r.get("documentUrl") or r.get("fileUrl") or "",
         "txHash": r.get("tx_hash") or r.get("txHash"),
         "tx_hash": r.get("tx_hash") or r.get("txHash"),
         "status": r.get("status"),
@@ -1342,6 +1352,7 @@ def register_blockchain_document():
     tomo = data.get("tomo", "XVIII")
     folio = data.get("folio", "142")
     libro = data.get("libro", "Grados 2026")
+    document_url = data.get("documentUrl") or data.get("document_url") or data.get("fileUrl") or ""
 
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
     tx_hash = "0xPENDIENTE_COTEJO"
@@ -1354,6 +1365,7 @@ def register_blockchain_document():
         "account_owner": account_owner,
         "account_email": account_email,
         "document_type": document_type,
+        "document_url": document_url,
         "tx_hash": tx_hash,
         "status": "PENDIENTE_COTEJO_MPPEU",
         "created_at": now_iso,
@@ -1391,6 +1403,92 @@ def register_blockchain_document():
         "status": "PENDIENTE_COTEJO_MPPEU",
         "record": map_record(new_rec)
     }), 200
+
+
+UPLOAD_DOCS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "documents")
+os.makedirs(UPLOAD_DOCS_DIR, exist_ok=True)
+
+@app.route("/api/documents/upload", methods=["POST"])
+@app.route("/documents/upload", methods=["POST"])
+def upload_document():
+    try:
+        doc_hash = request.form.get("docHash") or request.form.get("hash") or f"doc_{secrets.token_hex(8)}"
+        clean_name = re.sub(r'[^a-zA-Z0-9_\-]', '', doc_hash)
+        
+        file_bytes = None
+        ext = "jpg"
+        
+        if "file" in request.files:
+            file_obj = request.files["file"]
+            if file_obj.filename:
+                ext = file_obj.filename.rsplit(".", 1)[-1].lower() if "." in file_obj.filename else "jpg"
+            file_bytes = file_obj.read()
+        elif request.is_json:
+            json_data = request.get_json() or {}
+            data_url = json_data.get("dataUrl") or json_data.get("imageBase64") or ""
+            if "," in data_url:
+                header, data_url = data_url.split(",", 1)
+                if "pdf" in header:
+                    ext = "pdf"
+                elif "png" in header:
+                    ext = "png"
+            file_bytes = base64.b64decode(data_url)
+        elif "dataUrl" in request.form:
+            data_url = request.form["dataUrl"]
+            if "," in data_url:
+                header, data_url = data_url.split(",", 1)
+                if "pdf" in header:
+                    ext = "pdf"
+                elif "png" in header:
+                    ext = "png"
+            file_bytes = base64.b64decode(data_url)
+
+        if not file_bytes:
+            return jsonify({"error": "No se recibió archivo o imagen base64 válido"}), 400
+
+        filename = f"{clean_name}_{int(datetime.datetime.utcnow().timestamp())}.{ext}"
+        filepath = os.path.join(UPLOAD_DOCS_DIR, filename)
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+
+        supabase_url_res = None
+        if supabase:
+            try:
+                content_type = f"image/{ext}" if ext != "pdf" else "application/pdf"
+                supabase.storage.from_("documentos").upload(
+                    f"titulos/{filename}",
+                    file_bytes,
+                    {"content-type": content_type, "upsert": "true"}
+                )
+                pub_info = supabase.storage.from_("documentos").get_public_url(f"titulos/{filename}")
+                if pub_info:
+                    supabase_url_res = pub_info
+            except Exception as se:
+                logger.warning(f"No se pudo sincronizar a Supabase Storage: {se}")
+
+        base_url = request.host_url.rstrip("/")
+        local_url = f"{base_url}/api/documents/file/{filename}"
+        final_url = supabase_url_res or local_url
+
+        return jsonify({
+            "success": True,
+            "filename": filename,
+            "url": final_url,
+            "supabaseUrl": supabase_url_res,
+            "localUrl": local_url,
+            "sizeBytes": len(file_bytes)
+        }), 200
+    except Exception as e:
+        logger.error(f"Error subiendo documento: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/documents/file/<filename>", methods=["GET"])
+@app.route("/documents/file/<filename>", methods=["GET"])
+def get_document_file(filename: str):
+    from flask import send_from_directory
+    clean_fn = os.path.basename(filename)
+    return send_from_directory(UPLOAD_DOCS_DIR, clean_fn)
 
 
 def _normalize_hex(h: str) -> str:
@@ -1972,6 +2070,32 @@ def ocr_extract_document():
         if not image_bytes:
             return jsonify({"success": False, "error": "Debe proporcionar 'file', 'image_base64' o 'raw_text'."}), 400
 
+        # Soporte especializado para documentos PDF (PyMuPDF / pypdf)
+        extracted_pdf_text = ""
+        if image_bytes and (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40]):
+            rendered_image = None
+            try:
+                import fitz
+                doc = fitz.open(stream=image_bytes, filetype="pdf")
+                for page in doc:
+                    extracted_pdf_text += page.get_text() + "\n"
+                if len(doc) > 0:
+                    pix = doc[0].get_pixmap(dpi=300)
+                    rendered_image = pix.tobytes("png")
+                doc.close()
+            except Exception as pdf_err:
+                logger.warning(f"Aviso PyMuPDF: {pdf_err}")
+                try:
+                    import pypdf
+                    reader = pypdf.PdfReader(io.BytesIO(image_bytes))
+                    for p in reader.pages:
+                        extracted_pdf_text += (p.extract_text() or "") + "\n"
+                except Exception as pypdf_err:
+                    logger.warning(f"Aviso pypdf: {pypdf_err}")
+
+            if rendered_image:
+                image_bytes = rendered_image
+
         # Decodificación con OpenCV
         nparr = np.frombuffer(image_bytes, np.uint8)
         img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -1993,13 +2117,18 @@ def ocr_extract_document():
             except Exception as e:
                 logger.warning(f"Ollama local no disponible, activando motor Tesseract: {e}")
 
-        # 2. Modo Híbrido / Auto por defecto
+        # 2. Modo Híbrido / Auto por defecto (Combinando texto nativo PDF y OCR Tesseract)
         tess_res = USMOcrService.extract_with_tesseract(img_cv)
-        if tess_res.get("full_text"):
+        tess_text = tess_res.get("full_text", "")
+        combined_text = f"{extracted_pdf_text.strip()}\n{tess_text}".strip()
+
+        if combined_text:
+            merged_fields = AcademicDegreeNER.extract_all(combined_text)
+            engine_name = "PyMuPDF + Tesseract Fraktur Hybrid" if extracted_pdf_text else tess_res.get('engine', 'tesseract_hybrid')
             resp = USMOcrService.format_for_frontend(
-                tess_res['extracted_fields'],
-                tess_res['full_text'],
-                tess_res['engine'],
+                merged_fields,
+                combined_text,
+                engine_name,
                 user_cedula=user_cedula
             )
             resp["fraktur_enabled"] = tess_res.get("fraktur_enabled", False)
@@ -2063,20 +2192,63 @@ def ocr_gemini_endpoint():
             "error": "Debe enviar la imagen mediante 'file' (form-data) o 'image_base64' (JSON)."
         }), 400
 
-    if not globals().get("HAS_GEMINI_OCR", False):
-        try:
-            from gemini_service import GeminiVisionExtractor
-        except Exception as imp_err:
-            return jsonify({
-                "success": False,
-                "error": f"Módulo Gemini Vision no inicializado: {str(imp_err)}"
-            }), 503
-
-    success, fields, err_msg = GeminiVisionExtractor.extract_from_image_bytes(raw_bytes)
+    if GeminiVisionExtractor is not None:
+        success, fields, err_msg = GeminiVisionExtractor.extract_from_image_bytes(raw_bytes)
+    else:
+        success, fields, err_msg = False, {}, "GeminiVisionExtractor no está disponible." 
     if not success:
+        logger.warning(f"Gemini Vision no disponible ({err_msg}). Activando fallback local PyMuPDF / OpenCV / NER...")
+        extracted_text = ""
+        # 1. Si es PDF, extraer texto directamente con PyMuPDF
+        if raw_bytes.startswith(b"%PDF") or b"%PDF-" in raw_bytes[:40]:
+            try:
+                import fitz
+                doc = fitz.open(stream=raw_bytes, filetype="pdf")
+                for page in doc:
+                    extracted_text += (page.get_text() or "") + "\n"
+                doc.close()
+            except Exception as e_pdf:
+                logger.warning(f"Fallback PyMuPDF error: {e_pdf}")
+
+        # 2. Si no es PDF o el texto fue escaso, intentar con OpenCV / Tesseract
+        if len(extracted_text.strip()) < 15 and cv2 is not None:
+            try:
+                img_bytes = raw_bytes
+                if raw_bytes.startswith(b"%PDF") or b"%PDF-" in raw_bytes[:40]:
+                    import fitz
+                    doc = fitz.open(stream=raw_bytes, filetype="pdf")
+                    if len(doc) > 0:
+                        pix = doc[0].get_pixmap(dpi=200)
+                        img_bytes = pix.tobytes("png")
+                    doc.close()
+                nparr = np.frombuffer(img_bytes, np.uint8)
+                img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img_cv is not None and HAS_USM_OCR:
+                    tess_res = USMOcrService.extract_with_tesseract(img_cv)
+                    extracted_text = tess_res.get("full_text", "")
+            except Exception as e_tess:
+                logger.warning(f"Fallback Tesseract error: {e_tess}")
+
+        # 3. Si se extrajo texto mediante PyMuPDF o Tesseract, procesar entidades con AcademicDegreeNER
+        if len(extracted_text.strip()) >= 8 and HAS_USM_OCR:
+            ner_res = USMOcrService.rule_based_ner(extracted_text)
+            fields = {
+                "nombre_completo": ner_res.get("titular"),
+                "cedula": ner_res.get("cedula"),
+                "institucion_educativa": ner_res.get("institucion") or "Universidad Santa María (USM)",
+                "mencion_carrera": ner_res.get("carrera") or "Ingeniería en Sistemas",
+                "fecha_emision": ner_res.get("fecha"),
+                "model_used": "PyMuPDF / AcademicDegreeNER (Local Fallback)"
+            }
+            return jsonify({
+                "success": True,
+                "engine": "PyMuPDF + AcademicDegreeNER (Fallback Local)",
+                "data": fields
+            }), 200
+
         return jsonify({
             "success": False,
-            "error": err_msg
+            "error": err_msg or "No se pudo extraer texto del documento."
         }), 500
 
     model_label = fields.get("model_used", "Multimodal Vision")
@@ -2523,6 +2695,33 @@ def get_pub_fields():
         {"id": "confirmacion_pago", "label": "Confirmación de Pago", "placeholder": "Escribe \"listo\"", "pregunta": "**Campo 10 — Confirmación de Pago**\n\nRealice la transferencia al número de cuenta indicado y escriba \"listo\".", "ayuda": "Realiza la transferencia al número de cuenta indicado y escribe \"listo\".", "validacion_regex": "", "validacion_mensaje": "", "orden": 10}
     ]}), 200
 
+
+
+@app.route("/admin/clean-test-data", methods=["POST", "DELETE"])
+@app.route("/api/admin/clean-test-data", methods=["POST", "DELETE"])
+def clean_test_data():
+    global _records_memory
+    _records_memory = []
+    if os.path.exists(RECORDS_CACHE_FILE):
+        try:
+            os.remove(RECORDS_CACHE_FILE)
+        except Exception:
+            pass
+    if supabase:
+        try:
+            supabase.table("records").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        except Exception as e:
+            logger.warning(f"Error borrando records en Supabase: {e}")
+    return jsonify({"success": True, "message": "Todas las solicitudes de prueba han sido limpiadas exitosamente."}), 200
+
+@app.route("/admin/reset-demo-records", methods=["POST"])
+@app.route("/api/admin/reset-demo-records", methods=["POST"])
+def reset_demo_records():
+    global _records_memory
+    import copy
+    _records_memory = copy.deepcopy(CANONICAL_DEMO_RECORDS)
+    _save_records_cache()
+    return jsonify({"success": True, "message": "Registros de demostración restaurados.", "records": _records_memory}), 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

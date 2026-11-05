@@ -195,7 +195,9 @@ const TrackingTimeline = ({ user }) => {
                 apostilleNumber: item.apostilleNumber || item.apostille_number || null,
                 tomo: item.tomo || 'XVIII',
                 folio: item.folio || '142',
-                libro: item.libro || 'Grados 2026'
+                libro: item.libro || 'Grados 2026',
+                documentUrl: item.documentUrl || item.document_url || item.fileUrl || null,
+                document_url: item.documentUrl || item.document_url || item.fileUrl || null
               });
             });
           }
@@ -225,7 +227,9 @@ const TrackingTimeline = ({ user }) => {
                 status: item.status || 'SOLICITUD_GTU_EMITIDA',
                 mppeuVerified: Boolean(item.mppeuVerified),
                 mppreVerified: Boolean(item.mppreVerified),
-                apostilleNumber: item.apostilleNumber || null
+                apostilleNumber: item.apostilleNumber || null,
+                documentUrl: item.documentUrl || item.document_url || item.fileUrl || null,
+                document_url: item.documentUrl || item.document_url || item.fileUrl || null
               });
             });
           }
