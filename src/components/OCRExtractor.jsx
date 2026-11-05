@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check, X, ShieldCheck, ArrowRight, ExternalLink, Award, Sparkles, AlertCircle } from "lucide-react";
 import { ocrAPI, blockchainAPI, hashAPI } from "../services/api";
-import { UNIVERSIDADES_CATALOGO, CARRERAS_CATALOGO, ESTADOS_VENEZUELA } from "../data/venezuelaLocations";
+import { UNIVERSIDADES_CATALOGO, CARRERAS_CATALOGO, ESTADOS_VENEZUELA, matchOfficialUniversity, matchOfficialCareer } from "../data/venezuelaLocations";
 import { MapPin } from "lucide-react";
 import { optimizeDocument, uploadDocumentToStorage } from "../services/documentStorage";
 
@@ -97,6 +97,9 @@ export const safeString = (v) => {
                 }}
               >
                 <option value="">-- Selecciona la Universidad Oficial --</option>
+                {editVal && !UNIVERSIDADES_CATALOGO.includes(editVal) && (
+                  <option value={editVal}>{editVal}</option>
+                )}
                 {UNIVERSIDADES_CATALOGO.map(u => (
                   <option key={u} value={u}>{u}</option>
                 ))}
@@ -120,6 +123,9 @@ export const safeString = (v) => {
                 }}
               >
                 <option value="">-- Selecciona la Mención / Carrera Oficial --</option>
+                {editVal && !CARRERAS_CATALOGO.includes(editVal) && (
+                  <option value={editVal}>{editVal}</option>
+                )}
                 {CARRERAS_CATALOGO.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -240,13 +246,15 @@ export const safeString = (v) => {
   const preprocessImageCanvas = (imageSrc) => {
     return new Promise((resolve) => {
       const img = new Image();
-      img.crossOrigin = "Anonymous";
+      if (imageSrc && !imageSrc.startsWith("data:") && !imageSrc.startsWith("blob:")) {
+        img.crossOrigin = "Anonymous";
+      }
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas");
           const ctx = canvas.getContext("2d");
-          // Escalar a resolución óptima para reconocimiento de caracteres góticos (mínimo 1600px)
-          const scale = Math.max(1.5, Math.min(2.5, 1800 / (img.width || 1)));
+          // Escalar a resolución óptima para reconocimiento de caracteres (mínimo 1600px)
+          const scale = Math.max(1.2, Math.min(2.2, 1800 / (img.width || 1)));
           canvas.width = Math.round(img.width * scale);
           canvas.height = Math.round(img.height * scale);
 
@@ -257,17 +265,20 @@ export const safeString = (v) => {
           const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const d = imgData.data;
 
-          // Cálculo de luminosidad media de fondo para umbralización adaptativa
-          let totalLum = 0;
-          for (let i = 0; i < d.length; i += 4) {
-            totalLum += (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+          // Estiramiento suave de contraste en escala de grises (evita quemar sombras o bordes del pergamino)
+          let minLum = 255, maxLum = 0;
+          for (let i = 0; i < d.length; i += 16) {
+            const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            if (lum < minLum) minLum = lum;
+            if (lum > maxLum) maxLum = lum;
           }
-          const avgLum = totalLum / (d.length / 4);
-          const thresh = Math.max(130, Math.min(215, avgLum * 0.80));
+          const range = Math.max(40, maxLum - minLum);
 
           for (let i = 0; i < d.length; i += 4) {
             const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-            const val = gray > thresh ? 255 : Math.max(0, Math.round(gray * 0.45));
+            let norm = ((gray - minLum) / range) * 255;
+            // Curva sigmoide suave para realzar tinta sin destruir trazos finos
+            const val = norm > 185 ? 255 : norm < 55 ? 0 : Math.round(norm);
             d[i] = val;
             d[i + 1] = val;
             d[i + 2] = val;
@@ -321,17 +332,18 @@ export const safeString = (v) => {
       return Math.max(0, 1 - dp[l1][l2] / Math.max(l1, l2));
     };
 
-    // ─── Catálogo Maestro de 23 Universidades de Venezuela ───
+    // ─── Catálogo Maestro de Universidades de Venezuela ───
     const CATALOGO_UNIVERSIDADES = [
+      { nombre: "Universidad Católica Santa María La Antigua (USMA)", keywords: ["santa maria la antigua", "santa maría la antigua", "usma"] },
       { nombre: "Universidad Central de Venezuela (UCV)", keywords: ["central de venezuela", "universidad central", "ucv"] },
-      { nombre: "Universidad Santa María (USM)", keywords: ["santa maria", "santa maría", "usm"] },
+      { nombre: "Universidad Santa María (USM)", keywords: ["universidad santa maria", "universidad santa maría", "santa maria", "santa maría", "usm"] },
       { nombre: "Universidad Católica Andrés Bello (UCAB)", keywords: ["catolica andres bello", "católica andrés bello", "ucab"] },
       { nombre: "Universidad Simón Bolívar (USB)", keywords: ["simon bolivar", "simón bolívar", "usb"] },
       { nombre: "Universidad de Carabobo (UC)", keywords: ["universidad de carabobo", "carabobo"] },
       { nombre: "Universidad de Los Andes (ULA)", keywords: ["universidad de los andes", "los andes", "ula"] },
       { nombre: "Universidad del Zulia (LUZ)", keywords: ["universidad del zulia", "del zulia", "luz"] },
       { nombre: "Universidad Metropolitana (UNIMET)", keywords: ["universidad metropolitana", "metropolitana", "unimet"] },
-      { nombre: "Universidad Nacional Experimental de la Fuerza Armada (UNEFA)", keywords: ["fuerza armada", "unefa"] },
+      { nombre: "Universidad Nacional Experimental Politécnica de la FANB (UNEFA)", keywords: ["fuerza armada", "fanb", "unefa"] },
       { nombre: "Universidad Nacional Experimental Simón Rodríguez (UNESR)", keywords: ["simon rodriguez", "simón rodríguez", "unesr"] },
       { nombre: "Universidad Pedagógica Experimental Libertador (UPEL)", keywords: ["pedagogica experimental", "libertador", "upel"] },
       { nombre: "Universidad Centroccidental Lisandro Alvarado (UCLA)", keywords: ["lisandro alvarado", "centroccidental", "ucla"] },
@@ -346,8 +358,7 @@ export const safeString = (v) => {
       { nombre: "Universidad Nacional Experimental de los Llanos Ezequiel Zamora (UNELLEZ)", keywords: ["llanos occidentales", "ezequiel zamora", "unellez"] },
       { nombre: "Universidad Nacional Experimental Francisco de Miranda (UNEFM)", keywords: ["francisco de miranda", "unefm"] },
       { nombre: "Universidad Bolivariana de Venezuela (UBV)", keywords: ["universidad bolivariana", "ubv"] },
-      { nombre: "Universidad Nacional Experimental Politécnica Antonio José de Sucre (UNEXPO)", keywords: ["antonio jose de sucre", "unexpo"] },
-      { nombre: "Universidad Católica Santa María La Antigua (USMA)", keywords: ["santa maria la antigua", "usma"] }
+      { nombre: "Universidad Nacional Experimental Politécnica Antonio José de Sucre (UNEXPO)", keywords: ["antonio jose de sucre", "unexpo"] }
     ];
 
     // 1. Institución Educativa Emisora (Catálogo Oficial + Regex + Fuzzy Matching)
@@ -540,12 +551,15 @@ export const safeString = (v) => {
       }
     }
 
+    const normInst = institucion ? matchOfficialUniversity(institucion) : null;
+    const normCar = carrera ? matchOfficialCareer(carrera) : null;
+
     return {
       nombre_completo: { value: titular, confidence: titular ? 0.95 : 0.0 },
       cedula: { value: cedula, confidence: cedula ? 0.98 : 0.0 },
-      institucion: { value: institucion, confidence: institucion ? 0.99 : 0.0 },
+      institucion: { value: normInst, confidence: normInst ? 0.99 : 0.0 },
       facultad: { value: facultad, confidence: facultad ? 0.92 : 0.0 },
-      carrera: { value: carrera, confidence: carrera ? 0.95 : 0.0 },
+      carrera: { value: normCar, confidence: normCar ? 0.95 : 0.0 },
       fecha: { value: fecha, confidence: fecha ? 0.90 : 0.0 }
     };
   };
@@ -578,10 +592,10 @@ export const safeString = (v) => {
     React.useEffect(() => {
       if (fields && isOpen) {
         setForm({
-          institucion: safeString(fields.institucion?.value),
+          institucion: matchOfficialUniversity(safeString(fields.institucion?.value)),
           nombre_completo: safeString(fields.nombre_completo?.value),
           cedula: safeString(fields.cedula?.value),
-          carrera: safeString(fields.carrera?.value),
+          carrera: matchOfficialCareer(safeString(fields.carrera?.value)),
           fecha: safeString(fields.fecha?.value)
         });
         if (currentLocation.estado) {
@@ -848,6 +862,9 @@ export const safeString = (v) => {
                   }}
                 >
                   <option value="">-- Selecciona la Universidad Oficial --</option>
+                  {form.institucion && !UNIVERSIDADES_CATALOGO.includes(form.institucion) && (
+                    <option value={form.institucion}>{form.institucion}</option>
+                  )}
                   {UNIVERSIDADES_CATALOGO.map(u => (
                     <option key={u} value={u}>{u}</option>
                   ))}
@@ -881,6 +898,9 @@ export const safeString = (v) => {
                   }}
                 >
                   <option value="">-- Selecciona la Mención / Carrera Oficial --</option>
+                  {form.carrera && !CARRERAS_CATALOGO.includes(form.carrera) && (
+                    <option value={form.carrera}>{form.carrera}</option>
+                  )}
                   {CARRERAS_CATALOGO.map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -1252,7 +1272,7 @@ export const safeString = (v) => {
       const envKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (envKey && envKey.trim().length > 10) return envKey.trim();
       try {
-        return atob("QVEuQWI4Uk42TE1KUjFHOHVqQmxLd2hWaEY5TURJbU11dTFOUnUxYTBmajdzbll0V3N4S0E=");
+        return atob("QVEuQWI4Uk42TEx0NXdGRWdBbW0wdmZZaXhFSi1nWDUtOUZ0M3ZLZmZkTmpNcmtJU19xV0E=");
       } catch (_) {
         return "";
       }
@@ -1276,10 +1296,10 @@ export const safeString = (v) => {
 Analiza con máxima precisión visual y contextual la imagen del título adjunto y extrae rigurosamente los datos que están literalmente escritos en este diploma.
 
 INSTRUCCIONES CRÍTICAS:
-1. INSTITUCIÓN EDUCATIVA: Lee el encabezado superior universitario (frecuentemente en estilo gótico medieval, arqueado o recto, con ilustraciones o escudos). Extrae el nombre canónico de la universidad emisora visible (ej: Universidad Central de Venezuela, Universidad Santa María, Universidad Católica Santa María La Antigua, etc.). NUNCA inventes una institución diferente a la que aparece en la imagen.
-2. GRADUANDO / TITULAR: Nombre completo y apellidos exactos del graduando tras "Confiere a", "Hago saber: Que:", etc. Limpia fórmulas de concesión como "Hago saber:", "Que:".
+1. INSTITUCIÓN EDUCATIVA: Lee el encabezado superior universitario (frecuentemente en estilo gótico medieval, arqueado o recto, con ilustraciones o escudos). Extrae el nombre canónico de la universidad emisora visible (ej: Universidad Central de Venezuela (UCV), Universidad Santa María (USM), Universidad Católica Santa María La Antigua (USMA), Universidad Simón Bolívar (USB), etc.). NUNCA inventes una institución diferente a la que aparece en la imagen.
+2. GRADUANDO / TITULAR: Nombre completo y apellidos exactos del graduando tras "Confiere a", "Hago saber: Que:", "Hacen constar que", etc. Limpia fórmulas de concesión como "Hago saber:", "Que:".
 3. CÉDULA: Cédula de identidad exacta en el cuerpo o notas marginales (ej: V- 23.916.908 -> V-23.916.908, 8-66-581).
-4. MENCIÓN / CARRERA: Título o grado conferido exacto (ej: Médico Cirujano, Licenciada en Derecho y Ciencias Políticas, Ingeniero de Sistemas). Elimina leyendas reglamentarias posteriores.
+4. MENCIÓN / CARRERA: Título o grado conferido exacto (ej: Médico Cirujano, Licenciada en Derecho y Ciencias Políticas, Ingeniero de Sistemas, Abogado). Elimina leyendas reglamentarias posteriores.
 5. FECHA DE EMISIÓN: Fecha de expedición que figura escrita en palabras al final del diploma (ej: "veinticinco de mayo de dos mil uno" -> 25/05/2001, "a los cuatro días del mes de diciembre del año dos mil dieciocho" -> 04/12/2018). Transpila las palabras a formato numérico DD/MM/YYYY. NUNCA uses la fecha actual ni fechas inventadas.
 
 Devuelve ÚNICAMENTE un objeto JSON puro con:
@@ -1295,51 +1315,61 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
     let lastErr = null;
 
     for (const model of models) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: promptText },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Img
+      const endpoints = [
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+      ];
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    { text: promptText },
+                    {
+                      inlineData: {
+                        mimeType: mimeType,
+                        data: base64Img
+                      }
                     }
-                  }
-                ]
+                  ]
+                }
+              ],
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.0
               }
-            ],
-            generationConfig: {
-              response_mime_type: "application/json"
-            }
-          })
-        });
+            })
+          });
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `HTTP ${res.status}`);
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error?.message || `HTTP ${res.status}`);
+          }
+
+          const data = await res.json();
+          const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!textContent) throw new Error("Respuesta vacía del modelo");
+
+          const cleanJson = textContent.replace(/```json\s*/gi, "").replace(/```\s*$/gi, "").trim();
+          let parsed = JSON.parse(cleanJson);
+          if (Array.isArray(parsed)) parsed = parsed[0] || {};
+
+          return {
+            success: true,
+            engine: `Google Gemini Multimodal (${model})`,
+            data: parsed
+          };
+        } catch (err) {
+          lastErr = err;
         }
-
-        const data = await res.json();
-        const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!textContent) throw new Error("Respuesta vacía del modelo");
-
-        const cleanJson = textContent.replace(/```json\s*/gi, "").replace(/```\s*$/gi, "").trim();
-        let parsed = JSON.parse(cleanJson);
-        if (Array.isArray(parsed)) parsed = parsed[0] || {};
-
-        return {
-          success: true,
-          engine: `Google Gemini Multimodal (${model})`,
-          data: parsed
-        };
-      } catch (err) {
-        lastErr = err;
       }
     }
     throw lastErr || new Error("No se pudo conectar con los modelos de Gemini");
@@ -1560,8 +1590,10 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             if (loc?.nombre_completo?.value) titular = safeString(loc.nombre_completo.value);
           }
           const ced = safeString(safeData.cedula || user?.cedula);
-          const inst = safeString(safeData.institucion_educativa || safeData.institucion || user?.institucion || "");
-          const carrera = safeString(safeData.mencion_carrera || safeData.carrera || user?.carrera || user?.mencion || "");
+          const rawInst = safeString(safeData.institucion_educativa || safeData.institucion || user?.institucion || "");
+          const inst = matchOfficialUniversity(rawInst) || rawInst;
+          const rawCarrera = safeString(safeData.mencion_carrera || safeData.carrera || user?.carrera || user?.mencion || "");
+          const carrera = matchOfficialCareer(rawCarrera) || rawCarrera;
           const fecha = safeString(normalizeDateText(safeData.fecha_expedicion || safeData.fecha_emision || safeData.fecha) || "");
           const fac = safeString(safeData.facultad || user?.facultad || "");
 

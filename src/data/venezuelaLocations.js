@@ -22,7 +22,7 @@ export const UNIVERSIDADES_CATALOGO = [
   "Universidad Nacional Experimental Simón Rodríguez (UNESR)",
   "Universidad Pedagógica Experimental Libertador (UPEL)",
   "Universidad Centroccidental Lisandro Alvarado (UCLA)",
-  "Universidad Rafael Belloso Chacín (URBE)",
+  "Universidad Dr. Rafael Belloso Chacín (URBE)",
   "Universidad José Antonio Páez (UJAP)",
   "Universidad Alejandro de Humboldt (UAH)",
   "Universidad Monteávila (UMA)",
@@ -34,42 +34,176 @@ export const UNIVERSIDADES_CATALOGO = [
   "Universidad Nacional Experimental Francisco de Miranda (UNEFM)",
   "Universidad Bolivariana de Venezuela (UBV)",
   "Universidad Nacional Experimental Politécnica Antonio José de Sucre (UNEXPO)",
+  "Universidad de Oriente (UDO)",
+  "Universidad Católica Santa María La Antigua (USMA)",
   "Universidad Santa María del Amazonas (USMA)",
   "Otra Institución Universitaria Registrada en el CNU"
 ];
 
 export const CARRERAS_CATALOGO = [
   "Ingeniería de Sistemas",
-  "Ingeniería Civil",
-  "Ingeniería Industrial",
-  "Ingeniería Mecánica",
-  "Ingeniería Eléctrica",
-  "Ingeniería Electrónica",
-  "Ingeniería Química",
-  "Ingeniería en Telecomunicaciones",
+  "Ingeniero de Sistemas",
+  "Ingeniero en Sistemas",
   "Ingeniería en Computación / Informática",
+  "Ingeniero en Informática",
+  "Ingeniería en Telecomunicaciones",
+  "Ingeniero de Telecomunicaciones",
+  "Ingeniería Civil",
+  "Ingeniero Civil",
+  "Ingeniería Industrial",
+  "Ingeniero Industrial",
+  "Ingeniería Mecánica",
+  "Ingeniero Mecánico",
+  "Ingeniería Eléctrica",
+  "Ingeniero Electricista",
+  "Ingeniería Electrónica",
+  "Ingeniero Electrónico",
+  "Ingeniería Química",
+  "Ingeniero Químico",
   "Ingeniería Geológica",
   "Ingeniería Metalúrgica",
   "Arquitectura",
+  "Arquitecto",
+  "Abogado",
   "Licenciatura en Derecho / Abogado",
+  "Licenciada en Derecho y Ciencias Políticas",
+  "Licenciado en Administración",
   "Licenciatura en Administración de Empresas",
+  "Contador Público",
   "Licenciatura en Contaduría Pública",
+  "Economista",
   "Licenciatura en Economía",
+  "Licenciado en Comunicación Social",
   "Licenciatura en Comunicación Social",
+  "Licenciado en Estudios Internacionales",
   "Licenciatura en Relaciones Internacionales",
+  "Licenciado en Relaciones Industriales",
+  "Médico Cirujano",
   "Medicina General / Médico Cirujano",
+  "Odontólogo",
   "Odontología",
+  "Farmacéutico",
   "Farmacia",
+  "Licenciado en Enfermería",
   "Licenciatura en Enfermería",
+  "Licenciado en Bioanálisis",
   "Licenciatura en Bioanálisis",
+  "Licenciado en Fisioterapia",
+  "Licenciado en Nutrición y Dietética",
+  "Licenciado en Psicología",
   "Licenciatura en Psicología",
+  "Licenciado en Educación",
   "Licenciatura en Educación (Mención Integral)",
+  "Licenciado en Computación",
+  "Licenciado en Biología",
   "Licenciatura en Biología",
+  "Licenciado en Química",
   "Licenciatura en Química",
+  "Licenciado en Física",
   "Licenciatura en Física",
+  "Licenciado en Matemática",
   "Licenciatura en Matemáticas",
   "Otro Título Universitario Oficial"
 ];
+
+/**
+ * Normaliza un nombre de universidad extraído por OCR/IA hacia el valor exacto del catálogo oficial
+ * si hay coincidencia clara; de lo contrario conserva el valor limpio extraído.
+ */
+export function matchOfficialUniversity(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  const clean = raw.trim();
+  if (!clean) return "";
+  if (UNIVERSIDADES_CATALOGO.includes(clean)) return clean;
+
+  const lower = clean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const rules = [
+    { keys: ["santa maria la antigua", "usma"], val: "Universidad Católica Santa María La Antigua (USMA)" },
+    { keys: ["central de venezuela", "ucv"], val: "Universidad Central de Venezuela (UCV)" },
+    { keys: ["santa maria", "usm"], val: "Universidad Santa María (USM)" },
+    { keys: ["catolica andres bello", "ucab"], val: "Universidad Católica Andrés Bello (UCAB)" },
+    { keys: ["simon bolivar", "usb"], val: "Universidad Simón Bolívar (USB)" },
+    { keys: ["carabobo"], val: "Universidad de Carabobo (UC)" },
+    { keys: ["los andes", "ula"], val: "Universidad de Los Andes (ULA)" },
+    { keys: ["del zulia", "luz"], val: "Universidad del Zulia (LUZ)" },
+    { keys: ["metropolitana", "unimet"], val: "Universidad Metropolitana (UNIMET)" },
+    { keys: ["fuerza armada", "fanb", "unefa"], val: "Universidad Nacional Experimental Politécnica de la FANB (UNEFA)" },
+    { keys: ["simon rodriguez", "unesr"], val: "Universidad Nacional Experimental Simón Rodríguez (UNESR)" },
+    { keys: ["pedagogica experimental", "libertador", "upel"], val: "Universidad Pedagógica Experimental Libertador (UPEL)" },
+    { keys: ["lisandro alvarado", "centroccidental", "ucla"], val: "Universidad Centroccidental Lisandro Alvarado (UCLA)" },
+    { keys: ["belloso chacin", "urbe"], val: "Universidad Dr. Rafael Belloso Chacín (URBE)" },
+    { keys: ["jose antonio paez", "ujap"], val: "Universidad José Antonio Páez (UJAP)" },
+    { keys: ["alejandro de humboldt", "uah"], val: "Universidad Alejandro de Humboldt (UAH)" },
+    { keys: ["monteavila", "uma"], val: "Universidad Monteávila (UMA)" },
+    { keys: ["bicentenaria de aragua", "uba"], val: "Universidad Bicentenaria de Aragua (UBA)" },
+    { keys: ["rafael urdaneta", "uru"], val: "Universidad Rafael Urdaneta (URU)" },
+    { keys: ["yacambu", "uny"], val: "Universidad Yacambú (UNY)" },
+    { keys: ["guayana", "uneg"], val: "Universidad Nacional Experimental de Guayana (UNEG)" },
+    { keys: ["ezequiel zamora", "llanos occidentales", "unellez"], val: "Universidad Nacional Experimental de los Llanos Ezequiel Zamora (UNELLEZ)" },
+    { keys: ["francisco de miranda", "unefm"], val: "Universidad Nacional Experimental Francisco de Miranda (UNEFM)" },
+    { keys: ["bolivariana de venezuela", "ubv"], val: "Universidad Bolivariana de Venezuela (UBV)" },
+    { keys: ["antonio jose de sucre", "unexpo"], val: "Universidad Nacional Experimental Politécnica Antonio José de Sucre (UNEXPO)" },
+    { keys: ["universidad de oriente", "udo"], val: "Universidad de Oriente (UDO)" }
+  ];
+
+  for (const r of rules) {
+    if (r.keys.some(k => lower.includes(k))) return r.val;
+  }
+  return clean;
+}
+
+/**
+ * Normaliza una carrera/título extraído por OCR/IA hacia el catálogo oficial
+ * conservando el valor original si es un título específico válido.
+ */
+export function matchOfficialCareer(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  const clean = raw.trim();
+  if (!clean) return "";
+  if (CARRERAS_CATALOGO.includes(clean)) return clean;
+
+  const lower = clean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const rules = [
+    { keys: ["derecho y ciencias politicas"], val: "Licenciada en Derecho y Ciencias Políticas" },
+    { keys: ["ingeniero de sistemas", "ingeniera de sistemas"], val: "Ingeniero de Sistemas" },
+    { keys: ["ingeniero en sistemas", "ingeniera en sistemas"], val: "Ingeniero en Sistemas" },
+    { keys: ["ingenieria de sistemas", "ingenieria en sistemas"], val: "Ingeniería de Sistemas" },
+    { keys: ["ingeniero en informatica", "ingeniera en informatica", "ingenieria informatica"], val: "Ingeniero en Informática" },
+    { keys: ["telecomunicaciones"], val: "Ingeniero de Telecomunicaciones" },
+    { keys: ["ingeniero civil", "ingeniera civil"], val: "Ingeniero Civil" },
+    { keys: ["ingenieria civil"], val: "Ingeniería Civil" },
+    { keys: ["ingeniero industrial", "ingeniera industrial"], val: "Ingeniero Industrial" },
+    { keys: ["ingenieria industrial"], val: "Ingeniería Industrial" },
+    { keys: ["ingeniero mecanico", "ingeniera mecanica", "ingenieria mecanica"], val: "Ingeniero Mecánico" },
+    { keys: ["electricista", "ingeniero electrico", "ingenieria electrica"], val: "Ingeniero Electricista" },
+    { keys: ["ingeniero electronico", "ingenieria electronica"], val: "Ingeniero Electrónico" },
+    { keys: ["ingeniero quimico", "ingenieria quimica"], val: "Ingeniero Químico" },
+    { keys: ["arquitecto", "arquitecta"], val: "Arquitecto" },
+    { keys: ["arquitectura"], val: "Arquitectura" },
+    { keys: ["abogado", "abogada"], val: "Abogado" },
+    { keys: ["medico cirujano", "medico cirujana", "medicina"], val: "Médico Cirujano" },
+    { keys: ["odontologo", "odontologa", "odontologia"], val: "Odontólogo" },
+    { keys: ["farmaceutico", "farmaceutica", "farmacia"], val: "Farmacéutico" },
+    { keys: ["administracion"], val: "Licenciado en Administración" },
+    { keys: ["contador publico", "contaduria"], val: "Contador Público" },
+    { keys: ["comunicacion social"], val: "Licenciado en Comunicación Social" },
+    { keys: ["economista", "economia"], val: "Economista" },
+    { keys: ["psicologia", "psicologo"], val: "Licenciado en Psicología" },
+    { keys: ["educacion"], val: "Licenciado en Educación" },
+    { keys: ["estudios internacionales", "relaciones internacionales"], val: "Licenciado en Estudios Internacionales" },
+    { keys: ["relaciones industriales"], val: "Licenciado en Relaciones Industriales" },
+    { keys: ["enfermeria", "enfermero", "enfermera"], val: "Licenciado en Enfermería" },
+    { keys: ["bioanalisis"], val: "Licenciado en Bioanálisis" },
+    { keys: ["fisioterapia"], val: "Licenciado en Fisioterapia" },
+    { keys: ["nutricion"], val: "Licenciado en Nutrición y Dietética" },
+    { keys: ["computacion"], val: "Licenciado en Computación" }
+  ];
+
+  for (const r of rules) {
+    if (r.keys.some(k => lower.includes(k))) return r.val;
+  }
+  return clean;
+}
 
 export const PAISES_CONVENIO_HAYA = [
   "España",

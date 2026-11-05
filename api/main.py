@@ -2319,11 +2319,12 @@ def ocr_gemini_endpoint():
         if len(extracted_text.strip()) >= 8 and HAS_USM_OCR:
             ner_res = USMOcrService.rule_based_ner(extracted_text)
             fields = {
-                "nombre_completo": ner_res.get("titular"),
+                "nombre_completo": ner_res.get("titular") or ner_res.get("nombre_completo"),
                 "cedula": ner_res.get("cedula"),
-                "institucion_educativa": ner_res.get("institucion") or "Universidad Santa María (USM)",
-                "mencion_carrera": ner_res.get("carrera") or "Ingeniería en Sistemas",
-                "fecha_emision": ner_res.get("fecha"),
+                "institucion_educativa": ner_res.get("institucion"),
+                "mencion_carrera": ner_res.get("titulo_conferido") or ner_res.get("carrera"),
+                "fecha_emision": ner_res.get("fecha_expedicion") or ner_res.get("fecha"),
+                "facultad": ner_res.get("facultad"),
                 "model_used": "PyMuPDF / AcademicDegreeNER (Local Fallback)"
             }
             return jsonify({

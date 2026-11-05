@@ -73,17 +73,18 @@ class AcademicDegreeNER:
 
     # ─── CATÁLOGO MAESTRO DE UNIVERSIDADES DE VENEZUELA (OFICIAL) ───────────────
     CATALOGO_UNIVERSIDADES = [
+        {"nombre": "Universidad Católica Santa María La Antigua (USMA)", "siglas": "USMA", "keywords": ["santa maria la antigua", "santa maría la antigua", "usma"]},
         {"nombre": "Universidad Central de Venezuela (UCV)", "siglas": "UCV", "keywords": ["central de venezuela", "universidad central", "ucv"]},
-        {"nombre": "Universidad Santa María (USM)", "siglas": "USM", "keywords": ["santa maria", "santa maría", "usm"]},
+        {"nombre": "Universidad Santa María (USM)", "siglas": "USM", "keywords": ["universidad santa maria", "universidad santa maría", "santa maria", "santa maría", "usm"]},
         {"nombre": "Universidad Católica Andrés Bello (UCAB)", "siglas": "UCAB", "keywords": ["catolica andres bello", "católica andrés bello", "ucab"]},
         {"nombre": "Universidad Simón Bolívar (USB)", "siglas": "USB", "keywords": ["simon bolivar", "simón bolívar", "usb"]},
         {"nombre": "Universidad de Carabobo (UC)", "siglas": "UC", "keywords": ["universidad de carabobo", "carabobo"]},
         {"nombre": "Universidad de Los Andes (ULA)", "siglas": "ULA", "keywords": ["universidad de los andes", "los andes", "ula"]},
         {"nombre": "Universidad del Zulia (LUZ)", "siglas": "LUZ", "keywords": ["universidad del zulia", "del zulia", "luz"]},
         {"nombre": "Universidad Metropolitana (UNIMET)", "siglas": "UNIMET", "keywords": ["universidad metropolitana", "metropolitana", "unimet"]},
-        {"nombre": "Universidad Nacional Experimental Politécnica de la Fuerza Armada (UNEFA)", "siglas": "UNEFA", "keywords": ["fuerza armada", "unefa", "politecnica de la fuerza"]},
+        {"nombre": "Universidad Nacional Experimental Politécnica de la FANB (UNEFA)", "siglas": "UNEFA", "keywords": ["fuerza armada", "fanb", "unefa", "politecnica de la fuerza"]},
         {"nombre": "Universidad Nacional Experimental Simón Rodríguez (UNESR)", "siglas": "UNESR", "keywords": ["simon rodriguez", "simón rodríguez", "unesr"]},
-        {"nombre": "Universidad Pedagógica Experimental Libertador (UPEL)", "siglas": "UPEL", "keywords": ["pedagogica experimental", "libertador", "upel"]},
+        {"nombre": "Universidad Pedagógica Experimental Libertador (UPEL)", "siglas": "UPEL", "keywords": ["pedagogica experimental", "pedagógica experimental", "libertador", "upel"]},
         {"nombre": "Universidad Centroccidental Lisandro Alvarado (UCLA)", "siglas": "UCLA", "keywords": ["lisandro alvarado", "centroccidental", "ucla"]},
         {"nombre": "Universidad Dr. Rafael Belloso Chacín (URBE)", "siglas": "URBE", "keywords": ["belloso chacin", "belloso chacín", "urbe"]},
         {"nombre": "Universidad José Antonio Páez (UJAP)", "siglas": "UJAP", "keywords": ["jose antonio paez", "josé antonio páez", "ujap"]},
@@ -92,52 +93,53 @@ class AcademicDegreeNER:
         {"nombre": "Universidad Bicentenaria de Aragua (UBA)", "siglas": "UBA", "keywords": ["bicentenaria de aragua", "uba"]},
         {"nombre": "Universidad Rafael Urdaneta (URU)", "siglas": "URU", "keywords": ["rafael urdaneta", "uru"]},
         {"nombre": "Universidad Yacambú (UNY)", "siglas": "UNY", "keywords": ["yacambu", "yacambú", "uny"]},
-        {"nombre": "Universidad Nacional Experimental de Guayana (UNEG)", "siglas": "UNEG", "keywords": ["guayana", "uneg"]},
+        {"nombre": "Universidad Nacional Experimental de Guayana (UNEG)", "siglas": "UNEG", "keywords": ["experimental de guayana", "uneg"]},
         {"nombre": "Universidad Nacional Experimental de los Llanos Ezequiel Zamora (UNELLEZ)", "siglas": "UNELLEZ", "keywords": ["llanos occidentales", "ezequiel zamora", "unellez"]},
         {"nombre": "Universidad Nacional Experimental Francisco de Miranda (UNEFM)", "siglas": "UNEFM", "keywords": ["francisco de miranda", "unefm"]},
         {"nombre": "Universidad Bolivariana de Venezuela (UBV)", "siglas": "UBV", "keywords": ["universidad bolivariana", "ubv"]},
-        {"nombre": "Universidad Nacional Experimental Politécnica Antonio José de Sucre (UNEXPO)", "siglas": "UNEXPO", "keywords": ["antonio jose de sucre", "unexpo", "politecnica antonio"]},
-        {"nombre": "Universidad Católica Santa María La Antigua (USMA)", "siglas": "USMA", "keywords": ["santa maria la antigua", "usma"]}
+        {"nombre": "Universidad Nacional Experimental Politécnica Antonio José de Sucre (UNEXPO)", "siglas": "UNEXPO", "keywords": ["antonio jose de sucre", "antonio josé de sucre", "unexpo", "politecnica antonio"]}
     ]
 
     # ─── CATÁLOGO OFICIAL DE CARRERAS Y TITULACIONES (OPSU / LOEU) ───────────────
     CATALOGO_CARRERAS = [
+        # Derecho y Ciencias Políticas (específico antes de genérico)
+        {"titulo": "Licenciada en Derecho y Ciencias Políticas", "keywords": ["licenciada en derecho y ciencias politicas", "licenciada en derecho y ciencias políticas", "licenciado en derecho y ciencias politicas", "licenciado en derecho y ciencias políticas"]},
+        {"titulo": "Abogado", "keywords": ["titulo de abogado", "título de abogado", "titulo de abogada", "título de abogada"]},
         # Ingenierías
-        {"titulo": "Ingeniero de Sistemas", "keywords": ["ingeniero de sistemas", "ingenieria de sistemas", "ingeniero en sistemas", "ingenieria en sistemas", "sistemas"]},
-        {"titulo": "Ingeniero en Informática", "keywords": ["ingeniero en informatica", "ingenieria informatica", "ingeniero informatico", "informatica"]},
-        {"titulo": "Ingeniero de Telecomunicaciones", "keywords": ["ingeniero de telecomunicaciones", "ingenieria de telecomunicaciones", "telecomunicaciones"]},
-        {"titulo": "Ingeniero Civil", "keywords": ["ingeniero civil", "ingenieria civil", "civil"]},
-        {"titulo": "Ingeniero Industrial", "keywords": ["ingeniero industrial", "ingenieria industrial", "industrial"]},
-        {"titulo": "Ingeniero Mecánico", "keywords": ["ingeniero mecanico", "ingenieria mecanica", "mecanico"]},
-        {"titulo": "Ingeniero Electricista", "keywords": ["ingeniero electricista", "ingeniero electrico", "ingenieria electrica", "electricista"]},
-        {"titulo": "Ingeniero Electrónico", "keywords": ["ingeniero electronico", "ingenieria electronica", "electronico"]},
-        {"titulo": "Ingeniero Químico", "keywords": ["ingeniero quimico", "ingenieria quimica", "quimico"]},
-        {"titulo": "Arquitecto", "keywords": ["arquitecto", "arquitectura"]},
+        {"titulo": "Ingeniero en Sistemas", "keywords": ["ingeniero en sistemas", "ingeniera en sistemas"]},
+        {"titulo": "Ingeniero de Sistemas", "keywords": ["ingeniero de sistemas", "ingeniera de sistemas", "ingenieria de sistemas", "ingeniería de sistemas"]},
+        {"titulo": "Ingeniero en Informática", "keywords": ["ingeniero en informatica", "ingeniero en informática", "ingenieria informatica", "ingeniero informatico"]},
+        {"titulo": "Ingeniero de Telecomunicaciones", "keywords": ["ingeniero de telecomunicaciones", "ingenieria de telecomunicaciones", "ingeniero en telecomunicaciones"]},
+        {"titulo": "Ingeniero Civil", "keywords": ["ingeniero civil", "ingeniera civil", "ingenieria civil"]},
+        {"titulo": "Ingeniero Industrial", "keywords": ["ingeniero industrial", "ingeniera industrial", "ingenieria industrial"]},
+        {"titulo": "Ingeniero Mecánico", "keywords": ["ingeniero mecanico", "ingeniero mecánico", "ingenieria mecanica"]},
+        {"titulo": "Ingeniero Electricista", "keywords": ["ingeniero electricista", "ingeniero electrico", "ingeniero eléctrico", "ingenieria electrica"]},
+        {"titulo": "Ingeniero Electrónico", "keywords": ["ingeniero electronico", "ingeniero electrónico", "ingenieria electronica"]},
+        {"titulo": "Ingeniero Químico", "keywords": ["ingeniero quimico", "ingeniero químico", "ingenieria quimica"]},
+        {"titulo": "Arquitecto", "keywords": ["titulo de arquitecto", "título de arquitecto", "titulo de arquitecta", "título de arquitecta"]},
         # Ciencias Sociales y Humanidades
-        {"titulo": "Abogado", "keywords": ["abogado", "abogada", "ciencias juridicas", "derecho"]},
-        {"titulo": "Licenciada en Derecho y Ciencias Políticas", "keywords": ["derecho y ciencias politicas"]},
-        {"titulo": "Licenciado en Administración", "keywords": ["licenciado en administracion", "administracion comercial", "administracion de empresas", "administracion"]},
-        {"titulo": "Contador Público", "keywords": ["contador publico", "contaduria publica", "licenciado en contaduria"]},
-        {"titulo": "Licenciado en Comunicación Social", "keywords": ["comunicacion social", "licenciado en comunicacion", "periodista"]},
-        {"titulo": "Economista", "keywords": ["economista", "licenciado en economia", "ciencias economicas", "economia"]},
-        {"titulo": "Licenciado en Psicología", "keywords": ["psicologia", "licenciado en psicologia", "psicologo"]},
-        {"titulo": "Licenciado en Educación", "keywords": ["licenciado en educacion", "educacion integral", "educacion"]},
-        {"titulo": "Licenciado en Estudios Internacionales", "keywords": ["estudios internacionales"]},
-        {"titulo": "Licenciado en Relaciones Industriales", "keywords": ["relaciones industriales"]},
+        {"titulo": "Licenciado en Administración", "keywords": ["licenciado en administracion", "licenciado en administración", "licenciada en administracion", "licenciada en administración", "administracion comercial", "administracion de empresas"]},
+        {"titulo": "Contador Público", "keywords": ["contador publico", "contador público", "contaduria publica", "contaduría pública", "licenciado en contaduria"]},
+        {"titulo": "Licenciado en Comunicación Social", "keywords": ["licenciado en comunicacion social", "licenciado en comunicación social", "licenciada en comunicacion social", "licenciada en comunicación social"]},
+        {"titulo": "Economista", "keywords": ["titulo de economista", "título de economista", "licenciado en economia", "licenciado en economía"]},
+        {"titulo": "Licenciado en Psicología", "keywords": ["licenciado en psicologia", "licenciado en psicología", "licenciada en psicologia", "licenciada en psicología"]},
+        {"titulo": "Licenciado en Educación", "keywords": ["licenciado en educacion", "licenciado en educación", "licenciada en educacion", "licenciada en educación", "educacion integral"]},
+        {"titulo": "Licenciado en Estudios Internacionales", "keywords": ["licenciado en estudios internacionales", "licenciada en estudios internacionales", "estudios internacionales"]},
+        {"titulo": "Licenciado en Relaciones Industriales", "keywords": ["licenciado en relaciones industriales", "licenciada en relaciones industriales", "relaciones industriales"]},
         # Ciencias de la Salud
-        {"titulo": "Médico Cirujano", "keywords": ["medico cirujano", "medicina", "medico cirujana"]},
-        {"titulo": "Odontólogo", "keywords": ["odontologo", "odontologia", "odontologa"]},
-        {"titulo": "Farmacéutico", "keywords": ["farmaceutico", "farmacia", "farmaceutica"]},
-        {"titulo": "Licenciado en Enfermería", "keywords": ["enfermeria", "licenciado en enfermeria", "enfermero", "enfermera"]},
-        {"titulo": "Licenciado en Bioanálisis", "keywords": ["bioanalisis", "licenciado en bioanalisis"]},
-        {"titulo": "Licenciado en Fisioterapia", "keywords": ["fisioterapia", "fisioterapeuta"]},
-        {"titulo": "Licenciado en Nutrición y Dietética", "keywords": ["nutricion y dietetica", "nutricionista"]},
+        {"titulo": "Médico Cirujano", "keywords": ["medico cirujano", "médico cirujano", "medico cirujana", "médico cirujana"]},
+        {"titulo": "Odontólogo", "keywords": ["titulo de odontologo", "título de odontólogo", "odontologo", "odontólogo", "odontologa", "odontóloga"]},
+        {"titulo": "Farmacéutico", "keywords": ["farmaceutico", "farmacéutico", "farmaceutica", "farmacéutica"]},
+        {"titulo": "Licenciado en Enfermería", "keywords": ["licenciado en enfermeria", "licenciado en enfermería", "licenciada en enfermeria", "licenciada en enfermería"]},
+        {"titulo": "Licenciado en Bioanálisis", "keywords": ["licenciado en bioanalisis", "licenciado en bioanálisis", "licenciada en bioanalisis"]},
+        {"titulo": "Licenciado en Fisioterapia", "keywords": ["licenciado en fisioterapia", "licenciada en fisioterapia", "fisioterapeuta"]},
+        {"titulo": "Licenciado en Nutrición y Dietética", "keywords": ["nutricion y dietetica", "nutrición y dietética", "licenciado en nutricion"]},
         # Ciencias Básicas
-        {"titulo": "Licenciado en Computación", "keywords": ["licenciado en computacion", "ciencias de la computacion", "computacion"]},
-        {"titulo": "Licenciado en Biología", "keywords": ["licenciado en biologia", "biologo"]},
-        {"titulo": "Licenciado en Química", "keywords": ["licenciado en quimica", "quimica"]},
-        {"titulo": "Licenciado en Física", "keywords": ["licenciado en fisica", "fisica"]},
-        {"titulo": "Licenciado en Matemática", "keywords": ["licenciado en matematica", "matematica"]}
+        {"titulo": "Licenciado en Computación", "keywords": ["licenciado en computacion", "licenciado en computación", "ciencias de la computacion"]},
+        {"titulo": "Licenciado en Biología", "keywords": ["licenciado en biologia", "licenciado en biología"]},
+        {"titulo": "Licenciado en Química", "keywords": ["licenciado en quimica", "licenciado en química"]},
+        {"titulo": "Licenciado en Física", "keywords": ["licenciado en fisica", "licenciado en física"]},
+        {"titulo": "Licenciado en Matemática", "keywords": ["licenciado en matematica", "licenciado en matemática"]}
     ]
 
     # ─── FRASES DE CONTROL LEGAL Y DELIMITADORES DE PROTOCOLO ────────────────────
@@ -306,17 +308,46 @@ class AcademicDegreeNER:
     def extract_degree(cls, text: str) -> Optional[str]:
         """
         Extrae la denominación exacta del título o grado académico conferido mediante:
-        1. Búsqueda exacta y coincidencia de patrones por Regex.
-        2. Fuzzy Matching contra el Catálogo Oficial de Titulaciones y Carreras (OPSU/LOEU).
+        1. Extracción contextual por patrones solemnes ("el título de...", "optar al título de...").
+        2. Búsqueda exacta y coincidencia de patrones por Regex.
+        3. Fuzzy Matching contra el Catálogo Oficial de Titulaciones y Carreras (OPSU/LOEU).
         """
+        # 1. Patrones regex contextuales con delimitadores solemnes (máxima prioridad)
+        patrones = [
+            r'(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))',
+            r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)'
+        ]
+        for pat in patrones:
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                cand = ' '.join(m.group(1).strip().split())
+                cand = re.sub(r'^[oO0]\s+', '', cand)
+                cand = re.sub(r'\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|t[oó]mese|tomese|raz[oó]n|por\s+haber).*$', '', cand, flags=re.IGNORECASE)
+                if len(cand) >= 4:
+                    best_match = None
+                    best_score = 0.0
+                    for c in cls.CATALOGO_CARRERAS:
+                        score_title = cls.levenshtein_similarity(cand, c["titulo"])
+                        score_kw = max([cls.levenshtein_similarity(cand, kw) for kw in c["keywords"]]) if c["keywords"] else 0.0
+                        top_s = max(score_title, score_kw)
+                        if top_s > best_score:
+                            best_score = top_s
+                            best_match = c["titulo"]
+                    if best_score >= 0.98:
+                        return cand
+                    if best_score >= 0.72 and best_match:
+                        return best_match
+                    return cand
+
         text_lower = text.lower()
 
-        # 1. Búsqueda directa por Catálogo Oficial de Carreras (Keywords de alta precisión)
+        # 2. Búsqueda directa por Catálogo Oficial de Carreras (Keywords de alta precisión)
         for c in cls.CATALOGO_CARRERAS:
             for kw in c["keywords"]:
                 if kw in text_lower:
                     return c["titulo"]
-        # 1. Carreras de Salud
+
+        # 3. Carreras de Salud
         if re.search(r'm[eé]dic[oa]\s+cirujan[oa]', text, re.IGNORECASE):
             return "Médico Cirujano"
         if re.search(r'odont[oó]log[oa]', text, re.IGNORECASE):
@@ -326,13 +357,13 @@ class AcademicDegreeNER:
         if re.search(r'enfermer[ií][oa]', text, re.IGNORECASE):
             return "Licenciado en Enfermería"
 
-        # 2. Derecho y Ciencias Políticas
+        # 4. Derecho y Ciencias Políticas
         if re.search(r'derecho\s+y\s+ciencias\s+pol[ií]ticas', text, re.IGNORECASE):
             return "Licenciada en Derecho y Ciencias Políticas"
         if re.search(r'\babogad[oa]\b', text, re.IGNORECASE):
             return "Abogado"
 
-        # 3. Ingenierías (Mapeo canónico exacto con tolerancia ortográfica)
+        # 5. Ingenierías (Mapeo canónico exacto con tolerancia ortográfica)
         if re.search(r'ingenier[ií][oa]\s+(?:en|de)?\s*s[i1l]st[e3]mas?', text, re.IGNORECASE):
             return "Ingeniero de Sistemas"
         if re.search(r'ingenier[ií][oa]\s+(?:en|de)?\s*inform[aá]t[i1]ca', text, re.IGNORECASE):
@@ -354,7 +385,7 @@ class AcademicDegreeNER:
         if re.search(r'arqu[i1]tect[oa]', text, re.IGNORECASE):
             return "Arquitecto"
 
-        # 4. Ciencias Económicas, Administrativas y Sociales
+        # 6. Ciencias Económicas, Administrativas y Sociales
         if re.search(r'contadur[ií]a\s+p[uú]bl[i1l]ca|contador\s+p[uú]bl[i1l]co', text, re.IGNORECASE):
             return "Contador Público"
         if re.search(r'adm[i1l]n[i1l]strac[i1][oó]n\s+(?:de\s+empresas|comercial)?', text, re.IGNORECASE):
@@ -370,36 +401,10 @@ class AcademicDegreeNER:
         if re.search(r'computac[i1][oó]n', text, re.IGNORECASE):
             return "Licenciado en Computación"
 
-        # 5. TSU (Técnico Superior Universitario)
+        # 7. TSU (Técnico Superior Universitario)
         tsu_m = re.search(r'(?:t[eé]cnic[oa]\s+superior\s+universitari[oa]|t\.?s\.?u\.?)\s+(?:en|de)?\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})', text, re.IGNORECASE)
         if tsu_m:
             return f"Técnico Superior Universitario en {tsu_m.group(1).strip()}"
-
-        # 6. Patrones regex generales con delimitadores solemnes
-        patrones = [
-            r'(?:optar\s+al\s+t[ií1]tulo\s+(?:de|be)|el\s+t[ií1]tulo\s+(?:de|be)|el\s+grado\s+(?:de|be)|t[ií1]tulo\s+(?:de|be)|conferirle\s+el\s+t[ií1]tulo\s+(?:de|be))\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$))',
-            r'\b((?:Licenciad[oa]|Ingenier[oa]|Abogad[oa]|Arquitect[oa]|M[eé]dic[oa]\s+Cirujan[oa]|Odont[oó]log[oa]|Farmac[eé]utic[oa]|Especialista|Mag[ií]ster|Doctor[a]?)\s+(?:en|de)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,45}?)(?=\n\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|por\s+haber|cumplido|con\s+to[bd]os|en\s+fe|dado|para\s+ejercer|a\s+los|el\s+veinti|\d{1,2}\s+(?:de|be)|[a-z]+\s+(?:de|be)\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|$)|$)'
-        ]
-        for pat in patrones:
-            m = re.search(pat, text, re.IGNORECASE)
-            if m:
-                cand = ' '.join(m.group(1).strip().split())
-                cand = re.sub(r'^[oO0]\s+', '', cand)
-                cand = re.sub(r'\s*(?:t[oó]mese\s+raz[oó]n|en\s+la\s+secretar[ií]a|t[oó]mese|tomese|raz[oó]n|por\s+haber).*$', '', cand, flags=re.IGNORECASE)
-                if len(cand) >= 4:
-                    # Aplicar Fuzzy Matching contra el Catálogo Oficial de Carreras
-                    best_match = None
-                    best_score = 0.0
-                    for c in cls.CATALOGO_CARRERAS:
-                        score_title = cls.levenshtein_similarity(cand, c["titulo"])
-                        score_kw = max([cls.levenshtein_similarity(cand, kw) for kw in c["keywords"]]) if c["keywords"] else 0.0
-                        top_s = max(score_title, score_kw)
-                        if top_s > best_score:
-                            best_score = top_s
-                            best_match = c["titulo"]
-                    if best_score >= 0.70 and best_match:
-                        return best_match
-                    return cand
 
         return None
 
