@@ -107,6 +107,9 @@ export const blockchainAPI = {
   mppreApostilleRecord: (hash, auditorData = {}) =>
     apiFetch(`/blockchain/records/${hash}/mppre-apostille`, { method: 'POST', body: auditorData }),
 
+  requestApostille: (hash, requestData = {}) =>
+    apiFetch(`/blockchain/records/${hash}/request-apostille`, { method: 'POST', body: requestData }),
+
   rejectRecord: (hash, reason, auditorData = {}) =>
     apiFetch(`/blockchain/records/${hash}/reject`, { method: 'POST', body: { reason, ...auditorData } }),
 

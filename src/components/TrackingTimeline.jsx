@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { CheckCircle, Clock, ShieldCheck, MapPin, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle, Clock, ShieldCheck, MapPin, ArrowRight, Globe, FileText, X, Send, AlertCircle, Building, Check, Sparkles } from 'lucide-react';
 import { blockchainAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
+import { PAISES_CONVENIO_HAYA } from '../data/venezuelaLocations';
 
 const DEFAULT_THESIS_RECORDS = [
   {
@@ -64,35 +65,54 @@ const TrackingTimeline = ({ user }) => {
   const [activeCertHash, setActiveCertHash] = useState(null);
   const [activeApostilleRecord, setActiveApostilleRecord] = useState(null);
   const [requestingApostille, setRequestingApostille] = useState(false);
+  const [isApostilleModalOpen, setIsApostilleModalOpen] = useState(false);
+  const [selectedApostilleCountry, setSelectedApostilleCountry] = useState('España');
+  const [apostilleMotivo, setApostilleMotivo] = useState('Estudios de Posgrado y Homologación Profesional');
+  const [apostilleNotes, setApostilleNotes] = useState('');
+  const [apostilleError, setApostilleError] = useState('');
 
-  const handleRequestApostille = async (record) => {
+  const handleOpenApostilleModal = (record) => {
     if (!record?.hash) return;
-    setRequestingApostille(true);
-    try {
-      const res = await blockchainAPI.mppreApostilleRecord(record.hash, {
-        auditor_username: 'mppre_consular',
-        auditor_cargo: 'Oficial Consular de Legalización y Apostilla',
-        auditor_ente: 'MPPRE'
-      });
-      if (res.success) {
-        const updated = {
-          ...record,
-          status: 'APOSTILLADO_MPPRE',
-          mppreVerified: true,
-          apostilleNumber: res.apostilleNumber,
-          mppreOfficer: 'Oficial Consular (MPPRE)'
-        };
-        setRecords(prev => prev.map(r => r.hash === record.hash ? updated : r));
-        setActiveApostilleRecord(updated);
+    setApostilleError('');
+    setSelectedApostilleCountry(record.countryDestiny || record.country_destiny || 'España');
+    setIsApostilleModalOpen(true);
+  };
 
-        // Sincronizar en localStorage tanto en blockchain_records como en pub_history
+  const handleSubmitApostilleRequest = async () => {
+    if (!latestRecord?.hash) return;
+    if (!selectedApostilleCountry) {
+      setApostilleError('Debes seleccionar un país miembro del Convenio de La Haya.');
+      return;
+    }
+    setRequestingApostille(true);
+    setApostilleError('');
+    try {
+      const fullMotivo = apostilleNotes.trim() ? (apostilleMotivo + " - " + apostilleNotes.trim()) : apostilleMotivo;
+      const res = await blockchainAPI.requestApostille(latestRecord.hash, {
+        country_destiny: selectedApostilleCountry,
+        countryDestiny: selectedApostilleCountry,
+        motivo_apostille: fullMotivo,
+        motivoApostille: fullMotivo
+      });
+      if (res && (res.success || res.status === 'PENDIENTE_APOSTILLA_MPPRE' || res.message)) {
+        const updated = {
+          ...latestRecord,
+          status: 'PENDIENTE_APOSTILLA_MPPRE',
+          country_destiny: selectedApostilleCountry,
+          countryDestiny: selectedApostilleCountry,
+          motivo_apostille: fullMotivo
+        };
+        setRecords(prev => prev.map(r => r.hash === latestRecord.hash ? updated : r));
+        setIsApostilleModalOpen(false);
+
+        // Sincronizar en localStorage
         try {
           const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
-          const nextBc = bc.map(r => r.hash === record.hash ? { ...r, ...updated } : r);
+          const nextBc = bc.map(r => r.hash === latestRecord.hash ? { ...r, ...updated } : r);
           localStorage.setItem('usm_blockchain_records', JSON.stringify(nextBc));
 
           const pub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
-          const nextPub = pub.map(r => ((r.hash || r.blockchainHash) === record.hash) ? { ...r, ...updated, tramite: updated.documentType || r.tramite, status: 'APOSTILLADO_MPPRE' } : r);
+          const nextPub = pub.map(r => ((r.hash || r.blockchainHash) === latestRecord.hash) ? { ...r, ...updated, status: 'PENDIENTE_APOSTILLA_MPPRE' } : r);
           localStorage.setItem('usm_pub_history', JSON.stringify(nextPub));
 
           if (typeof window !== 'undefined') {
@@ -108,10 +128,12 @@ const TrackingTimeline = ({ user }) => {
             } catch (_) {}
           }
         } catch (_) {}
+      } else {
+        setApostilleError(res?.message || 'Error al enviar la solicitud de apostilla');
       }
     } catch (err) {
       console.error('Error solicitando apostilla:', err);
-      alert('Error al solicitar la Apostilla: ' + (err.message || 'Error de conexión'));
+      setApostilleError('Error al conectar con la Cancillería (MPPRE): ' + (err.message || 'Error de conexión'));
     } finally {
       setRequestingApostille(false);
     }
@@ -401,8 +423,9 @@ const TrackingTimeline = ({ user }) => {
   const safeIndex = selectedRecordIndex >= records.length ? 0 : selectedRecordIndex;
   const latestRecord = records[safeIndex] || records[0];
 
-  const isMppeuDone = Boolean(latestRecord?.mppeuVerified || (latestRecord?.status || '').includes('CERTIFICADO_MPPEU') || (latestRecord?.status || '').includes('APOSTILLADO_MPPRE') || (latestRecord?.status || '').includes('Verificado'));
+  const isPendingMppre = (latestRecord?.status || '') === 'PENDIENTE_APOSTILLA_MPPRE';
   const isMppreDone = Boolean(latestRecord?.mppreVerified || (latestRecord?.status || '').includes('APOSTILLADO_MPPRE'));
+  const isMppeuDone = Boolean(latestRecord?.mppeuVerified || (latestRecord?.status || '').includes('CERTIFICADO_MPPEU') || isPendingMppre || isMppreDone || (latestRecord?.status || '').includes('Verificado'));
   const hashDisplay = latestRecord?.hash ? latestRecord.hash.substring(0, 10) : 'N/A';
   const docTypeDisplay = latestRecord?.documentType || 'Título Universitario USM';
   const solicitudDisplay = latestRecord?.solicitudCode || 'GTU-2026-USM-8492';
@@ -424,9 +447,15 @@ const TrackingTimeline = ({ user }) => {
     },
     {
       title: "Etapa 3: Emisión de Apostilla 100% Digital (MPPRE)",
-      desc: isMppreDone ? `Apostilla de La Haya N° ${apostilleDisplay} emitida y validada on-chain` : isMppeuDone ? "Trámite 100% digital en Cancillería (habilitado para emisión)" : "Se habilitará automáticamente tras el cotejo en el MPPEU",
-      status: isMppreDone ? "completed" : isMppeuDone ? "current" : "upcoming",
-      icon: <MapPin size={17} />
+      desc: isMppreDone
+        ? `Apostilla de La Haya N° ${apostilleDisplay} emitida y validada on-chain para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'país destino'}`
+        : isPendingMppre
+        ? `Solicitud radicada ante Cancillería para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'exterior'}. En revisión diplomática y firma consular por el MPPRE.`
+        : isMppeuDone
+        ? "Trámite 100% digital en Cancillería (habilitado). Haz clic en 'Solicitar Apostilla MPPRE' para radicar tu expediente."
+        : "Se habilitará automáticamente tras el cotejo en el MPPEU",
+      status: isMppreDone ? "completed" : isPendingMppre || isMppeuDone ? "current" : "upcoming",
+      icon: isMppreDone ? <CheckCircle size={17} /> : isPendingMppre ? <Clock size={17} /> : <Globe size={17} />
     }
   ];
 
@@ -536,26 +565,45 @@ const TrackingTimeline = ({ user }) => {
               </button>
             )}
 
-            {isMppeuDone && !isMppreDone && (
+            {isMppeuDone && !isPendingMppre && !isMppreDone && (
               <button
                 disabled={requestingApostille}
-                onClick={() => handleRequestApostille(latestRecord)}
+                onClick={() => handleOpenApostilleModal(latestRecord)}
                 style={{
                   background: 'var(--color-ink-black)',
                   color: '#ffffff',
                   border: 'none',
-                  padding: '0.4rem 0.8rem',
+                  padding: '0.4rem 0.85rem',
                   borderRadius: '6px',
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  cursor: requestingApostille ? 'wait' : 'pointer',
+                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.35rem'
                 }}
               >
-                {requestingApostille ? 'Tramitando...' : '⚡ Solicitar Apostilla MPPRE (100% Digital)'}
+                <Globe size={13} /> Solicitar Apostilla MPPRE (100% Digital)
               </button>
+            )}
+
+            {isPendingMppre && (
+              <span
+                style={{
+                  background: 'var(--color-blush-peach)',
+                  color: 'var(--color-sienna-brown)',
+                  border: '1px solid rgba(93, 42, 26, 0.25)',
+                  padding: '0.35rem 0.8rem',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <Clock size={13} className="animate-spin" /> En Revisión por MPPRE ({latestRecord.countryDestiny || latestRecord.country_destiny || 'Exterior'})
+              </span>
             )}
 
             {isMppreDone && (
@@ -569,10 +617,13 @@ const TrackingTimeline = ({ user }) => {
                   borderRadius: '6px',
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
                 }}
               >
-                Apostilla de La Haya
+                <Globe size={13} /> Ver Apostilla de La Haya
               </button>
             )}
 
@@ -581,14 +632,65 @@ const TrackingTimeline = ({ user }) => {
               fontWeight: 500,
               padding: '0.25rem 0.75rem',
               borderRadius: 'var(--radius-pill)',
-              backgroundColor: isMppreDone || isMppeuDone ? 'var(--color-blush-peach)' : '#ffffff',
-              color: isMppreDone || isMppeuDone ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)',
-              border: isMppreDone || isMppeuDone ? '1px solid rgba(93, 42, 26, 0.2)' : '1px solid var(--border)'
+              backgroundColor: isMppreDone || isPendingMppre || isMppeuDone ? 'var(--color-blush-peach)' : '#ffffff',
+              color: isMppreDone || isPendingMppre || isMppeuDone ? 'var(--color-sienna-brown)' : 'var(--color-ink-black)',
+              border: isMppreDone || isPendingMppre || isMppeuDone ? '1px solid rgba(93, 42, 26, 0.2)' : '1px solid var(--border)'
             }}>
-              {isMppreDone ? 'Apostillado 100%' : isMppeuDone ? 'Certificado MPPEU' : 'En Cotejo MPPEU'}
+              {isMppreDone ? 'Apostillado 100%' : isPendingMppre ? 'En Revisión MPPRE' : isMppeuDone ? 'Certificado MPPEU' : 'En Cotejo MPPEU'}
             </span>
           </div>
         </div>
+
+        {/* Tarjeta de Taquilla de Consignación Presencial (GTU) */}
+        {(latestRecord?.sede_taquilla || latestRecord?.sedeTaquilla) && (
+          <div style={{
+            marginTop: '0.9rem',
+            padding: '0.75rem 0.95rem',
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid rgba(93, 42, 26, 0.15)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.65rem'
+          }}>
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: '8px',
+              background: 'var(--color-blush-peach)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--color-sienna-brown)',
+              flexShrink: 0
+            }}>
+              <MapPin size={16} />
+            </div>
+            <div style={{ flex: 1, fontSize: '0.8rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.2rem' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-ink-black)' }}>
+                  🏛️ Sede Asignada para Cotejo Presencial del Título Físico (GTU):
+                </span>
+                <span style={{ fontSize: '0.72rem', background: 'var(--color-mist-gray)', padding: '0.1rem 0.5rem', borderRadius: 'var(--radius-pill)', color: 'var(--color-ink-black)', fontWeight: 600 }}>
+                  {latestRecord.estado} · {latestRecord.municipio}
+                </span>
+              </div>
+              <p style={{ margin: '0 0 0.15rem 0', color: 'var(--color-sienna-brown)', fontWeight: 600 }}>
+                {latestRecord.sede_taquilla || latestRecord.sedeTaquilla}
+              </p>
+              {(latestRecord.sede_direccion || latestRecord.sedeDireccion) && (
+                <p style={{ margin: '0 0 0.15rem 0', color: 'var(--text-secondary)', fontSize: '0.76rem' }}>
+                  📍 {latestRecord.sede_direccion || latestRecord.sedeDireccion}
+                </p>
+              )}
+              {(latestRecord.sede_horario || latestRecord.sedeHorario) && (
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
+                  🕒 Horario de Taquilla: {latestRecord.sede_horario || latestRecord.sedeHorario}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </motion.div>
 
       <div className="timeline" style={{ marginLeft: '0.75rem', marginTop: '1.25rem', borderLeft: '2px solid var(--border)' }}>
@@ -680,6 +782,282 @@ const TrackingTimeline = ({ user }) => {
           );
         })}
       </div>
+
+      {/* Modal para Solicitar Apostilla ante MPPRE */}
+      <AnimatePresence>
+        {isApostilleModalOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(23, 25, 28, 0.65)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 99999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget && !requestingApostille) setIsApostilleModalOpen(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 15 }}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '560px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{
+                padding: '1.25rem 1.5rem',
+                background: 'linear-gradient(135deg, #fffbf6 0%, #fdf3e7 100%)',
+                borderBottom: '1px solid rgba(93, 42, 26, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: '10px',
+                    background: 'var(--color-blush-peach)',
+                    color: 'var(--color-sienna-brown)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(93, 42, 26, 0.2)'
+                  }}>
+                    <Globe size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-ink-black)', fontFamily: 'var(--font-serif)' }}>
+                      Solicitud de Apostilla de La Haya
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                      Ministerio del Poder Popular para Relaciones Exteriores (MPPRE)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  disabled={requestingApostille}
+                  onClick={() => setIsApostilleModalOpen(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--color-slate-gray)',
+                    cursor: 'pointer',
+                    padding: '0.35rem',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                {/* Info Card Expediente */}
+                <div style={{
+                  padding: '0.9rem 1.1rem',
+                  background: 'var(--color-fog-white)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                  fontSize: '0.82rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Expediente GTU:</span>
+                    <strong style={{ color: 'var(--color-ink-black)' }}>{solicitudDisplay}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Titular:</span>
+                    <strong style={{ color: 'var(--color-ink-black)' }}>{latestRecord?.ownerName}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Cédula:</span>
+                    <span>{latestRecord?.cedula}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#047857', fontWeight: 600, fontSize: '0.76rem', paddingTop: '0.3rem', borderTop: '1px dashed var(--border)' }}>
+                    <CheckCircle size={14} /> Sello de Certificación Ministerial MPPEU Acreditado
+                  </div>
+                </div>
+
+                {/* País de Destino */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.4rem' }}>
+                    País de Destino (Convenio de La Haya de 1961) *
+                  </label>
+                  <select
+                    value={selectedApostilleCountry}
+                    onChange={(e) => setSelectedApostilleCountry(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.85rem',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      outline: 'none',
+                      background: '#ffffff',
+                      color: 'var(--color-ink-black)'
+                    }}
+                  >
+                    {PAISES_CONVENIO_HAYA.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Motivo del Trámite */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.4rem' }}>
+                    Motivo de la Solicitud
+                  </label>
+                  <select
+                    value={apostilleMotivo}
+                    onChange={(e) => setApostilleMotivo(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.85rem',
+                      fontSize: '0.84rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      outline: 'none',
+                      background: '#ffffff',
+                      color: 'var(--color-ink-black)'
+                    }}
+                  >
+                    <option value="Estudios de Posgrado y Homologación Profesional">Estudios de Posgrado y Homologación Profesional</option>
+                    <option value="Oferta Laboral / Empleo en el Exterior">Oferta Laboral / Empleo en el Exterior</option>
+                    <option value="Trámite Migratorio / Residencia Legal">Trámite Migratorio / Residencia Legal</option>
+                    <option value="Reagrupación Familiar y Doble Nacionalidad">Reagrupación Familiar y Doble Nacionalidad</option>
+                    <option value="Otro Motivo Académico o Laboral">Otro Motivo Académico o Laboral</option>
+                  </select>
+                </div>
+
+                {/* Observaciones opcionales */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.4rem' }}>
+                    Observaciones Consulares (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={apostilleNotes}
+                    onChange={(e) => setApostilleNotes(e.target.value)}
+                    placeholder="Ej. Dirigido a la Universidad o Colegio Profesional de destino..."
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.85rem',
+                      fontSize: '0.82rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      outline: 'none',
+                      background: '#ffffff'
+                    }}
+                  />
+                </div>
+
+                {/* Info Legal */}
+                <div style={{
+                  padding: '0.75rem 0.95rem',
+                  background: 'rgba(251, 225, 209, 0.4)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(93, 42, 26, 0.2)',
+                  fontSize: '0.76rem',
+                  color: 'var(--color-sienna-brown)',
+                  lineHeight: 1.45
+                }}>
+                  ℹ️ <strong>Trámite 100% Digital ante el MPPRE:</strong> Tu solicitud será asignada a la bandeja diplomática de la Cancillería. El oficial consular cotejará el sello digital GTU del MPPEU y firmará la Apostilla internacionalmente válida.
+                </div>
+
+                {apostilleError && (
+                  <div style={{
+                    padding: '0.65rem 0.85rem',
+                    background: '#fee2e2',
+                    borderRadius: '8px',
+                    border: '1px solid #f87171',
+                    fontSize: '0.8rem',
+                    color: '#991b1b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}>
+                    <AlertCircle size={15} /> {apostilleError}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                padding: '1rem 1.5rem',
+                borderTop: '1px solid var(--border)',
+                background: '#fafafa',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.65rem'
+              }}>
+                <button
+                  type="button"
+                  disabled={requestingApostille}
+                  onClick={() => setIsApostilleModalOpen(false)}
+                  style={{
+                    padding: '0.55rem 1rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: '#ffffff',
+                    color: 'var(--color-ink-black)',
+                    cursor: 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 500
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={requestingApostille}
+                  onClick={handleSubmitApostilleRequest}
+                  style={{
+                    padding: '0.55rem 1.25rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'var(--color-ink-black)',
+                    color: '#ffffff',
+                    cursor: requestingApostille ? 'wait' : 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    boxShadow: 'var(--shadow-subtle)'
+                  }}
+                >
+                  {requestingApostille ? (
+                    <>Enviando a Cancillería...</>
+                  ) : (
+                    <><Send size={14} /> Confirmar y Radicar ante MPPRE</>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

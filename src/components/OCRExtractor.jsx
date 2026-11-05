@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Scan, CheckCircle, AlertTriangle, Brain, FileText, User, CreditCard, Building, Calendar, Zap, Copy, Check, X, ShieldCheck, ArrowRight, ExternalLink, Award, Sparkles, AlertCircle } from "lucide-react";
 import { ocrAPI, blockchainAPI, hashAPI } from "../services/api";
+import { UNIVERSIDADES_CATALOGO, CARRERAS_CATALOGO, ESTADOS_VENEZUELA } from "../data/venezuelaLocations";
+import { MapPin } from "lucide-react";
 import { optimizeDocument, uploadDocumentToStorage } from "../services/documentStorage";
 
 const ConfidenceBadge = ({ score }) => {
@@ -27,7 +29,7 @@ export const safeString = (v) => {
   return String(v).trim();
 };
 
-  const FieldRow = ({ icon: Icon, label, value, confidence, onChange }) => {
+  const FieldRow = ({ fieldKey, icon: Icon, label, value, confidence, onChange }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editVal, setEditVal] = useState(value || "");
     const [copied, setCopied] = useState(false);
@@ -43,10 +45,29 @@ export const safeString = (v) => {
       setTimeout(() => setCopied(false), 1500);
     };
 
-    const handleBlur = () => {
+    const handleBlur = (newVal) => {
       setIsEditing(false);
-      if (onChange && editVal !== value) {
-        onChange(editVal);
+      const valToSave = newVal !== undefined ? newVal : editVal;
+      if (onChange && valToSave !== value) {
+        onChange(valToSave);
+      }
+    };
+
+    const handleSelectChange = (e) => {
+      const selected = e.target.value;
+      setEditVal(selected);
+      handleBlur(selected);
+    };
+
+    const handleDateChange = (e) => {
+      const isoVal = e.target.value; // YYYY-MM-DD
+      if (isoVal) {
+        const parts = isoVal.split('-');
+        if (parts.length === 3) {
+          const formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          setEditVal(formatted);
+          handleBlur(formatted);
+        }
       }
     };
 
@@ -57,32 +78,114 @@ export const safeString = (v) => {
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: "0.72rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px", margin: "0 0 0.15rem 0", fontWeight: 600 }}>{label}</p>
           {isEditing ? (
-            <input
-              autoFocus
-              type="text"
-              value={editVal}
-              onChange={(e) => setEditVal(e.target.value)}
-              onBlur={handleBlur}
-              onKeyDown={(e) => { if (e.key === "Enter") handleBlur(); }}
-              style={{
-                width: "100%",
-                padding: "0.25rem 0.5rem",
-                fontSize: "0.88rem",
-                fontWeight: 600,
-                color: "var(--color-ink-black)",
-                background: "#ffffff",
-                border: "1px solid var(--color-sienna-brown)",
-                borderRadius: "4px",
-                outline: "none"
-              }}
-            />
+            fieldKey === "institucion" ? (
+              <select
+                autoFocus
+                value={editVal}
+                onChange={handleSelectChange}
+                onBlur={() => setIsEditing(false)}
+                style={{
+                  width: "100%",
+                  padding: "0.3rem 0.5rem",
+                  fontSize: "0.86rem",
+                  fontWeight: 600,
+                  color: "var(--color-ink-black)",
+                  background: "#ffffff",
+                  border: "1px solid var(--color-sienna-brown)",
+                  borderRadius: "4px",
+                  outline: "none"
+                }}
+              >
+                <option value="">-- Selecciona la Universidad Oficial --</option>
+                {UNIVERSIDADES_CATALOGO.map(u => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            ) : fieldKey === "carrera" ? (
+              <select
+                autoFocus
+                value={editVal}
+                onChange={handleSelectChange}
+                onBlur={() => setIsEditing(false)}
+                style={{
+                  width: "100%",
+                  padding: "0.3rem 0.5rem",
+                  fontSize: "0.86rem",
+                  fontWeight: 600,
+                  color: "var(--color-ink-black)",
+                  background: "#ffffff",
+                  border: "1px solid var(--color-sienna-brown)",
+                  borderRadius: "4px",
+                  outline: "none"
+                }}
+              >
+                <option value="">-- Selecciona la Mención / Carrera Oficial --</option>
+                {CARRERAS_CATALOGO.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            ) : fieldKey === "fecha" ? (
+              <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  value={editVal}
+                  onChange={(e) => setEditVal(e.target.value)}
+                  onBlur={() => handleBlur()}
+                  placeholder="DD/MM/YYYY"
+                  style={{
+                    flex: 1,
+                    padding: "0.25rem 0.5rem",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    color: "var(--color-ink-black)",
+                    background: "#ffffff",
+                    border: "1px solid var(--color-sienna-brown)",
+                    borderRadius: "4px",
+                    outline: "none"
+                  }}
+                />
+                <input
+                  type="date"
+                  onChange={handleDateChange}
+                  style={{
+                    cursor: "pointer",
+                    padding: "0.15rem",
+                    fontSize: "0.8rem",
+                    border: "1px solid var(--border)",
+                    borderRadius: "4px"
+                  }}
+                  title="Elegir desde calendario"
+                />
+              </div>
+            ) : (
+              <input
+                autoFocus
+                type="text"
+                value={editVal}
+                onChange={(e) => setEditVal(e.target.value)}
+                onBlur={() => handleBlur()}
+                onKeyDown={(e) => { if (e.key === "Enter") handleBlur(); }}
+                style={{
+                  width: "100%",
+                  padding: "0.25rem 0.5rem",
+                  fontSize: "0.88rem",
+                  fontWeight: 600,
+                  color: "var(--color-ink-black)",
+                  background: "#ffffff",
+                  border: "1px solid var(--color-sienna-brown)",
+                  borderRadius: "4px",
+                  outline: "none"
+                }}
+              />
+            )
           ) : (
             <p
               onClick={() => setIsEditing(true)}
-              title="Haz clic para corregir manualmente si la caligrafía lo requiere"
+              title="Haz clic para corregir o seleccionar de la lista oficial"
               style={{ fontWeight: "600", fontSize: "0.9rem", margin: 0, wordBreak: "break-word", color: "var(--color-ink-black)", cursor: "pointer" }}
             >
-              {safeString(value) || <span style={{ color: "var(--text-secondary)", fontStyle: "italic", fontWeight: "400" }}>No detectado (clic para ingresar)</span>}
+              {safeString(value) || <span style={{ color: "var(--text-secondary)", fontStyle: "italic", fontWeight: "400" }}>No detectado (clic para seleccionar)</span>}
             </p>
           )}
         </div>
@@ -453,8 +556,16 @@ export const safeString = (v) => {
     fields = {},
     onSaveField,
     onProceedGtu,
-    engineName
+    engineName,
+    currentLocation = {},
+    onSaveLocation
   }) => {
+    const defaultEstado = ESTADOS_VENEZUELA[0];
+    const [selectedEstado, setSelectedEstado] = useState(currentLocation.estado || defaultEstado.estado);
+    const estadoObj = ESTADOS_VENEZUELA.find(e => e.estado === selectedEstado) || defaultEstado;
+    const [selectedMunicipio, setSelectedMunicipio] = useState(currentLocation.municipio || estadoObj.municipios[0] || "");
+    const [selectedTaquilla, setSelectedTaquilla] = useState(currentLocation.sede_taquilla || estadoObj.taquillas[0]?.nombre || "");
+
     const [form, setForm] = useState({
       institucion: "",
       nombre_completo: "",
@@ -473,34 +584,82 @@ export const safeString = (v) => {
           carrera: safeString(fields.carrera?.value),
           fecha: safeString(fields.fecha?.value)
         });
+        if (currentLocation.estado) {
+          setSelectedEstado(currentLocation.estado);
+          setSelectedMunicipio(currentLocation.municipio || "");
+          setSelectedTaquilla(currentLocation.sede_taquilla || "");
+        }
         setModalError("");
       }
-    }, [fields, isOpen]);
+    }, [fields, isOpen, currentLocation]);
 
     if (!isOpen) return null;
     if (typeof document === "undefined") return null;
 
+    const handleEstadoChange = (newEst) => {
+      setSelectedEstado(newEst);
+      const newEstObj = ESTADOS_VENEZUELA.find(e => e.estado === newEst) || defaultEstado;
+      const firstMuni = newEstObj.municipios[0] || "";
+      const firstTaq = newEstObj.taquillas[0]?.nombre || "";
+      setSelectedMunicipio(firstMuni);
+      setSelectedTaquilla(firstTaq);
+    };
+
+    const currentTaquillaObj = estadoObj.taquillas.find(t => t.nombre === selectedTaquilla) || estadoObj.taquillas[0];
+
     const handleChange = (key, val) => {
       setForm(prev => ({ ...prev, [key]: val }));
+    };
+
+    const handleDateSelect = (e) => {
+      const isoVal = e.target.value; // YYYY-MM-DD
+      if (isoVal) {
+        const parts = isoVal.split('-');
+        if (parts.length === 3) {
+          const formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          handleChange('fecha', formatted);
+        }
+      }
     };
 
     const handleApply = () => {
       Object.keys(form).forEach(k => {
         onSaveField(k, form[k]);
       });
+      if (onSaveLocation) {
+        onSaveLocation({
+          estado: selectedEstado,
+          municipio: selectedMunicipio,
+          sede_taquilla: selectedTaquilla,
+          sede_direccion: currentTaquillaObj?.direccion || "",
+          sede_horario: currentTaquillaObj?.horario || ""
+        });
+      }
       onClose();
     };
 
     const handleApplyAndProceed = () => {
       const cleanNombre = safeString(form.nombre_completo);
       const cleanCedula = safeString(form.cedula);
+      const cleanInstitucion = safeString(form.institucion);
+      const cleanCarrera = safeString(form.carrera);
+      const cleanFecha = safeString(form.fecha);
+      const cleanEstado = safeString(selectedEstado);
+      const cleanMunicipio = safeString(selectedMunicipio);
+      const cleanSede = safeString(selectedTaquilla);
 
-      if (!cleanNombre) {
-        setModalError("Por favor ingresa el Nombre Completo del graduando antes de emitir la solicitud oficial ante el GTU.");
-        return;
-      }
-      if (!cleanCedula) {
-        setModalError("Por favor ingresa la Cédula de Identidad del graduando.");
+      const missing = [];
+      if (!cleanNombre) missing.push("Nombre Completo");
+      if (!cleanCedula) missing.push("Cédula de Identidad");
+      if (!cleanInstitucion) missing.push("Universidad");
+      if (!cleanCarrera) missing.push("Mención / Carrera");
+      if (!cleanFecha) missing.push("Fecha de Emisión");
+      if (!cleanEstado) missing.push("Estado de Consignación");
+      if (!cleanMunicipio) missing.push("Municipio");
+      if (!cleanSede) missing.push("Agencia / Sede de Cotejo");
+
+      if (missing.length > 0) {
+        setModalError(`Para crear la solicitud oficial ante el GTU debes completar todos los datos requeridos: ${missing.join(", ")}.`);
         return;
       }
 
@@ -508,13 +667,34 @@ export const safeString = (v) => {
       Object.keys(form).forEach(k => {
         onSaveField(k, form[k]);
       });
+
+      const locPayload = {
+        estado: selectedEstado,
+        municipio: selectedMunicipio,
+        sede_taquilla: selectedTaquilla,
+        sede_direccion: currentTaquillaObj?.direccion || "",
+        sede_horario: currentTaquillaObj?.horario || ""
+      };
+
+      if (onSaveLocation) {
+        onSaveLocation(locPayload);
+      }
       onClose();
       if (onProceedGtu) {
-        onProceedGtu(form);
+        onProceedGtu({ ...form, ...locPayload });
       }
     };
 
-    const missingCount = Object.values(form).filter(v => !safeString(v)).length;
+    const isAllComplete = Boolean(
+      safeString(form.nombre_completo) &&
+      safeString(form.cedula) &&
+      safeString(form.institucion) &&
+      safeString(form.carrera) &&
+      safeString(form.fecha) &&
+      safeString(selectedEstado) &&
+      safeString(selectedMunicipio) &&
+      safeString(selectedTaquilla)
+    );
 
     return createPortal(
       <div
@@ -539,8 +719,8 @@ export const safeString = (v) => {
           style={{
             background: "#ffffff",
             width: "100%",
-            maxWidth: "620px",
-            maxHeight: "90vh",
+            maxWidth: "660px",
+            maxHeight: "92vh",
             borderRadius: "18px",
             boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(93, 42, 26, 0.12)",
             display: "flex",
@@ -588,7 +768,7 @@ export const safeString = (v) => {
                     gap: "0.5rem"
                   }}
                 >
-                  Validación y Revisión Forense de Datos
+                  Validación de Título y Selección de Sede GTU
                 </h3>
                 <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                   Motor de extracción: <strong>{engineName || "Visión Multimodal IA"}</strong>
@@ -615,87 +795,325 @@ export const safeString = (v) => {
           </div>
 
           {/* Body con Scroll */}
-          <div style={{ padding: "1.3rem 1.5rem", overflowY: "auto", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+          <div style={{ padding: "1.2rem 1.5rem", overflowY: "auto", display: "flex", flexDirection: "column", gap: "1rem" }}>
             
-            {/* Aviso estilo Gemini / IA Disclaimer */}
+            {/* Aviso estilo Cotejo Forense */}
             <div
               style={{
                 background: "rgba(217, 119, 6, 0.08)",
                 border: "1px solid rgba(217, 119, 6, 0.28)",
-                borderRadius: "12px",
-                padding: "0.9rem 1.1rem",
+                borderRadius: "10px",
+                padding: "0.8rem 1rem",
                 display: "flex",
-                gap: "0.8rem",
+                gap: "0.75rem",
                 alignItems: "flex-start"
               }}
             >
-              <AlertCircle size={20} style={{ color: "#b45309", flexShrink: 0, marginTop: "2px" }} />
-              <div style={{ fontSize: "0.82rem", lineHeight: "1.5", color: "#78350f" }}>
-                <strong style={{ display: "block", marginBottom: "0.2rem", color: "#92400e" }}>
-                  Aviso de Inteligencia Artificial (Cotejo Requerido):
-                </strong>
-                Recuerda que los modelos de Inteligencia Artificial y visión OCR no son infalibles y pueden cometer errores ante caligrafías ornamentales góticas o sellos de tinta. 
-                <strong> Coteja con atención que cada dato coincida exactamente con tu título físico antes de emitir la legalización oficial.</strong> Si detectas alguna inconsistencia o falta algún dato, complétalo abajo.
+              <AlertCircle size={18} style={{ color: "#b45309", flexShrink: 0, marginTop: "2px" }} />
+              <div style={{ fontSize: "0.8rem", lineHeight: "1.45", color: "#78350f" }}>
+                <strong>Requisito Ministerial:</strong> Todos los datos deben coincidir con tu pergamino físico original y debes seleccionar la taquilla oficial donde consignarás el título para el cotejo presencial.
               </div>
             </div>
 
-            {/* Alerta de campos faltantes */}
-            {missingCount > 0 ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.8rem", background: "rgba(185, 28, 28, 0.08)", border: "1px solid rgba(185, 28, 28, 0.2)", borderRadius: "8px", fontSize: "0.78rem", color: "var(--danger)" }}>
-                <AlertTriangle size={15} />
-                <span>Atención: Hay <strong>{missingCount} campo(s) pendiente(s)</strong> por completar antes del registro.</span>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.8rem", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: "8px", fontSize: "0.78rem", color: "#047857" }}>
-                <CheckCircle size={15} />
-                <span>Todos los campos canónicos requeridos han sido identificados. Puedes editarlos si lo requieres.</span>
-              </div>
-            )}
-
-            {/* Inputs editables */}
+            {/* SECCIÓN 1: DATOS ACADÉMICOS Y CIVILES */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              {[
-                { key: "institucion", label: "Institución Universitaria Emisora", icon: Building, placeholder: "Nombre oficial de la Universidad..." },
-                { key: "nombre_completo", label: "Nombre Completo del Graduando", icon: User, placeholder: "Nombres y apellidos completos del graduando..." },
-                { key: "cedula", label: "Cédula de Identidad Oficial", icon: CreditCard, placeholder: "V-00.000.000" },
-                { key: "carrera", label: "Mención / Carrera Conferida", icon: FileText, placeholder: "Título o grado conferido..." },
-                { key: "fecha", label: "Fecha de Emisión / Grado (DD/MM/YYYY)", icon: Calendar, placeholder: "DD/MM/YYYY" },
-              ].map(({ key, label, icon: Icon, placeholder }) => {
-                const val = form[key];
-                const isComplete = safeString(val).length > 0;
-                return (
-                  <div key={key} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem", textTransform: "uppercase", letterSpacing: "0.3px" }}>
-                        <Icon size={14} style={{ color: "var(--color-sienna-brown)" }} />
-                        {label}
-                      </label>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 600, padding: "0.1rem 0.45rem", borderRadius: "4px", background: isComplete ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: isComplete ? "#047857" : "#b91c1c", border: `1px solid ${isComplete ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
-                        {isComplete ? "✓ Completo" : "⚠️ Requerido"}
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      value={val}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      placeholder={placeholder}
+              <span style={{ fontSize: "0.76rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--color-sienna-brown)" }}>
+                1. Datos Oficiales del Título Universitario
+              </span>
+
+              {/* 1.1 Universidad (Dropdown Oficial) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem", textTransform: "uppercase" }}>
+                    <Building size={14} style={{ color: "var(--color-sienna-brown)" }} />
+                    Institución Universitaria Emisora
+                  </label>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 600, padding: "0.1rem 0.45rem", borderRadius: "4px", background: form.institucion ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: form.institucion ? "#047857" : "#b91c1c" }}>
+                    {form.institucion ? "✓ Seleccionada" : "⚠️ Requerido"}
+                  </span>
+                </div>
+                <select
+                  value={form.institucion}
+                  onChange={(e) => handleChange("institucion", e.target.value)}
+                  style={{
+                    padding: "0.65rem 0.85rem",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    color: "var(--color-ink-black)",
+                    background: form.institucion ? "#ffffff" : "#fff8f8",
+                    border: `1px solid ${form.institucion ? "var(--border)" : "rgba(239, 68, 68, 0.4)"}`,
+                    borderRadius: "var(--radius-inputs)",
+                    outline: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="">-- Selecciona la Universidad Oficial --</option>
+                  {UNIVERSIDADES_CATALOGO.map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 1.2 Mención / Carrera (Dropdown Oficial) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem", textTransform: "uppercase" }}>
+                    <FileText size={14} style={{ color: "var(--color-sienna-brown)" }} />
+                    Mención / Carrera Conferida
+                  </label>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 600, padding: "0.1rem 0.45rem", borderRadius: "4px", background: form.carrera ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: form.carrera ? "#047857" : "#b91c1c" }}>
+                    {form.carrera ? "✓ Seleccionada" : "⚠️ Requerido"}
+                  </span>
+                </div>
+                <select
+                  value={form.carrera}
+                  onChange={(e) => handleChange("carrera", e.target.value)}
+                  style={{
+                    padding: "0.65rem 0.85rem",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    color: "var(--color-ink-black)",
+                    background: form.carrera ? "#ffffff" : "#fff8f8",
+                    border: `1px solid ${form.carrera ? "var(--border)" : "rgba(239, 68, 68, 0.4)"}`,
+                    borderRadius: "var(--radius-inputs)",
+                    outline: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="">-- Selecciona la Mención / Carrera Oficial --</option>
+                  {CARRERAS_CATALOGO.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 1.3 Nombre Completo (Manual) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem", textTransform: "uppercase" }}>
+                    <User size={14} style={{ color: "var(--color-sienna-brown)" }} />
+                    Nombre Completo del Graduando (como aparece en el pergamino)
+                  </label>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 600, padding: "0.1rem 0.45rem", borderRadius: "4px", background: form.nombre_completo ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: form.nombre_completo ? "#047857" : "#b91c1c" }}>
+                    {form.nombre_completo ? "✓ Completo" : "⚠️ Requerido"}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={form.nombre_completo}
+                  onChange={(e) => handleChange("nombre_completo", e.target.value)}
+                  placeholder="Ej: Jeckson David Torres Rivas"
+                  style={{
+                    padding: "0.65rem 0.85rem",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    color: "var(--color-ink-black)",
+                    background: form.nombre_completo ? "#ffffff" : "#fff8f8",
+                    border: `1px solid ${form.nombre_completo ? "var(--border)" : "rgba(239, 68, 68, 0.4)"}`,
+                    borderRadius: "var(--radius-inputs)",
+                    outline: "none"
+                  }}
+                />
+              </div>
+
+              {/* 1.4 Cédula de Identidad (Manual) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem", textTransform: "uppercase" }}>
+                    <CreditCard size={14} style={{ color: "var(--color-sienna-brown)" }} />
+                    Cédula de Identidad Oficial
+                  </label>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 600, padding: "0.1rem 0.45rem", borderRadius: "4px", background: form.cedula ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: form.cedula ? "#047857" : "#b91c1c" }}>
+                    {form.cedula ? "✓ Completo" : "⚠️ Requerido"}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={form.cedula}
+                  onChange={(e) => handleChange("cedula", e.target.value)}
+                  placeholder="Ej: V-29.797.183"
+                  style={{
+                    padding: "0.65rem 0.85rem",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    color: "var(--color-ink-black)",
+                    background: form.cedula ? "#ffffff" : "#fff8f8",
+                    border: `1px solid ${form.cedula ? "var(--border)" : "rgba(239, 68, 68, 0.4)"}`,
+                    borderRadius: "var(--radius-inputs)",
+                    outline: "none"
+                  }}
+                />
+              </div>
+
+              {/* 1.5 Fecha de Emisión (Manual + Calendario Selector) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.4rem", textTransform: "uppercase" }}>
+                    <Calendar size={14} style={{ color: "var(--color-sienna-brown)" }} />
+                    Fecha de Emisión / Grado (Manual o Calendario)
+                  </label>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 600, padding: "0.1rem 0.45rem", borderRadius: "4px", background: form.fecha ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: form.fecha ? "#047857" : "#b91c1c" }}>
+                    {form.fecha ? "✓ Completo" : "⚠️ Requerido"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={form.fecha}
+                    onChange={(e) => handleChange("fecha", e.target.value)}
+                    placeholder="DD/MM/YYYY"
+                    style={{
+                      flex: 1,
+                      padding: "0.65rem 0.85rem",
+                      fontSize: "0.88rem",
+                      fontWeight: 600,
+                      color: "var(--color-ink-black)",
+                      background: form.fecha ? "#ffffff" : "#fff8f8",
+                      border: `1px solid ${form.fecha ? "var(--border)" : "rgba(239, 68, 68, 0.4)"}`,
+                      borderRadius: "var(--radius-inputs)",
+                      outline: "none"
+                    }}
+                  />
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <label
+                      title="Seleccionar fecha desde calendario"
                       style={{
                         padding: "0.65rem 0.85rem",
-                        fontSize: "0.88rem",
-                        fontWeight: 600,
-                        color: "var(--color-ink-black)",
-                        background: isComplete ? "#ffffff" : "#fff8f8",
-                        border: `1px solid ${isComplete ? "var(--border)" : "rgba(239, 68, 68, 0.4)"}`,
+                        background: "var(--color-blush-peach)",
+                        border: "1px solid rgba(93, 42, 26, 0.25)",
                         borderRadius: "var(--radius-inputs)",
-                        outline: "none",
-                        transition: "all 0.2s"
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
+                        fontSize: "0.82rem",
+                        fontWeight: 600,
+                        color: "var(--color-sienna-brown)"
                       }}
-                      onFocus={(e) => { e.target.style.borderColor = "var(--color-sienna-brown)"; }}
-                      onBlur={(e) => { e.target.style.borderColor = isComplete ? "var(--border)" : "rgba(239, 68, 68, 0.4)"; }}
-                    />
+                    >
+                      <Calendar size={15} /> Calendario
+                      <input
+                        type="date"
+                        onChange={handleDateSelect}
+                        style={{
+                          position: "absolute",
+                          opacity: 0,
+                          width: "100%",
+                          height: "100%",
+                          left: 0,
+                          top: 0,
+                          cursor: "pointer"
+                        }}
+                      />
+                    </label>
                   </div>
-                );
-              })}
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 2: LUGAR DE CONSIGNACIÓN FÍSICA Y AGENCIA GTU (PUNTO 4) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", paddingTop: "0.5rem", borderTop: "1px solid var(--border)" }}>
+              <span style={{ fontSize: "0.76rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--color-sienna-brown)" }}>
+                2. Lugar y Agencia de Cotejo Presencial del Pergamino Físico
+              </span>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                {/* 2.1 Estado */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)" }}>
+                    Estado Federal:
+                  </label>
+                  <select
+                    value={selectedEstado}
+                    onChange={(e) => handleEstadoChange(e.target.value)}
+                    style={{
+                      padding: "0.6rem 0.75rem",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "var(--color-ink-black)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-inputs)",
+                      background: "#ffffff",
+                      outline: "none"
+                    }}
+                  >
+                    {ESTADOS_VENEZUELA.map(e => (
+                      <option key={e.estado} value={e.estado}>{e.estado}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2.2 Municipio */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)" }}>
+                    Municipio:
+                  </label>
+                  <select
+                    value={selectedMunicipio}
+                    onChange={(e) => setSelectedMunicipio(e.target.value)}
+                    style={{
+                      padding: "0.6rem 0.75rem",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "var(--color-ink-black)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-inputs)",
+                      background: "#ffffff",
+                      outline: "none"
+                    }}
+                  >
+                    {estadoObj.municipios.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 2.3 Agencia / Sede Taquilla Oficial */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-ink-black)" }}>
+                  Agencia / Sede Ministerial para Cotejo Físico:
+                </label>
+                <select
+                  value={selectedTaquilla}
+                  onChange={(e) => setSelectedTaquilla(e.target.value)}
+                  style={{
+                    padding: "0.65rem 0.75rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--color-ink-black)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-inputs)",
+                    background: "#ffffff",
+                    outline: "none"
+                  }}
+                >
+                  {estadoObj.taquillas.map(t => (
+                    <option key={t.nombre} value={t.nombre}>{t.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ficha informativa de la Sede */}
+              {currentTaquillaObj && (
+                <div style={{
+                  backgroundColor: "var(--color-fog-white)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "0.75rem 0.9rem",
+                  fontSize: "0.78rem",
+                  color: "var(--text-secondary)",
+                  lineHeight: 1.45
+                }}>
+                  <p style={{ margin: "0 0 0.2rem 0", color: "var(--color-ink-black)", fontWeight: 600 }}>
+                    📍 Dirección de Consignación:
+                  </p>
+                  <span style={{ display: "block", marginBottom: "0.25rem" }}>{currentTaquillaObj.direccion}</span>
+                  <span style={{ fontSize: "0.74rem", color: "var(--color-sienna-brown)", fontWeight: 600 }}>
+                    ⏰ Horario Oficial: {currentTaquillaObj.horario}
+                  </span>
+                </div>
+              )}
             </div>
 
           </div>
@@ -715,51 +1133,61 @@ export const safeString = (v) => {
               borderTop: "1px solid var(--border)",
               display: "flex",
               gap: "0.75rem",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
               alignItems: "center"
             }}
           >
-            <button
-              onClick={handleApply}
-              style={{
-                padding: "0.65rem 1.1rem",
-                background: "#ffffff",
-                color: "var(--color-ink-black)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-inputs)",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                cursor: "pointer"
-              }}
-            >
-              Guardar y Revisar en Panel
-            </button>
-            <button
-              onClick={handleApplyAndProceed}
-              style={{
-                padding: "0.65rem 1.25rem",
-                background: "var(--color-ink-black)",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "var(--radius-inputs)",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem"
-              }}
-            >
-              <ShieldCheck size={16} />
-              Confirmar y Emitir GTU
-            </button>
+            <div>
+              {!isAllComplete && (
+                <span style={{ fontSize: "0.76rem", color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <AlertTriangle size={13} /> Completa todos los campos para emitir la solicitud GTU.
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: "0.6rem" }}>
+              <button
+                onClick={handleApply}
+                style={{
+                  padding: "0.65rem 1.1rem",
+                  background: "#ffffff",
+                  color: "var(--color-ink-black)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-inputs)",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Guardar Borrador
+              </button>
+              <button
+                onClick={handleApplyAndProceed}
+                disabled={!isAllComplete}
+                style={{
+                  padding: "0.65rem 1.25rem",
+                  background: isAllComplete ? "var(--color-ink-black)" : "var(--color-slate-gray)",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "var(--radius-inputs)",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: isAllComplete ? "pointer" : "not-allowed",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  boxShadow: isAllComplete ? "0 4px 12px rgba(0,0,0,0.15)" : "none"
+                }}
+              >
+                <ShieldCheck size={16} /> Confirmar y Emitir Solicitud GTU
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>,
       document.body
     );
   };
-
   const extractTextFromPdfBase64 = (b64) => {
     if (!b64 || typeof b64 !== "string") return "";
     try {
@@ -808,6 +1236,13 @@ export const safeString = (v) => {
     const [isRegisteringGtu, setIsRegisteringGtu] = useState(false);
     const [gtuRegistered, setGtuRegistered] = useState(null);
     const [showValidationModal, setShowValidationModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState({
+    estado: ESTADOS_VENEZUELA[0].estado,
+    municipio: ESTADOS_VENEZUELA[0].municipios[0],
+    sede_taquilla: ESTADOS_VENEZUELA[0].taquillas[0].nombre,
+    sede_direccion: ESTADOS_VENEZUELA[0].taquillas[0].direccion,
+    sede_horario: ESTADOS_VENEZUELA[0].taquillas[0].horario
+  });
     const [optimizedDocData, setOptimizedDocData] = useState(null);
     const [optimizationStats, setOptimizationStats] = useState(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
@@ -1294,14 +1729,29 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           ? formData
           : null;
 
-        const ownerName = safeString(rawForm?.nombre_completo || result?.fields?.nombre_completo?.value || user?.nombre);
-        const cedula = safeString(rawForm?.cedula || result?.fields?.cedula?.value || user?.cedula || "V-00.000.000");
-        const institucion = safeString(rawForm?.institucion || result?.fields?.institucion?.value || user?.institucion || "Universidad Santa María (USM)");
-        const carrera = safeString(rawForm?.carrera || result?.fields?.carrera?.value || user?.carrera || "Título de Grado");
-        const fecha = safeString(rawForm?.fecha || result?.fields?.fecha?.value || new Date().toISOString().split("T")[0]);
+        const ownerName = safeString(rawForm?.nombre_completo || result?.fields?.nombre_completo?.value);
+        const cedula = safeString(rawForm?.cedula || result?.fields?.cedula?.value);
+        const institucion = safeString(rawForm?.institucion || result?.fields?.institucion?.value);
+        const carrera = safeString(rawForm?.carrera || result?.fields?.carrera?.value);
+        const fecha = safeString(rawForm?.fecha || result?.fields?.fecha?.value);
+        const estado = safeString(rawForm?.estado || selectedLocation.estado);
+        const municipio = safeString(rawForm?.municipio || selectedLocation.municipio);
+        const sedeTaquilla = safeString(rawForm?.sede_taquilla || selectedLocation.sede_taquilla);
+        const sedeDireccion = safeString(rawForm?.sede_direccion || selectedLocation.sede_direccion);
+        const sedeHorario = safeString(rawForm?.sede_horario || selectedLocation.sede_horario);
 
-        if (!ownerName) {
-          setError("El nombre completo del graduando es requerido para emitir la solicitud GTU.");
+        const missing = [];
+        if (!ownerName) missing.push("Nombre Completo");
+        if (!cedula) missing.push("Cédula de Identidad");
+        if (!institucion) missing.push("Universidad");
+        if (!carrera) missing.push("Mención / Carrera");
+        if (!fecha) missing.push("Fecha de Emisión");
+        if (!estado) missing.push("Estado de Consignación");
+        if (!municipio) missing.push("Municipio");
+        if (!sedeTaquilla) missing.push("Agencia / Sede de Cotejo");
+
+        if (missing.length > 0) {
+          setError(`Para emitir la solicitud oficial ante el GTU debes completar todos los datos requeridos: ${missing.join(", ")}.`);
           setShowValidationModal(true);
           setIsRegisteringGtu(false);
           return;
@@ -1362,6 +1812,14 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           tomo: "XVIII",
           folio: "142",
           libro: "Grados 2026",
+          estado: estado,
+          municipio: municipio,
+          sede_taquilla: sedeTaquilla,
+          sedeTaquilla: sedeTaquilla,
+          sede_direccion: sedeDireccion,
+          sedeDireccion: sedeDireccion,
+          sede_horario: sedeHorario,
+          sedeHorario: sedeHorario,
           createdAt: new Date().toISOString()
         };
 
@@ -1428,7 +1886,12 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             documentType: docType,
             documentUrl: storedDocUrl,
             document_url: storedDocUrl,
-            solicitudCode: solicitudCode
+            solicitudCode: solicitudCode,
+            estado: estado,
+            municipio: municipio,
+            sede_taquilla: sedeTaquilla,
+            sede_direccion: sedeDireccion,
+            sede_horario: sedeHorario
           });
           if (res && res.solicitudCode) {
             newRecord.solicitudCode = res.solicitudCode;
@@ -1699,12 +2162,28 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: "var(--color-mist-gray)", borderRadius: "var(--radius-inputs)", padding: "1rem", marginBottom: "1.4rem", border: "1px solid var(--border)" }}>
-                  <p style={{ margin: "0 0 0.35rem 0", fontSize: "0.85rem", fontWeight: 600, color: "var(--color-ink-black)" }}>
-                    🏛️ Siguiente Paso (Etapa 2 — MPPEU):
+                <div style={{ backgroundColor: "var(--color-mist-gray)", borderRadius: "var(--radius-inputs)", padding: "1.1rem", marginBottom: "1.3rem", border: "1px solid var(--border)" }}>
+                  <p style={{ margin: "0 0 0.4rem 0", fontSize: "0.86rem", fontWeight: 700, color: "var(--color-ink-black)", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                    <MapPin size={16} color="var(--color-sienna-brown)" /> Agencia Asignada para Consignación del Pergamino Físico:
                   </p>
-                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                    Tu solicitud ha sido inscrita en la bandeja ministerial. Acude con tu <strong>título físico original (pergamino)</strong> a la taquilla de la Zona Educativa / MPPEU para el cotejo presencial de firmas rectorales y primer anclaje inmutable en Blockchain Sepolia.
+                  <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.88rem", fontWeight: 600, color: "var(--color-ink-black)" }}>
+                    {gtuRegistered.sede_taquilla || gtuRegistered.sedeTaquilla || "Taquilla Ministerial Central"}
+                  </p>
+                  <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                    <strong>Ubicación:</strong> Municipio {gtuRegistered.municipio || "Libertador"}, Estado {gtuRegistered.estado || "Distrito Capital"}
+                  </p>
+                  {(gtuRegistered.sede_direccion || gtuRegistered.sedeDireccion) && (
+                    <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                      <strong>Dirección:</strong> {gtuRegistered.sede_direccion || gtuRegistered.sedeDireccion}
+                    </p>
+                  )}
+                  {(gtuRegistered.sede_horario || gtuRegistered.sedeHorario) && (
+                    <p style={{ margin: "0 0 0.6rem 0", fontSize: "0.76rem", color: "var(--color-sienna-brown)", fontWeight: 600 }}>
+                      ⏰ {gtuRegistered.sede_horario || gtuRegistered.sedeHorario}
+                    </p>
+                  )}
+                  <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--color-ink-black)", lineHeight: 1.45, background: "#ffffff", padding: "0.55rem 0.75rem", borderRadius: "6px", border: "1px solid var(--border)" }}>
+                    ⚖️ <strong>Cotejo Presencial (Etapa 2 — MPPEU):</strong> Acude a esta sede con tu <strong>título físico original (pergamino)</strong> junto a tu código QR de trámite para la inspección visual de firmas rectorales y certificación ministerial.
                   </p>
                 </div>
 
@@ -1778,6 +2257,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
                     {FIELDS.map(({ key, label, icon }) => (
                     <FieldRow
                       key={key}
+                      fieldKey={key}
                       icon={icon}
                       label={label}
                       value={result.fields?.[key]?.value}
@@ -1864,6 +2344,8 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           onSaveField={handleFieldChange}
           onProceedGtu={handleRegisterGtu}
           engineName={result?.engine}
+          currentLocation={selectedLocation}
+          onSaveLocation={setSelectedLocation}
         />
       </div>
     );

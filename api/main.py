@@ -729,7 +729,16 @@ def map_record(r):
         "apostilleNumber": r.get("apostille_number"),
         "tomo": r.get("tomo"),
         "folio": r.get("folio"),
-        "libro": r.get("libro")
+        "libro": r.get("libro"),
+        "estado": r.get("estado") or "",
+        "municipio": r.get("municipio") or "",
+        "sedeTaquilla": r.get("sede_taquilla") or r.get("sedeTaquilla") or "",
+        "sede_taquilla": r.get("sede_taquilla") or r.get("sedeTaquilla") or "",
+        "sedeDireccion": r.get("sede_direccion") or r.get("sedeDireccion") or "",
+        "sedeHorario": r.get("sede_horario") or r.get("sedeHorario") or "",
+        "countryDestiny": r.get("country_destiny") or r.get("countryDestiny") or "",
+        "country_destiny": r.get("country_destiny") or r.get("countryDestiny") or "",
+        "motivoApostille": r.get("motivo_apostille") or r.get("motivoApostille") or ""
     }
 
 # ─── Checklist SAREN / MPPEU ────────────────────────────────────────────────
@@ -1353,6 +1362,11 @@ def register_blockchain_document():
     folio = data.get("folio", "142")
     libro = data.get("libro", "Grados 2026")
     document_url = data.get("documentUrl") or data.get("document_url") or data.get("fileUrl") or ""
+    estado = data.get("estado") or ""
+    municipio = data.get("municipio") or ""
+    sede_taquilla = data.get("sedeTaquilla") or data.get("sede_taquilla") or ""
+    sede_direccion = data.get("sedeDireccion") or data.get("sede_direccion") or ""
+    sede_horario = data.get("sedeHorario") or data.get("sede_horario") or ""
 
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
     tx_hash = "0xPENDIENTE_COTEJO"
@@ -1376,7 +1390,12 @@ def register_blockchain_document():
         "mppre_verified": False,
         "tomo": tomo,
         "folio": folio,
-        "libro": libro
+        "libro": libro,
+        "estado": estado,
+        "municipio": municipio,
+        "sede_taquilla": sede_taquilla,
+        "sede_direccion": sede_direccion,
+        "sede_horario": sede_horario
     }
 
     existing_idx = next((i for i, r in enumerate(_records_memory) if r.get("hash") == doc_hash), None)
@@ -1545,7 +1564,17 @@ def _merge_records_lists(list_a, list_b):
                 'apostilleNumber': item.get('apostilleNumber') or cur.get('apostilleNumber'),
                 'solicitudCode': item.get('solicitudCode') or cur.get('solicitudCode'),
                 'txHash': chosen_tx,
-                'timestamp': cur.get('timestamp') or item.get('timestamp')
+                'timestamp': cur.get('timestamp') or item.get('timestamp'),
+                'documentUrl': item.get('documentUrl') or cur.get('documentUrl') or item.get('document_url') or cur.get('document_url'),
+                'document_url': item.get('document_url') or cur.get('document_url') or item.get('documentUrl') or cur.get('documentUrl'),
+                'estado': item.get('estado') or cur.get('estado'),
+                'municipio': item.get('municipio') or cur.get('municipio'),
+                'sede_taquilla': item.get('sede_taquilla') or cur.get('sede_taquilla') or item.get('sedeTaquilla') or cur.get('sedeTaquilla'),
+                'sedeTaquilla': item.get('sedeTaquilla') or cur.get('sedeTaquilla') or item.get('sede_taquilla') or cur.get('sede_taquilla'),
+                'sedeDireccion': item.get('sedeDireccion') or cur.get('sedeDireccion') or item.get('sede_direccion') or cur.get('sede_direccion'),
+                'sedeHorario': item.get('sedeHorario') or cur.get('sedeHorario') or item.get('sede_horario') or cur.get('sede_horario'),
+                'countryDestiny': item.get('countryDestiny') or cur.get('countryDestiny') or item.get('country_destiny') or cur.get('country_destiny'),
+                'country_destiny': item.get('country_destiny') or cur.get('country_destiny') or item.get('countryDestiny') or cur.get('countryDestiny')
             })
     return list(merged.values())
 
@@ -1690,12 +1719,67 @@ def mppeu_certify_record(doc_hash: str):
     }), 200
 
 
+
+@app.route("/blockchain/records/<doc_hash>/request-apostille", methods=["POST"])
+@app.route("/api/blockchain/records/<doc_hash>/request-apostille", methods=["POST"])
+def request_apostille_endpoint(doc_hash: str):
+    _load_records_cache()
+    data = request.get_json() or {}
+    country_destiny = data.get("countryDestiny") or data.get("country_destiny") or "General (Convenio de La Haya)"
+    motivo = data.get("motivoApostille") or data.get("motivo_apostille") or "Trámite de Validez Internacional"
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    clean_h = _normalize_hex(doc_hash)
+
+    found = False
+    for r in _records_memory:
+        if _normalize_hex(r.get("hash")) == clean_h:
+            r["status"] = "PENDIENTE_APOSTILLA_MPPRE"
+            r["country_destiny"] = country_destiny
+            r["motivo_apostille"] = motivo
+            r["apostille_requested_at"] = now_str
+            found = True
+            break
+
+    if not found:
+        _records_memory.insert(0, {
+            "hash": doc_hash if doc_hash.startswith("0x") else f"0x{doc_hash}",
+            "status": "PENDIENTE_APOSTILLA_MPPRE",
+            "country_destiny": country_destiny,
+            "motivo_apostille": motivo,
+            "apostille_requested_at": now_str,
+            "created_at": datetime.datetime.utcnow().isoformat() + "Z"
+        })
+
+    _save_records_cache()
+
+    if supabase:
+        try:
+            upd = {
+                "status": "PENDIENTE_APOSTILLA_MPPRE",
+                "rejection_reason": None
+            }
+            supabase.table("records").update(upd).eq("hash", doc_hash).execute()
+            supabase.table("records").update(upd).eq("hash", f"0x{clean_h}").execute()
+            supabase.table("records").update(upd).eq("hash", clean_h).execute()
+        except Exception as e:
+            logger.warning(f"Error actualizando solicitud de apostilla en Supabase: {e}")
+
+    increment_stat("docs_prevalidados", 0, log_entry=f"SOLICITUD APOSTILLA: Graduando solicitó Apostilla MPPRE para país {country_destiny} (Doc {doc_hash[:10]}...).")
+    return jsonify({
+        "success": True,
+        "message": "Solicitud de Apostilla de La Haya enviada a Cancillería (MPPRE). En espera de revisión consular.",
+        "status": "PENDIENTE_APOSTILLA_MPPRE",
+        "countryDestiny": country_destiny
+    }), 200
+
 @app.route("/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 def mppre_apostille_record(doc_hash: str):
     _load_records_cache()
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppre_agente")
+    country_destiny = data.get("countryDestiny") or data.get("country_destiny") or "España"
+    notes = data.get("notes") or "Apostilla Electrónica de La Haya Conforme"
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     apostille_num = f"APO-VE-2026-{secrets.token_hex(3).upper()}"
     clean_h = _normalize_hex(doc_hash)
@@ -1708,6 +1792,8 @@ def mppre_apostille_record(doc_hash: str):
             r["mppre_officer"] = f"{auditor_name} (Cancillería)"
             r["mppre_date"] = now_str
             r["apostille_number"] = apostille_num
+            r["country_destiny"] = country_destiny
+            r["notes"] = notes
             r["verified_by"] = auditor_name
             found = True
             break

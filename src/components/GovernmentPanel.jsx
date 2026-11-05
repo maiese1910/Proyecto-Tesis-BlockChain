@@ -11,6 +11,7 @@ import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
 
 import MPPEUCotejoModal from './MPPEUCotejoModal';
+import MPPRECotejoModal from './MPPRECotejoModal';
 import { registerDocumentOnChain, connectWallet } from '../services/web3Service';
 
 import html2pdf from 'html2pdf.js';
@@ -84,6 +85,7 @@ const GovernmentPanel = ({ adminData }) => {
   // Modal Apostilla MPPRE
 
   const [activeApostilleRecord, setActiveApostilleRecord] = useState(null);
+  const [activeMppreCotejoRecord, setActiveMppreCotejoRecord] = useState(null);
 
   const [apostilleLoading, setApostilleLoading] = useState(null);
 
@@ -506,6 +508,69 @@ const GovernmentPanel = ({ adminData }) => {
 
 
   // Etapa 3: Emisión de Apostilla Electrónica de La Haya MPPRE (100% Digital)
+
+  const handleConfirmMppreApostille = async (record, options = {}) => {
+    setApostilleLoading(record.hash);
+    try {
+      const countryDest = options.countryDestiny || record.countryDestiny || record.country_destiny || 'España';
+      const notes = options.notes || '';
+      const res = await blockchainAPI.mppreApostilleRecord(record.hash, {
+        country_destiny: countryDest,
+        notes: notes,
+        signing_mode: options.signingMode || 'custodial',
+        auditor_username: currentAuditorName,
+        auditor_cargo: currentAuditorCargo,
+        auditor_ente: 'MPPRE'
+      });
+
+      if (res && (res.success || res.apostilleNumber)) {
+        const updatedRecord = {
+          ...record,
+          status: 'APOSTILLADO_MPPRE',
+          mppreVerified: true,
+          countryDestiny: countryDest,
+          country_destiny: countryDest,
+          apostilleNumber: res.apostilleNumber || `APOSTILLA-${new Date().getFullYear()}-MPPRE-${Math.floor(1000 + Math.random() * 9000)}`,
+          apostilleTimestamp: new Date().toISOString(),
+          apostilleAuditor: currentAuditorName
+        };
+
+        setRecords(prev => prev.map(r => r.hash === record.hash ? updatedRecord : r));
+        setActiveMppreCotejoRecord(null);
+
+        // Sincronizar en almacenamiento local
+        try {
+          const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
+          const nextBc = bc.map(r => r.hash === record.hash ? { ...r, ...updatedRecord } : r);
+          localStorage.setItem('usm_blockchain_records', JSON.stringify(nextBc));
+
+          const pub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+          const nextPub = pub.map(r => ((r.hash || r.blockchainHash) === record.hash) ? { ...r, ...updatedRecord, status: 'APOSTILLADO_MPPRE' } : r);
+          localStorage.setItem('usm_pub_history', JSON.stringify(nextPub));
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('usm_records_updated', { detail: updatedRecord }));
+            window.dispatchEvent(new Event('storage'));
+          }
+
+          if (typeof BroadcastChannel !== 'undefined') {
+            try {
+              const ch = new BroadcastChannel('usm_records_sync');
+              ch.postMessage({ type: 'RECORD_UPDATED', record: updatedRecord });
+              ch.close();
+            } catch (_) {}
+          }
+        } catch (_) {}
+      } else {
+        alert(res?.message || 'Error al emitir la Apostilla de La Haya.');
+      }
+    } catch (err) {
+      console.error('Error al apostillar en MPPRE:', err);
+      alert('Error de conexión al apostillar en MPPRE: ' + (err.message || ''));
+    } finally {
+      setApostilleLoading(null);
+    }
+  };
 
   const handleMppreApostille = async (record) => {
 
@@ -3765,7 +3830,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                                 ) : !isRejected ? (
                                   <>
                                     <button
-                                      onClick={() => handleMppreApostille(record)}
+                                      onClick={() => setActiveMppreCotejoRecord(record)}
                                       disabled={apostilleLoading === record.hash}
                                       style={{
                                         flex: 2,
@@ -3785,7 +3850,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                                         whiteSpace: 'nowrap'
                                       }}
                                     >
-                                      <Award size={13} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Apostillar'}
+                                      <Award size={13} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Revisar y Apostillar'}
                                     </button>
 
                                     <button
@@ -4642,7 +4707,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                           <button
 
-                            onClick={() => handleMppreApostille(record)}
+                            onClick={() => setActiveMppreCotejoRecord(record)}
 
                             disabled={apostilleLoading === record.hash}
 
@@ -4680,7 +4745,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                           >
 
-                            <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Emitir Apostilla 100% Digital'}
+                            <Award size={14} /> {apostilleLoading === record.hash ? 'Apostillando...' : 'Revisar y Apostillar (MPPRE)'}
 
                           </button>
 
@@ -5236,6 +5301,20 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
       </AnimatePresence>
 
+
+
+            {/* ─── MODAL COTEJO Y APOSTILLA DIPLOMÁTICA MPPRE ─── */}
+      <AnimatePresence>
+        {activeMppreCotejoRecord && (
+          <MPPRECotejoModal
+            record={activeMppreCotejoRecord}
+            loading={Boolean(apostilleLoading)}
+            onClose={() => setActiveMppreCotejoRecord(null)}
+            onConfirmApostille={handleConfirmMppreApostille}
+            onReject={(rec) => { setActiveMppreCotejoRecord(null); setRejectingRecord(rec); }}
+          />
+        )}
+      </AnimatePresence>
 
 
       {/* ─── MODAL APOSTILLA DE LA HAYA MPPRE ─── */}

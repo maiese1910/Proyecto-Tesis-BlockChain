@@ -1334,3 +1334,42 @@ Para evitar falsos positivos críticos:
 
 #### B. Adaptabilidad de Cuadrícula en Tarjetas (Mobile-Friendly)
 - Se actualizó el layout de tarjetas a `repeat(auto-fill, minmax(min(100%, 330px), 1fr))`, garantizando que en dispositivos con pantallas pequeñas las tarjetas se adapten fluidamente sin barras de desplazamiento horizontal forzadas.
+
+
+---
+
+### 11.6. Adaptaciones Operativas: Corrección Asistida, Validación Estricta, Segregación MPPRE y Asignación Territorial
+
+#### A. Selectores Oficiales y Fecha Dual (OCR UX Assist)
+- **Problema Abordado:** En casos de pergaminos antiguos, texturas marcadas o tipografías góticas deterioradas donde el OCR no alcance alta certeza en la institución o mención, el egresado requería una vía guiada sin posibilidad de escribir nombres universitarios informales o inconsistentes.
+- **Solución Implementada:**
+  - **Universidad Oficial (`institucion`):** Desplegable conectado a `UNIVERSIDADES_CATALOGO` con las 23 casas de estudio oficiales de Venezuela.
+  - **Carrera / Mención (`carrera`):** Desplegable conectado a `CARRERAS_CATALOGO` con 30 denominaciones homologadas por la OPSU y el CNU.
+  - **Datos de Entrada Manual Estricta:** Exclusivamente **Nombre Completo** y **Cédula de Identidad**.
+  - **Fecha de Emisión Dual:** Campo de texto manual (`DD/MM/YYYY`) sincronizado bidireccionalmente con un selector de fecha/calendario interactivo HTML5 (`<input type="date">`), transpilanado automáticamente el estándar ISO a formato legal venezolano.
+
+#### B. Validación Estricta de 8 Campos Obligatorios
+- Se implementó un guardián de validación previa en `ValidationFloatingModal` y en `handleRegisterGtu` (`OCRExtractor.jsx`).
+- Para emitir la Solicitud GTU, es indispensable que los 8 campos estén completos:
+  1. `nombre_completo`
+  2. `cedula`
+  3. `institucion`
+  4. `carrera`
+  5. `fecha`
+  6. `estado`
+  7. `municipio`
+  8. `sede_taquilla`
+- Si falta alguno de ellos, el sistema deshabilita la generación de la solicitud y despliega una alerta visual identificando específicamente cuáles campos requieren ser completados.
+
+#### C. Segregación de Funciones: Revisión y Firma Diplomática MPPRE
+- **Flujo Consular Diferenciado:** El egresado no puede auto-firmar ni auto-emitir la Apostilla de La Haya.
+- **Solicitud Consular (`TrackingTimeline.jsx`):** El egresado presiona *"Solicitar Apostilla MPPRE"* y en un modal selecciona el **País de Destino** (de entre los países firmantes del Convenio de La Haya de 1961) y el motivo legal (Estudios, Trabajo, Residencia). La solicitud se radicará en el backend (`POST /blockchain/records/<doc_hash>/request-apostille`) con estado `PENDIENTE_APOSTILLA_MPPRE`.
+- **Cotejo y Emisión Diplomática (`MPPRECotejoModal.jsx` y `GovernmentPanel.jsx`):**
+  - El oficial del MPPRE visualiza la solicitud en su bandeja de entrada.
+  - Al pulsar *"Revisar y Apostillar"*, se activa el modal diplomático `MPPRECotejoModal`, que permite visualizar el pergamino custodiado en Supabase Storage, verificar el sello GTU y firmas rectorales certificadas previamente por el MPPEU, validar la conformidad con el Convenio de La Haya y estampar la firma criptográfica (Web3 MetaMask o Llave Ministerial).
+  - Al firmar, se genera el número de apostilla oficial (`APOSTILLA-2026-MPPRE-xxxx`) y el registro pasa a `APOSTILLADO_MPPRE`.
+
+#### D. Asignación Territorial y Ficha de Agencia de Entrega Presencial
+- **Base Geográfica Oficial (`src/data/venezuelaLocations.js`):** Integración de los 24 estados de Venezuela (`ESTADOS_VENEZUELA`), con sus municipios y las sedes oficiales del MPPEU / Zonas Educativas habilitadas para la recepción física del pergamino.
+- **Ficha Descriptiva de Taquilla:** Cada sede cuenta con dirección física oficial y horarios de atención al público.
+- **Visibilidad Integral:** La agencia seleccionada se guarda en el registro del expediente (base de datos y almacenamiento local) y se muestra en la tarjeta de culminación del OCR, en el banner de seguimiento del egresado (`TrackingTimeline.jsx`) y en las tarjetas y tablas de auditoría ministerial (`GovernmentPanel.jsx`).
