@@ -566,7 +566,7 @@ function App() {
 
       case 'prevalidation':
 
-        return <PreValidation />;
+        return <PreValidation user={user} onNavigate={setActiveTab} onVerifyHash={handleVerifyHashInApp} />;
 
       case 'survival':
 
