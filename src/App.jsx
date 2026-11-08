@@ -629,7 +629,19 @@ function App() {
 
       <ToastNotification />
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleStudentLogout} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        user={user}
+        onLogout={handleStudentLogout}
+        onUpdateUser={(updatedProfile) => {
+          setUser(updatedProfile);
+          try {
+            localStorage.setItem('usm_user', JSON.stringify(updatedProfile));
+            sessionStorage.setItem('usm_user', JSON.stringify(updatedProfile));
+          } catch (_) {}
+        }}
+      />
 
       <div className="main-content" ref={mainContentRef}>
 

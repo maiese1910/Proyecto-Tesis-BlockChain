@@ -96,7 +96,7 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // Estados de Formulario de Registro (con Teléfono y Fecha de Nacimiento)
+  // Estados de Formulario de Registro (con Teléfono, Fecha de Nacimiento, Carrera y Semestre)
   const [regForm, setRegForm] = useState({
     email: '',
     password: '',
@@ -106,6 +106,8 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
     cedula_numero: '',
     telefono: '',
     fecha_nacimiento: '',
+    carrera: 'Ingeniería en Sistemas',
+    semestre: '10mo',
   });
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
@@ -339,6 +341,8 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
         cedula_numero: rawCedula,
         telefono: regForm.telefono,
         fecha_nacimiento: regForm.fecha_nacimiento,
+        carrera: regForm.carrera || 'Ingeniería en Sistemas',
+        semestre: regForm.semestre || '10mo',
       });
 
       if (res.success && res.profile) {
@@ -426,27 +430,19 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
     try {
       // Verificar OTP de recuperación
       await authPasswordless.verifyRecoveryCode(cleanEmail, cleanCode);
-      // Actualizar a la nueva contraseña
-      await authPasswordless.updatePassword(newPassword);
+      // Actualizar a la nueva contraseña en Backend, LocalStorage y Supabase
+      const res = await authPasswordless.updatePassword(newPassword, cleanEmail);
       setSuccessMsg('¡Contraseña actualizada con éxito! Ingresando a tu expediente...');
 
-      const { data: { user } } = await supabase.auth.getUser();
-      let profile = user ? await authPasswordless.getProfile(user.id) : null;
-      if (!profile && user) {
-        profile = {
-          id: user.id,
-          email: user.email,
-          nombre: user.user_metadata?.nombre || 'Graduando USM',
-          cedula: user.user_metadata?.cedula || 'V-28.315.101',
-          carrera: user.user_metadata?.carrera || 'Ingeniería en Sistemas',
-          semestre: user.user_metadata?.semestre || '10mo',
-          is_profile_complete: true,
-          is_cedula_locked: true,
-        };
+      let profile = res?.profile || await authPasswordless.findRegisteredProfile(cleanEmail);
+      if (!profile) {
+        const { data: { user } } = await supabase.auth.getUser();
+        profile = user ? await authPasswordless.getProfile(user.id, cleanEmail) : null;
       }
 
       if (profile) {
         localStorage.setItem('usm_user', JSON.stringify(profile));
+        sessionStorage.setItem('usm_user', JSON.stringify(profile));
         setTimeout(() => onLogin(profile), 1200);
       } else {
         setTimeout(() => setView('login'), 1500);
@@ -473,7 +469,8 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
     setLoading(true);
 
     try {
-      await authPasswordless.updatePassword(newPassword);
+      const cleanEmail = (forgotEmail || loginEmail || '').trim().toLowerCase();
+      const res = await authPasswordless.updatePassword(newPassword, cleanEmail);
       setSuccessMsg('¡Contraseña actualizada con éxito! Ingresando a tu expediente...');
 
       // Limpiar el hash de la URL
@@ -482,23 +479,15 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
       }
 
       // Obtener el perfil activo
-      const { data: { user } } = await supabase.auth.getUser();
-      let profile = user ? await authPasswordless.getProfile(user.id) : null;
-      if (!profile && user) {
-        profile = {
-          id: user.id,
-          email: user.email,
-          nombre: user.user_metadata?.nombre || 'Graduando USM',
-          cedula: user.user_metadata?.cedula || 'V-28.315.101',
-          carrera: user.user_metadata?.carrera || 'Ingeniería en Sistemas',
-          semestre: user.user_metadata?.semestre || '10mo',
-          is_profile_complete: true,
-          is_cedula_locked: true,
-        };
+      let profile = res?.profile || (cleanEmail ? await authPasswordless.findRegisteredProfile(cleanEmail) : null);
+      if (!profile) {
+        const { data: { user } } = await supabase.auth.getUser();
+        profile = user ? await authPasswordless.getProfile(user.id, cleanEmail) : null;
       }
 
       if (profile) {
         localStorage.setItem('usm_user', JSON.stringify(profile));
+        sessionStorage.setItem('usm_user', JSON.stringify(profile));
         setTimeout(() => onLogin(profile), 1200);
       } else {
         setTimeout(() => setView('login'), 1500);
@@ -572,10 +561,11 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
       if (res.success && res.user) {
         setOtpUser(res.user);
 
-        // Consultar si ya tiene cédula legal
-        const profile = await authPasswordless.getProfile(res.user.id);
+        // Consultar si ya tiene cédula legal registrada (Backend / LocalStorage / Supabase)
+        const profile = await authPasswordless.getProfile(res.user.id, otpEmail);
         if (profile && profile.is_profile_complete && profile.cedula) {
           localStorage.setItem('usm_user', JSON.stringify(profile));
+          sessionStorage.setItem('usm_user', JSON.stringify(profile));
           onLogin(profile);
         } else {
           // Ir a Onboarding Progresivo
@@ -630,6 +620,8 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
         cedula_numero: rawCedula,
         telefono: regForm.telefono,
         fecha_nacimiento: regForm.fecha_nacimiento,
+        carrera: regForm.carrera || 'Ingeniería en Sistemas',
+        semestre: regForm.semestre || '10mo',
       });
 
       if (res.success && res.profile) {
@@ -1027,6 +1019,55 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
                       className="chat-input"
                       style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.75rem 0', fontSize: '0.88rem' }}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Carrera Universitaria y Semestre / Nivel Académico en 2 columnas */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.3rem' }}>
+                    Carrera Universitaria
+                  </label>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.65rem',
+                    backgroundColor: 'var(--color-fog-white)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-inputs)', padding: '0.2rem 0.8rem'
+                  }}>
+                    <BookOpen size={15} color="var(--color-slate-gray)" />
+                    <select
+                      value={regForm.carrera}
+                      onChange={(e) => setRegForm(p => ({ ...p, carrera: e.target.value }))}
+                      className="chat-input"
+                      style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.75rem 0', fontSize: '0.88rem', cursor: 'pointer' }}
+                    >
+                      {carreras.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.3rem' }}>
+                    Nivel Académico
+                  </label>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.65rem',
+                    backgroundColor: 'var(--color-fog-white)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-inputs)', padding: '0.2rem 0.8rem'
+                  }}>
+                    <ShieldCheck size={15} color="var(--color-slate-gray)" />
+                    <select
+                      value={regForm.semestre}
+                      onChange={(e) => setRegForm(p => ({ ...p, semestre: e.target.value }))}
+                      className="chat-input"
+                      style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.75rem 0', fontSize: '0.88rem', cursor: 'pointer' }}
+                    >
+                      <option value="10mo">10mo Semestre (Graduando)</option>
+                      <option value="Egresado">Egresado / Titulado</option>
+                      <option value="9no">9no Semestre (Pre-Grado)</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -1869,6 +1910,55 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
                       className="chat-input"
                       style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.75rem 0', fontSize: '0.88rem' }}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Carrera Universitaria y Nivel Académico en 2 columnas */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.3rem' }}>
+                    Carrera Universitaria
+                  </label>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.65rem',
+                    backgroundColor: 'var(--color-fog-white)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-inputs)', padding: '0.2rem 0.8rem'
+                  }}>
+                    <BookOpen size={15} color="var(--color-slate-gray)" />
+                    <select
+                      value={regForm.carrera}
+                      onChange={(e) => setRegForm(p => ({ ...p, carrera: e.target.value }))}
+                      className="chat-input"
+                      style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.75rem 0', fontSize: '0.88rem', cursor: 'pointer' }}
+                    >
+                      {carreras.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.3rem' }}>
+                    Nivel Académico
+                  </label>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.65rem',
+                    backgroundColor: 'var(--color-fog-white)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-inputs)', padding: '0.2rem 0.8rem'
+                  }}>
+                    <ShieldCheck size={15} color="var(--color-slate-gray)" />
+                    <select
+                      value={regForm.semestre}
+                      onChange={(e) => setRegForm(p => ({ ...p, semestre: e.target.value }))}
+                      className="chat-input"
+                      style={{ border: 'none', background: 'transparent', flex: 1, padding: '0.75rem 0', fontSize: '0.88rem', cursor: 'pointer' }}
+                    >
+                      <option value="10mo">10mo Semestre (Graduando)</option>
+                      <option value="Egresado">Egresado / Titulado</option>
+                      <option value="9no">9no Semestre (Pre-Grado)</option>
+                    </select>
                   </div>
                 </div>
               </div>

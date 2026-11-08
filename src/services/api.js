@@ -76,6 +76,15 @@ export const authAPI = {
 
   registerStudent: (data) =>
     apiFetch('/student/register', { method: 'POST', body: data }),
+
+  verifyStudentIdentity: (email, cedula) =>
+    apiFetch('/student/verify-identity', { method: 'POST', body: { email, cedula } }),
+
+  resetStudentPassword: (email, newPassword) =>
+    apiFetch('/student/reset-password', { method: 'POST', body: { email, new_password: newPassword } }),
+
+  updateStudentProfile: (data) =>
+    apiFetch('/student/update-profile', { method: 'POST', body: data }),
 };
 
 // ─── Perfiles ───────────────────────────────────────────────────────────────

@@ -1060,6 +1060,153 @@ def login_student():
     }), 200
 
 
+@app.route("/student/verify-identity", methods=["POST"])
+@app.route("/api/student/verify-identity", methods=["POST"])
+def verify_student_identity():
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    cedula = (data.get("cedula") or "").strip()
+    ced_digits = re.sub(r"\D", "", cedula)
+
+    if not email or not ced_digits:
+        return jsonify({"status": "error", "message": "Correo y cédula son requeridos."}), 400
+
+    student = next((s for s in _students_auth_memory if (s.get("email") or "").lower() == email), None)
+    if not student:
+        student_by_ced = next((s for s in _students_auth_memory if re.sub(r"\D", "", s.get("cedula") or "") == ced_digits), None)
+        if student_by_ced:
+            return jsonify({
+                "status": "mismatch",
+                "message": "Los datos no coinciden. La Cédula ingresada está asociada a otro correo electrónico."
+            }), 200
+        return jsonify({
+            "status": "not_found",
+            "message": "El usuario no se encuentra registrado en el sistema. Debes crear tu cuenta primero."
+        }), 200
+
+    student_ced_digits = re.sub(r"\D", "", student.get("cedula") or "")
+    if student_ced_digits and student_ced_digits != ced_digits:
+        return jsonify({
+            "status": "mismatch",
+            "message": "Los datos no coinciden. La Cédula de Identidad no corresponde al correo electrónico ingresado."
+        }), 200
+
+    safe_profile = {k: v for k, v in student.items() if k != "password_hash"}
+    return jsonify({
+        "status": "match",
+        "exists": True,
+        "nombre": student.get("nombre"),
+        "cedula": student.get("cedula"),
+        "profile": safe_profile
+    }), 200
+
+
+@app.route("/student/reset-password", methods=["POST"])
+@app.route("/api/student/reset-password", methods=["POST"])
+def reset_student_password():
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    new_password = (data.get("new_password") or data.get("password") or "").strip()
+
+    if not email or not new_password:
+        return jsonify({"success": False, "error": "Correo y nueva contraseña requeridos."}), 400
+
+    student = next((s for s in _students_auth_memory if (s.get("email") or "").lower() == email), None)
+    if not student:
+        return jsonify({"success": False, "error": "Usuario no encontrado."}), 404
+
+    student["password_hash"] = _hash_student_password(new_password)
+    student["updated_at"] = datetime.datetime.now().isoformat()
+    _save_students_cache()
+
+    safe_profile = {k: v for k, v in student.items() if k != "password_hash"}
+    return jsonify({
+        "success": True,
+        "message": "Contraseña actualizada con éxito.",
+        "profile": safe_profile
+    }), 200
+
+
+@app.route("/student/update-profile", methods=["POST", "PUT"])
+@app.route("/api/student/update-profile", methods=["POST", "PUT"])
+def update_student_profile():
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    cedula = (data.get("cedula") or "").strip()
+    ced_digits = re.sub(r"\D", "", cedula)
+
+    student = next(
+        (s for s in _students_auth_memory if (email and (s.get("email") or "").lower() == email) or (ced_digits and re.sub(r"\D", "", s.get("cedula") or "") == ced_digits)),
+        None
+    )
+
+    if not student:
+        # Si el usuario aún no estaba en _students_auth_memory pero tiene sesión activa, lo creamos
+        if not email and not cedula:
+            return jsonify({"success": False, "error": "Identificador de estudiante requerido."}), 400
+        student = {
+            "id": data.get("id") or f"usr-{secrets.token_hex(6)}",
+            "email": email,
+            "password_hash": _hash_student_password(data.get("new_password") or "Usm2026*"),
+            "nombre": (data.get("nombre") or "Graduando USM").strip(),
+            "cedula": cedula,
+            "telefono": (data.get("telefono") or "").strip(),
+            "fecha_nacimiento": (data.get("fecha_nacimiento") or "").strip(),
+            "carrera": (data.get("carrera") or "Ingeniería en Sistemas").strip(),
+            "semestre": (data.get("semestre") or "10mo").strip(),
+            "is_profile_complete": True,
+            "is_cedula_locked": True,
+            "role": "estudiante",
+            "created_at": datetime.datetime.now().isoformat()
+        }
+        _students_auth_memory.append(student)
+    else:
+        # La cédula es inmutable por seguridad legal; actualizamos los demás campos permitidos
+        if data.get("nombre"):
+            student["nombre"] = data["nombre"].strip()
+        if "telefono" in data:
+            student["telefono"] = (data.get("telefono") or "").strip()
+        if "fecha_nacimiento" in data:
+            student["fecha_nacimiento"] = (data.get("fecha_nacimiento") or "").strip()
+        if data.get("carrera"):
+            student["carrera"] = data["carrera"].strip()
+        if data.get("semestre"):
+            student["semestre"] = data["semestre"].strip()
+        if data.get("new_password"):
+            student["password_hash"] = _hash_student_password(data["new_password"].strip())
+        student["updated_at"] = datetime.datetime.now().isoformat()
+
+    _save_students_cache()
+
+    # Sincronizar también en _profiles_memory
+    stu_ced_clean = re.sub(r"\D", "", student.get("cedula") or "")
+    existing_prof = next((i for i, p in enumerate(_profiles_memory) if re.sub(r"\D", "", p.get("cedula") or "") == stu_ced_clean), None)
+    prof_entry = {
+        "cedula": student.get("cedula"),
+        "nombre": student.get("nombre"),
+        "carrera": student.get("carrera"),
+        "semestre": student.get("semestre"),
+        "email": student.get("email"),
+        "telefono": student.get("telefono", ""),
+        "fecha_nacimiento": student.get("fecha_nacimiento", "")
+    }
+    if existing_prof is not None:
+        _profiles_memory[existing_prof] = prof_entry
+    else:
+        _profiles_memory.append(prof_entry)
+    _save_profiles_cache()
+
+    safe_profile = {k: v for k, v in student.items() if k != "password_hash"}
+    return jsonify({
+        "success": True,
+        "message": "Perfil académico actualizado exitosamente.",
+        "profile": safe_profile
+    }), 200
+
+
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
     data = request.get_json() or {}

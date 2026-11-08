@@ -1335,3 +1335,57 @@ select.chat-input option {
     border-color: var(--color-ink-black) !important;
   }
 }
+
+
+/* ==========================================================================
+   LandingPortal & StudentAuth Responsive Adjustments (Mobile & Tablet)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .landing-meta-bar {
+    padding: 0.4rem 1rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  .landing-meta-subtitle,
+  .landing-meta-network {
+    display: none !important;
+  }
+
+  .landing-navbar {
+    padding: 0.75rem 1rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .landing-hero {
+    padding: 2.25rem 1rem 2rem 1rem !important;
+  }
+
+  .landing-auth-card {
+    padding: 1.35rem !important;
+  }
+
+  .landing-section {
+    padding: 2.5rem 1rem !important;
+  }
+
+  .landing-footer {
+    padding: 2rem 1rem 1.5rem 1rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-navbar {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .landing-navbar > div:last-child {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .landing-auth-card {
+    padding: 1.1rem !important;
+    border-radius: 16px !important;
+  }
+}
