@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { blockchainAPI } from '../services/api';
 import { verifyDocumentOnChain, SEPOLIA_EXPLORER_URL, getContractAddress } from '../services/web3Service';
 import DigitalCertificate from './DigitalCertificate';
+import WalletConnect from './WalletConnect';
 
 const SAMPLE_HASHES = [
   {
@@ -181,7 +182,7 @@ const BlockchainVerifier = ({ initialHash }) => {
         gap: '0.75rem',
         fontSize: '0.82rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
           <span style={{
             display: 'inline-block',
             width: 8,
@@ -198,23 +199,26 @@ const BlockchainVerifier = ({ initialHash }) => {
           </code>
         </div>
 
-        {contractAddr && contractAddr.startsWith('0x') && contractAddr.length === 42 && (
-          <a
-            href={`${SEPOLIA_EXPLORER_URL}/address/${contractAddr}#readContract`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              color: 'var(--color-sienna-brown)',
-              fontWeight: 500,
-              textDecoration: 'none'
-            }}
-          >
-            Explorar Código en Etherscan <ExternalLink size={13} />
-          </a>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+          <WalletConnect />
+          {contractAddr && contractAddr.startsWith('0x') && contractAddr.length === 42 && (
+            <a
+              href={`${SEPOLIA_EXPLORER_URL}/address/${contractAddr}#readContract`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                color: 'var(--color-sienna-brown)',
+                fontWeight: 500,
+                textDecoration: 'none'
+              }}
+            >
+              Explorar Código en Etherscan <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
       </div>
 
       <motion.div

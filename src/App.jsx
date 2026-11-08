@@ -34,6 +34,8 @@ import GovernmentLoginPortal from './components/GovernmentLoginPortal';
 
 import ToastNotification from './components/ToastNotification';
 
+import WalletConnect from './components/WalletConnect';
+
 import { dynamicDataAPI, statsAPI } from './services/api';
 
 import { supabase, authPasswordless } from './services/supabaseClient';
@@ -481,43 +483,28 @@ function App() {
 
               </div>
 
-              <button
-
-                onClick={handleAdminLogout}
-
-                style={{
-
-                  background: '#ffffff',
-
-                  border: '1px solid var(--border)',
-
-                  color: 'var(--color-ink-black)',
-
-                  padding: '0.45rem 1rem',
-
-                  borderRadius: 'var(--radius-pill)',
-
-                  fontSize: '0.82rem',
-
-                  fontWeight: 500,
-
-                  cursor: 'pointer',
-
-                  whiteSpace: 'nowrap',
-
-                  flexShrink: 0,
-
-                  boxShadow: 'var(--shadow-subtle)',
-
-                  transition: 'all 0.2s ease'
-
-                }}
-
-              >
-
-                Cerrar Sesión Auditoría
-
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <WalletConnect />
+                <button
+                  onClick={handleAdminLogout}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid var(--border)',
+                    color: 'var(--color-ink-black)',
+                    padding: '0.45rem 1rem',
+                    borderRadius: 'var(--radius-pill)',
+                    fontSize: '0.82rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    boxShadow: 'var(--shadow-subtle)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Cerrar Sesión Auditoría
+                </button>
+              </div>
 
             </div>
 
@@ -571,7 +558,7 @@ function App() {
 
       case 'dashboard':
 
-        return <Dashboard user={user} />;
+        return <Dashboard user={user} onNavigate={setActiveTab} onVerifyHash={handleVerifyHashInApp} />;
 
       case 'ocr':
 
@@ -615,7 +602,7 @@ function App() {
 
       default:
 
-        return <Dashboard user={user} />;
+        return <Dashboard user={user} onNavigate={setActiveTab} onVerifyHash={handleVerifyHashInApp} />;
 
     }
 

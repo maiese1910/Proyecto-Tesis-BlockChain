@@ -1,64 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Clock, ShieldCheck, MapPin, ArrowRight, Globe, FileText, X, Send, AlertCircle, Building, Check, Sparkles } from 'lucide-react';
+import {
+  CheckCircle, Clock, ShieldCheck, MapPin, Globe, FileText, X, Send,
+  AlertCircle, Building, Sparkles, Printer, ExternalLink, Layers, FolderOpen, ArrowRight
+} from 'lucide-react';
 import { blockchainAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
 import { PAISES_CONVENIO_HAYA } from '../data/venezuelaLocations';
 
-const DEFAULT_THESIS_RECORDS = [
-  {
-    hash: "0x7F9A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9F0A",
-    ownerName: "MAURO DANIEL MAIESE FERREIRA",
-    cedula: "V-28.315.101",
-    documentType: "Título de Ingeniero de Sistemas — USM",
-    txHash: "0x4b7891a2bc3456def0123456789abcdef0123456789abcdef0123456789abcd1",
-    status: "CERTIFICADO_MPPEU",
-    timestamp: "2026-10-24T14:32:00Z",
-    solicitudCode: "GTU-2026-USM-8492",
-    mppeuVerified: true,
-    mppreVerified: false,
-    mppeuOfficer: "Lic. Carlos Mendoza (Analista GTU)",
-    tomo: "XVIII",
-    folio: "245",
-    libro: "Grados 2026"
-  },
-  {
-    hash: "0x1A2B3C4D5E6F7A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B",
-    ownerName: "VALENTINA SOFÍA RODRÍGUEZ SILVA",
-    cedula: "V-27.890.432",
-    documentType: "Título de Ingeniera Civil — USM",
-    txHash: "0x9876543210abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    status: "APOSTILLADO_MPPRE",
-    timestamp: "2026-10-20T09:12:00Z",
-    solicitudCode: "GTU-2026-USM-5120",
-    mppeuVerified: true,
-    mppreVerified: true,
-    mppeuOfficer: "Lic. Carlos Mendoza (Analista GTU)",
-    mppreOfficer: "Dr. Fernando Morales (Cancillería)",
-    apostilleNumber: "APO-VE-2026-004812",
-    tomo: "XIV",
-    folio: "112",
-    libro: "Grados 2026"
-  },
-  {
-    hash: "0x5E6F7A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D5E6F",
-    ownerName: "ALEJANDRO JOSÉ HERNÁNDEZ PEÑA",
-    cedula: "V-29.456.789",
-    documentType: "Título de Ingeniero Industrial — USM",
-    txHash: "0xPENDIENTE_COTEJO",
-    status: "PENDIENTE_COTEJO_MPPEU",
-    timestamp: "2026-10-26T16:00:00Z",
-    solicitudCode: "GTU-2026-USM-9304",
-    mppeuVerified: false,
-    mppreVerified: false,
-    tomo: "XXI",
-    folio: "089",
-    libro: "Grados 2026"
-  }
-];
-
-const TrackingTimeline = ({ user }) => {
+const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
@@ -78,71 +29,12 @@ const TrackingTimeline = ({ user }) => {
     setIsApostilleModalOpen(true);
   };
 
-  const handleSubmitApostilleRequest = async () => {
-    if (!latestRecord?.hash) return;
-    if (!selectedApostilleCountry) {
-      setApostilleError('Debes seleccionar un país miembro del Convenio de La Haya.');
-      return;
-    }
-    setRequestingApostille(true);
-    setApostilleError('');
-    try {
-      const fullMotivo = apostilleNotes.trim() ? (apostilleMotivo + " - " + apostilleNotes.trim()) : apostilleMotivo;
-      const res = await blockchainAPI.requestApostille(latestRecord.hash, {
-        country_destiny: selectedApostilleCountry,
-        countryDestiny: selectedApostilleCountry,
-        motivo_apostille: fullMotivo,
-        motivoApostille: fullMotivo
-      });
-      if (res && (res.success || res.status === 'PENDIENTE_APOSTILLA_MPPRE' || res.message)) {
-        const updated = {
-          ...latestRecord,
-          status: 'PENDIENTE_APOSTILLA_MPPRE',
-          country_destiny: selectedApostilleCountry,
-          countryDestiny: selectedApostilleCountry,
-          motivo_apostille: fullMotivo
-        };
-        setRecords(prev => prev.map(r => r.hash === latestRecord.hash ? updated : r));
-        setIsApostilleModalOpen(false);
-
-        // Sincronizar en localStorage
-        try {
-          const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
-          const nextBc = bc.map(r => r.hash === latestRecord.hash ? { ...r, ...updated } : r);
-          localStorage.setItem('usm_blockchain_records', JSON.stringify(nextBc));
-
-          const pub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
-          const nextPub = pub.map(r => ((r.hash || r.blockchainHash) === latestRecord.hash) ? { ...r, ...updated, status: 'PENDIENTE_APOSTILLA_MPPRE' } : r);
-          localStorage.setItem('usm_pub_history', JSON.stringify(nextPub));
-
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('usm_records_updated', { detail: updated }));
-            window.dispatchEvent(new Event('storage'));
-          }
-
-          if (typeof BroadcastChannel !== 'undefined') {
-            try {
-              const ch = new BroadcastChannel('usm_records_sync');
-              ch.postMessage({ type: 'RECORD_UPDATED', record: updated });
-              ch.close();
-            } catch (_) {}
-          }
-        } catch (_) {}
-      } else {
-        setApostilleError(res?.message || 'Error al enviar la solicitud de apostilla');
-      }
-    } catch (err) {
-      console.error('Error solicitando apostilla:', err);
-      setApostilleError('Error al conectar con la Cancillería (MPPRE): ' + (err.message || 'Error de conexión'));
-    } finally {
-      setRequestingApostille(false);
-    }
-  };
-
   const getStatusWeight = (status) => {
     if (!status) return 0;
     const s = String(status).toUpperCase();
-    if (s.includes('APOSTILL')) return 50;
+    if (s.includes('APOSTILLADO')) return 60;
+    if (s.includes('PENDIENTE_APOSTILLA')) return 50;
+    if (s.includes('SAREN') || s.includes('PROTOCOLIZ')) return 45;
     if (s.includes('CERTIFICAD')) return 40;
     if (s.includes('VERIFICAD')) return 30;
     if (s.includes('COTEJO')) return 20;
@@ -191,7 +83,7 @@ const TrackingTimeline = ({ user }) => {
             });
           }
         } catch (e) {
-          console.warn("Backend records offline, checking local records:", e);
+          console.warn('Backend records offline, checking local records:', e);
         }
       }
 
@@ -204,6 +96,7 @@ const TrackingTimeline = ({ user }) => {
             bcList.forEach(item => {
               if (!item || !item.hash || !isRecordOfUser(item)) return;
               combined.push({
+                ...item,
                 hash: item.hash,
                 ownerName: item.ownerName || item.owner_name || user?.nombre || 'Graduando',
                 cedula: item.cedula || user?.cedula || 'V-00.000.000',
@@ -212,7 +105,9 @@ const TrackingTimeline = ({ user }) => {
                 txHash: item.txHash || item.tx_hash || '0xPENDIENTE_COTEJO',
                 timestamp: item.createdAt || item.created_at || item.timestamp || new Date().toISOString(),
                 status: item.status || 'PENDIENTE_COTEJO_MPPEU',
+                usmVerified: Boolean(item.usmVerified || item.usm_verified || true),
                 mppeuVerified: Boolean(item.mppeuVerified || item.mppeu_verified),
+                sarenVerified: Boolean(item.sarenVerified || item.saren_verified),
                 mppreVerified: Boolean(item.mppreVerified || item.mppre_verified),
                 apostilleNumber: item.apostilleNumber || item.apostille_number || null,
                 tomo: item.tomo || 'XVIII',
@@ -239,6 +134,7 @@ const TrackingTimeline = ({ user }) => {
               const h = item.hash || item.blockchainHash;
               if (!h) return;
               combined.push({
+                ...item,
                 hash: h,
                 ownerName: item.nombre || item.ownerName || item.formData?.nombre_completo || user?.nombre || 'Graduando',
                 cedula: item.cedula || item.formData?.cedula || user?.cedula || 'V-00.000.000',
@@ -247,7 +143,9 @@ const TrackingTimeline = ({ user }) => {
                 txHash: item.txHash || '0xPENDIENTE_COTEJO',
                 timestamp: item.timestamp || item.fecha || item.created_at || new Date().toISOString(),
                 status: item.status || 'SOLICITUD_GTU_EMITIDA',
+                usmVerified: Boolean(item.usmVerified || true),
                 mppeuVerified: Boolean(item.mppeuVerified),
+                sarenVerified: Boolean(item.sarenVerified || item.stablePubCode || item.solicitudCode),
                 mppreVerified: Boolean(item.mppreVerified),
                 apostilleNumber: item.apostilleNumber || null,
                 documentUrl: item.documentUrl || item.document_url || item.fileUrl || null,
@@ -273,13 +171,14 @@ const TrackingTimeline = ({ user }) => {
           const wNew = getStatusWeight(rec.status);
           const chosenStatus = wNew >= wExisting ? rec.status : existing.status;
           const stStr = String(chosenStatus || '').toUpperCase();
-          const isMppeu = Boolean(existing.mppeuVerified || rec.mppeuVerified || stStr.includes('CERTIFICADO') || stStr.includes('APOSTILLADO'));
+          const isMppeu = Boolean(existing.mppeuVerified || rec.mppeuVerified || stStr.includes('CERTIFICADO') || stStr.includes('APOSTILLADO') || stStr.includes('PENDIENTE_APOSTILLA'));
+          const isSaren = Boolean(existing.sarenVerified || rec.sarenVerified || stStr.includes('SAREN') || isMppeu);
           const isMppre = Boolean(existing.mppreVerified || rec.mppreVerified || stStr.includes('APOSTILLADO'));
-          const rTx = String(rec.txHash || '');
-          const exTx = String(existing.txHash || '');
+          const rTx = String(rec.txHash || rec.tx_hash || '');
+          const exTx = String(existing.txHash || existing.tx_hash || '');
           const chosenTx = (rTx && !rTx.includes('PENDIENTE'))
-            ? rec.txHash
-            : ((exTx && !exTx.includes('PENDIENTE')) ? existing.txHash : (rec.txHash || existing.txHash || '0xPENDIENTE_COTEJO'));
+            ? rTx
+            : ((exTx && !exTx.includes('PENDIENTE')) ? exTx : (rTx || exTx || '0xPENDIENTE_COTEJO'));
 
           map.set(key, {
             ...existing,
@@ -289,6 +188,7 @@ const TrackingTimeline = ({ user }) => {
             documentType: rec.documentType || existing.documentType,
             status: chosenStatus,
             mppeuVerified: isMppeu,
+            sarenVerified: isSaren,
             mppreVerified: isMppre,
             apostilleNumber: rec.apostilleNumber || existing.apostilleNumber || null,
             solicitudCode: rec.solicitudCode || existing.solicitudCode,
@@ -300,40 +200,26 @@ const TrackingTimeline = ({ user }) => {
 
       const list = Array.from(map.values());
 
-      // Sincronizar en localStorage para mantener los estatus finalizados persistentes
+      // Sincronizar en localStorage sin borrar otros usuarios ni campos extendidos
       try {
-        const nextLocalBc = list.map(r => ({
-          hash: r.hash,
-          ownerName: r.ownerName,
-          cedula: r.cedula,
-          documentType: r.documentType,
-          solicitudCode: r.solicitudCode,
-          txHash: r.txHash,
-          status: r.status,
-          mppeuVerified: r.mppeuVerified,
-          mppreVerified: r.mppreVerified,
-          apostilleNumber: r.apostilleNumber,
-          createdAt: r.timestamp
-        }));
-        localStorage.setItem('usm_blockchain_records', JSON.stringify(nextLocalBc.slice(0, 50)));
-
-        const nextPubHist = list.map(r => ({
-          hash: r.hash,
-          solicitudCode: r.solicitudCode,
-          nombre: r.ownerName,
-          cedula: r.cedula,
-          tramite: r.documentType,
-          txHash: r.txHash,
-          status: r.status,
-          mppeuVerified: r.mppeuVerified,
-          mppreVerified: r.mppreVerified,
-          apostilleNumber: r.apostilleNumber,
-          timestamp: r.timestamp
-        }));
-        localStorage.setItem('usm_pub_history', JSON.stringify(nextPubHist.slice(0, 50)));
+        const existingBc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
+        const bcMap = new Map();
+        existingBc.forEach(item => {
+          if (item && item.hash) bcMap.set(item.hash.toUpperCase(), item);
+        });
+        list.forEach(r => {
+          const k = r.hash.toUpperCase();
+          const prev = bcMap.get(k) || {};
+          bcMap.set(k, {
+            ...prev,
+            ...r,
+            createdAt: prev.createdAt || r.timestamp
+          });
+        });
+        localStorage.setItem('usm_blockchain_records', JSON.stringify(Array.from(bcMap.values()).slice(0, 80)));
       } catch (_) {}
 
-      // 5. Ordenar por fecha más reciente (descendente) para que el trámite recién emitido SIEMPRE aparezca de primero
+      // 5. Ordenar por fecha más reciente (descendente)
       list.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
       setRecords(list);
@@ -345,13 +231,11 @@ const TrackingTimeline = ({ user }) => {
           const targetIdx = list.findIndex(r => (r.hash || '').trim().toUpperCase() === activeHash);
           if (targetIdx !== -1) {
             setSelectedRecordIndex(targetIdx);
-          } else {
-            setSelectedRecordIndex(0);
           }
         }
       } catch (_) {}
     } catch (err) {
-      console.error("Error fetching user records:", err);
+      console.error('Error fetching user records:', err);
     } finally {
       setLoading(false);
     }
@@ -361,7 +245,6 @@ const TrackingTimeline = ({ user }) => {
     fetchRecords();
     const interval = setInterval(fetchRecords, 5000);
 
-    // Escuchar eventos en tiempo real entre pestañas (BroadcastChannel)
     let channel;
     if (typeof BroadcastChannel !== 'undefined') {
       try {
@@ -374,9 +257,8 @@ const TrackingTimeline = ({ user }) => {
       } catch (_) {}
     }
 
-    // Escuchar eventos storage si se modifica en otra pestaña
     const handleStorageChange = (e) => {
-      if (e.key === 'usm_blockchain_records' || e.key === 'usm_pub_history') {
+      if (e.key === 'usm_blockchain_records' || e.key === 'usm_pub_history' || e.key === 'usm_active_tramite_hash') {
         fetchRecords();
       }
     };
@@ -395,6 +277,138 @@ const TrackingTimeline = ({ user }) => {
     };
   }, [user]);
 
+  const safeIndex = selectedRecordIndex >= records.length ? 0 : selectedRecordIndex;
+  const latestRecord = records[safeIndex] || records[0];
+
+  const handleSelectRecord = (idx) => {
+    setSelectedRecordIndex(idx);
+    const chosen = records[idx];
+    if (chosen?.hash) {
+      localStorage.setItem('usm_active_tramite_hash', chosen.hash);
+      sessionStorage.setItem('usm_active_tramite_hash', chosen.hash);
+      window.dispatchEvent(new CustomEvent('usm_active_tramite_changed', { detail: chosen }));
+    }
+  };
+
+  const handleSubmitApostilleRequest = async () => {
+    if (!latestRecord?.hash) return;
+    if (!selectedApostilleCountry) {
+      setApostilleError('Debes seleccionar un país miembro del Convenio de La Haya.');
+      return;
+    }
+    setRequestingApostille(true);
+    setApostilleError('');
+    try {
+      const fullMotivo = apostilleNotes.trim() ? (apostilleMotivo + ' - ' + apostilleNotes.trim()) : apostilleMotivo;
+      const res = await blockchainAPI.requestApostille(latestRecord.hash, {
+        country_destiny: selectedApostilleCountry,
+        countryDestiny: selectedApostilleCountry,
+        motivo_apostille: fullMotivo,
+        motivoApostille: fullMotivo
+      });
+      if (res && (res.success || res.status === 'PENDIENTE_APOSTILLA_MPPRE' || res.message)) {
+        const updated = {
+          ...latestRecord,
+          status: 'PENDIENTE_APOSTILLA_MPPRE',
+          country_destiny: selectedApostilleCountry,
+          countryDestiny: selectedApostilleCountry,
+          motivo_apostille: fullMotivo
+        };
+        setRecords(prev => prev.map(r => r.hash === latestRecord.hash ? updated : r));
+        setIsApostilleModalOpen(false);
+
+        try {
+          const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
+          const nextBc = bc.map(r => r.hash === latestRecord.hash ? { ...r, ...updated } : r);
+          localStorage.setItem('usm_blockchain_records', JSON.stringify(nextBc));
+
+          const pub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+          const nextPub = pub.map(r => ((r.hash || r.blockchainHash) === latestRecord.hash) ? { ...r, ...updated, status: 'PENDIENTE_APOSTILLA_MPPRE' } : r);
+          localStorage.setItem('usm_pub_history', JSON.stringify(nextPub));
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('usm_records_updated', { detail: updated }));
+            window.dispatchEvent(new Event('storage'));
+          }
+
+          if (typeof BroadcastChannel !== 'undefined') {
+            try {
+              const ch = new BroadcastChannel('usm_records_sync');
+              ch.postMessage({ type: 'RECORD_UPDATED', record: updated });
+              ch.close();
+            } catch (_) {}
+          }
+        } catch (_) {}
+      } else {
+        setApostilleError(res?.message || 'Error al enviar la solicitud de apostilla');
+      }
+    } catch (err) {
+      setApostilleError('Error al conectar con la Cancillería (MPPRE): ' + (err.message || 'Error de conexión'));
+    } finally {
+      setRequestingApostille(false);
+    }
+  };
+
+  // Imprimir Hoja de Ruta / Comprobante de Seguimiento de las 4 Estaciones
+  const handlePrintRoadmap = () => {
+    if (!latestRecord) return;
+    const win = window.open('', '_blank', 'width=850,height=750');
+    if (!win) return;
+    const html = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Hoja de Ruta de Trámite — ${latestRecord.solicitudCode || 'USM'}</title>
+        <style>
+          body { font-family: 'Georgia', serif; color: #121212; padding: 36px; max-width: 760px; margin: 0 auto; }
+          .header { border-bottom: 2px solid #121212; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+          .title { font-size: 20px; font-weight: bold; margin: 0 0 4px 0; }
+          .subtitle { font-family: Arial, sans-serif; font-size: 12px; color: #555; margin: 0; }
+          .box { background: #f8f8f7; border: 1px solid #d4d4d8; border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; font-family: Arial, sans-serif; font-size: 13px; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+          .step { border-left: 3px solid #121212; padding: 8px 0 8px 14px; margin-bottom: 12px; font-family: Arial, sans-serif; }
+          .step h4 { margin: 0 0 4px 0; font-size: 14px; }
+          .step p { margin: 0; font-size: 12px; color: #444; }
+          .hash { font-family: monospace; font-size: 11px; word-break: break-all; background: #eee; padding: 6px 8px; border-radius: 4px; margin-top: 8px; }
+          .footer { margin-top: 28px; border-top: 1px solid #ccc; padding-top: 10px; font-family: Arial, sans-serif; font-size: 11px; color: #666; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <p class="title">UNIVERSIDAD SANTA MARÍA</p>
+            <p class="subtitle">Hoja de Ruta y Trazabilidad Criptográfica de Trámite Universitario</p>
+          </div>
+          <div style="text-align:right; font-family:Arial,sans-serif; font-size:12px;">
+            <strong>Código: ${latestRecord.solicitudCode || 'GTU-2026-USM'}</strong><br/>
+            Fecha: ${new Date().toLocaleDateString('es-VE')}
+          </div>
+        </div>
+        <div class="box">
+          <div class="row"><span><strong>Titular:</strong> ${latestRecord.ownerName || user?.nombre || 'Graduando USM'}</span><span><strong>Cédula:</strong> ${latestRecord.cedula || user?.cedula || 'N/A'}</span></div>
+          <div class="row"><span><strong>Documento:</strong> ${latestRecord.documentType || 'Título Universitario'}</span><span><strong>Estatus Actual:</strong> ${latestRecord.status || 'EN PROCESO'}</span></div>
+          ${(latestRecord.sede_taquilla || latestRecord.sedeTaquilla) ? `<div class="row"><span><strong>Taquilla Asignada:</strong> ${latestRecord.sede_taquilla || latestRecord.sedeTaquilla}</span><span><strong>Ubicación:</strong> ${latestRecord.estado || 'Distrito Capital'}</span></div>` : ''}
+          <div class="hash"><strong>Hash SHA-256 Canónico:</strong> ${latestRecord.hash || 'N/A'}<br/><strong>Tx Ethereum Sepolia:</strong> ${latestRecord.txHash || 'Pendiente de Anclaje'}</div>
+        </div>
+        <h3 style="font-family:Arial,sans-serif; font-size:14px; text-transform:uppercase; letter-spacing:0.05em;">Estaciones de Validación Interinstitucional</h3>
+        ${steps.map((s) => `
+          <div class="step">
+            <h4>${s.title} — [${s.status === 'completed' ? 'COMPLETADO ✓' : s.status === 'current' ? 'EN CURSO ⏳' : 'PENDIENTE'}]</h4>
+            <p>${s.desc}</p>
+          </div>
+        `).join('')}
+        <div class="footer">
+          Documento de control emitido por la Plataforma Descentralizada de Validación y Apostilla USM — Red Ethereum Sepolia.
+        </div>
+        <script>window.onload = () => { window.print(); };</script>
+      </body>
+      </html>
+    `;
+    win.document.write(html);
+    win.document.close();
+  };
+
   if (loading) {
     return (
       <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
@@ -407,54 +421,95 @@ const TrackingTimeline = ({ user }) => {
 
   if (records.length === 0) {
     return (
-      <div className="glass-panel" style={{ padding: '2.5rem 2rem', textAlign: 'center' }}>
+      <div className="glass-panel" style={{ padding: '2.25rem 1.75rem', textAlign: 'center' }}>
         <Clock size={32} color="var(--color-slate-gray)" style={{ margin: '0 auto 0.75rem auto' }} />
-        <p style={{ color: 'var(--color-ink-black)', fontWeight: 500, margin: '0 0 0.35rem 0' }}>
+        <p style={{ color: 'var(--color-ink-black)', fontWeight: 600, fontSize: '1rem', margin: '0 0 0.35rem 0' }}>
           No tienes trámites registrados aún
         </p>
-        <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', margin: 0 }}>
-          Dirígete a "Planilla Única Bancaria (PUB)" o "Motor OCR" para comenzar tu proceso de legalización.
+        <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', margin: '0 0 1.25rem 0', lineHeight: 1.5 }}>
+          Escanea tu título o notas con el Motor de Visión IA (OCR) o genera tu Planilla Única Bancaria (PUB) para iniciar tu cadena de custodia en Blockchain.
         </p>
+        {onNavigate && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => onNavigate('ocr')}
+              className="send-btn"
+              style={{ padding: '0.6rem 1.1rem', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              Escanear con Motor OCR <ArrowRight size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('pub')}
+              className="btn-ghost"
+              style={{ padding: '0.6rem 1.1rem', fontSize: '0.82rem' }}
+            >
+              Emitir Planilla PUB
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Tomamos el registro seleccionado (o el más reciente por defecto)
-  const safeIndex = selectedRecordIndex >= records.length ? 0 : selectedRecordIndex;
-  const latestRecord = records[safeIndex] || records[0];
+  const stUpper = String(latestRecord?.status || '').toUpperCase();
+  const isPendingMppre = stUpper === 'PENDIENTE_APOSTILLA_MPPRE';
+  const isMppreDone = Boolean(latestRecord?.mppreVerified || stUpper.includes('APOSTILLADO_MPPRE'));
+  const isMppeuDone = Boolean(
+    latestRecord?.mppeuVerified ||
+    stUpper.includes('CERTIFICADO_MPPEU') ||
+    isPendingMppre ||
+    isMppreDone ||
+    stUpper.includes('VERIFICADO')
+  );
+  const isSarenDone = Boolean(
+    latestRecord?.sarenVerified ||
+    stUpper.includes('SAREN') ||
+    isMppeuDone ||
+    latestRecord?.solicitudCode
+  );
 
-  const isPendingMppre = (latestRecord?.status || '') === 'PENDIENTE_APOSTILLA_MPPRE';
-  const isMppreDone = Boolean(latestRecord?.mppreVerified || (latestRecord?.status || '').includes('APOSTILLADO_MPPRE'));
-  const isMppeuDone = Boolean(latestRecord?.mppeuVerified || (latestRecord?.status || '').includes('CERTIFICADO_MPPEU') || isPendingMppre || isMppreDone || (latestRecord?.status || '').includes('Verificado'));
-  const hashDisplay = latestRecord?.hash ? latestRecord.hash.substring(0, 10) : 'N/A';
+  const hashDisplay = latestRecord?.hash ? latestRecord.hash.substring(0, 12) : 'N/A';
   const docTypeDisplay = latestRecord?.documentType || 'Título Universitario USM';
   const solicitudDisplay = latestRecord?.solicitudCode || 'GTU-2026-USM-8492';
   const apostilleDisplay = latestRecord?.apostilleNumber || 'APO-VE-2026-PENDIENTE';
-  const timestampDisplay = latestRecord?.timestamp ? new Date(latestRecord.timestamp).toLocaleString('es-VE') : 'N/A';
+
+  const progressPct = isMppreDone ? 100 : isPendingMppre ? 85 : isMppeuDone ? 75 : isSarenDone ? 50 : 25;
 
   const steps = [
     {
-      title: "Etapa 1: Carga OCR y Solicitud GTU (Egresado)",
-      desc: `Expediente emitido (${solicitudDisplay}) con huella canónica preliminar`,
-      status: "completed",
+      title: 'Estación 1: Emisión y Pre-Validación Rectorado USM',
+      desc: `Expediente digitalizado (${solicitudDisplay}) con Folio ${latestRecord?.folio || '142'} / Tomo ${latestRecord?.tomo || 'XVIII'} y Hash SHA-256 preliminar.`,
+      status: 'completed',
       icon: <CheckCircle size={17} />
     },
     {
-      title: "Etapa 2: Cotejo en Taquilla y Anclaje Blockchain (MPPEU)",
-      desc: isMppeuDone ? `Certificado con sello digital GTU (Tx: ${latestRecord?.txHash && latestRecord.txHash !== '0xPENDIENTE_COTEJO' ? latestRecord.txHash.substring(0, 10) + '...' : 'Sepolia On-Chain'})` : "Presenta tu título original (pergamino) en la taquilla ministerial para el cotejo físico",
-      status: isMppeuDone ? "completed" : "current",
+      title: 'Estación 2: Liquidación PUB y Registro Principal (SAREN)',
+      desc: isSarenDone
+        ? `Planilla Única Bancaria (${solicitudDisplay}) emitida y aranceles de protocolización calculados.`
+        : 'Pendiente de generación de Planilla Única Bancaria (PUB) para protocolo estatal.',
+      status: isSarenDone ? 'completed' : 'current',
+      icon: isSarenDone ? <CheckCircle size={17} /> : <FileText size={17} />
+    },
+    {
+      title: 'Estación 3: Cotejo Ministerial GTU y Anclaje Blockchain (MPPEU)',
+      desc: isMppeuDone
+        ? `Certificado con sello digital GTU y firma en Ethereum Sepolia (Tx: ${latestRecord?.txHash && !String(latestRecord.txHash).includes('PENDIENTE') ? latestRecord.txHash.substring(0, 12) + '...' : 'Sepolia On-Chain'}).`
+        : 'Presenta tu título original (pergamino) en la taquilla asignada para el cotejo físico y firma criptográfica.',
+      status: isMppeuDone ? 'completed' : 'current',
       icon: isMppeuDone ? <CheckCircle size={17} /> : <Clock size={17} />
     },
     {
-      title: "Etapa 3: Emisión de Apostilla 100% Digital (MPPRE)",
+      title: 'Estación 4: Apostilla Electrónica de La Haya (MPPRE)',
       desc: isMppreDone
-        ? `Apostilla de La Haya N° ${apostilleDisplay} emitida y validada on-chain para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'país destino'}`
+        ? `Apostilla de La Haya N° ${apostilleDisplay} emitida y validada on-chain para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'país destino'}.`
         : isPendingMppre
-        ? `Solicitud radicada ante Cancillería para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'exterior'}. En revisión diplomática y firma consular por el MPPRE.`
+        ? `Solicitud radicada ante Cancillería para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'exterior'}. En revisión diplomática por el MPPRE.`
         : isMppeuDone
-        ? "Trámite 100% digital en Cancillería (habilitado). Haz clic en 'Solicitar Apostilla MPPRE' para radicar tu expediente."
-        : "Se habilitará automáticamente tras el cotejo en el MPPEU",
-      status: isMppreDone ? "completed" : isPendingMppre || isMppeuDone ? "current" : "upcoming",
+        ? "Trámite 100% digital en Cancillería habilitado. Haz clic en 'Solicitar Apostilla MPPRE' para radicar tu expediente."
+        : 'Se habilitará automáticamente tras la certificación del MPPEU.',
+      status: isMppreDone ? 'completed' : (isPendingMppre || isMppeuDone) ? 'current' : 'upcoming',
       icon: isMppreDone ? <CheckCircle size={17} /> : isPendingMppre ? <Clock size={17} /> : <Globe size={17} />
     }
   ];
@@ -468,7 +523,8 @@ const TrackingTimeline = ({ user }) => {
         <ApostilleCertificate record={activeApostilleRecord} onClose={() => setActiveApostilleRecord(null)} />
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+      {/* Cabecera con Selector de Trámite y Botón de Hoja de Ruta */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h3 style={{
           fontFamily: 'var(--font-serif)',
           fontSize: '1.25rem',
@@ -479,56 +535,117 @@ const TrackingTimeline = ({ user }) => {
           gap: '0.6rem',
           color: 'var(--color-ink-black)'
         }}>
-          <Clock size={18} color="var(--color-ink-black)" /> Tracking de Trámite Híbrido (MPPEU / MPPRE)
+          <Clock size={18} color="var(--color-ink-black)" /> Tracking de Trámite (4 Estaciones)
         </h3>
 
-        {/* Píldoras selectoras si el estudiante tiene más de 1 trámite */}
-        {records.length > 1 && (
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-              Trámites ({records.length}):
-            </span>
-            {records.map((r, idx) => (
-              <button
-                key={r.hash || idx}
-                onClick={() => {
-                  setSelectedRecordIndex(idx);
-                  if (r.hash) {
-                    localStorage.setItem('usm_active_tramite_hash', r.hash);
-                    sessionStorage.setItem('usm_active_tramite_hash', r.hash);
-                  }
-                }}
-                style={{
-                  padding: '0.28rem 0.75rem',
-                  fontSize: '0.74rem',
-                  borderRadius: 'var(--radius-pill)',
-                  border: safeIndex === idx ? '1px solid var(--color-ink-black)' : '1px solid var(--border)',
-                  background: safeIndex === idx ? 'var(--color-ink-black)' : '#ffffff',
-                  color: safeIndex === idx ? '#ffffff' : 'var(--color-ink-black)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  transition: 'all 0.15s ease',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.35rem'
-                }}
-              >
-                <span>{r.solicitudCode || ('Trámite ' + (idx + 1))}</span>
-                <span style={{ opacity: 0.75, fontSize: '0.7rem' }}>
-                  ({(r.ownerName || 'Graduando').split(' ')[0]})
-                </span>
-                {safeIndex === idx && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />}
-              </button>
-            ))}
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handlePrintRoadmap}
+            className="btn-ghost"
+            title="Imprimir o guardar en PDF la Hoja de Ruta del Trámite"
+            style={{
+              padding: '0.35rem 0.75rem',
+              fontSize: '0.76rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem'
+            }}
+          >
+            <Printer size={13} /> Hoja de Ruta PDF
+          </button>
+
+          {onVerifyHash && latestRecord?.hash && (
+            <button
+              type="button"
+              onClick={() => onVerifyHash(latestRecord.hash)}
+              className="btn-ghost"
+              title="Auditar este Hash directamente en el Verificador Blockchain"
+              style={{
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.76rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                color: 'var(--color-sienna-brown)',
+                borderColor: 'rgba(93, 42, 26, 0.25)'
+              }}
+            >
+              <Layers size={13} /> Auditar Hash
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Banner de Trámite */}
+      {/* Selector Desplegable + Píldoras de Trámites */}
+      <div style={{
+        marginBottom: '1rem',
+        padding: '0.75rem 1rem',
+        backgroundColor: 'var(--color-fog-white)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-inputs)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.6rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <FolderOpen size={14} color="var(--color-sienna-brown)" />
+            Selector de Expediente Activo ({records.length} {records.length === 1 ? 'documento' : 'documentos'}):
+          </label>
+          <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-sienna-brown)' }}>
+            Avance Total: {progressPct}%
+          </span>
+        </div>
+
+        <select
+          value={safeIndex}
+          onChange={(e) => handleSelectRecord(Number(e.target.value))}
+          style={{
+            width: '100%',
+            padding: '0.6rem 0.85rem',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            backgroundColor: '#ffffff',
+            color: 'var(--color-ink-black)',
+            fontSize: '0.84rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            outline: 'none'
+          }}
+        >
+          {records.map((r, idx) => {
+            const st = String(r.status || '').toUpperCase();
+            const labelStatus = st.includes('APOSTILLADO')
+              ? '✓ Apostillado MPPRE (100%)'
+              : st.includes('PENDIENTE_APOSTILLA')
+              ? '⏳ En Cancillería MPPRE (85%)'
+              : (st.includes('CERTIFICADO') || r.mppeuVerified)
+              ? '✓ Certificado MPPEU (75%)'
+              : '⏳ En Cotejo Ministerial (50%)';
+            return (
+              <option key={r.hash || idx} value={idx}>
+                {idx + 1}. {r.solicitudCode || 'GTU-2026'} — {r.documentType || 'Título Universitario'} ({labelStatus})
+              </option>
+            );
+          })}
+        </select>
+
+        {/* Barra de progreso porcentual */}
+        <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--border)', borderRadius: '999px', overflow: 'hidden' }}>
+          <div style={{
+            width: `${progressPct}%`,
+            height: '100%',
+            backgroundColor: progressPct === 100 ? '#10b981' : 'var(--color-ink-black)',
+            transition: 'width 0.4s ease'
+          }} />
+        </div>
+      </div>
+
+      {/* Banner de Trámite Seleccionado */}
       <motion.div
-        whileHover={{ scale: 1.01 }}
         style={{
-          marginBottom: '1.5rem',
+          marginBottom: '1.35rem',
           padding: '1.1rem 1.25rem',
           backgroundColor: 'var(--color-fog-white)',
           border: '1px solid var(--border)',
@@ -539,15 +656,15 @@ const TrackingTimeline = ({ user }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <p style={{ fontWeight: 600, fontSize: '0.96rem', color: 'var(--color-ink-black)', margin: 0 }}>
-                Trámite: {docTypeDisplay}
+              <p style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-ink-black)', margin: 0 }}>
+                {docTypeDisplay}
               </p>
-              <span style={{ fontSize: '0.74rem', background: 'var(--color-mist-gray)', color: 'var(--color-ink-black)', border: '1px solid var(--border)', padding: '0.15rem 0.55rem', borderRadius: 'var(--radius-pill)', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.73rem', background: 'var(--color-mist-gray)', color: 'var(--color-ink-black)', border: '1px solid var(--border)', padding: '0.15rem 0.55rem', borderRadius: 'var(--radius-pill)', fontWeight: 600 }}>
                 {solicitudDisplay}
               </span>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
-              Titular: <strong>{latestRecord?.ownerName || 'Graduando'}</strong> ({latestRecord?.cedula || 'N/A'}) · Hash: {hashDisplay}...
+              Titular: <strong>{latestRecord?.ownerName || user?.nombre || 'Graduando'}</strong> ({latestRecord?.cedula || user?.cedula || 'N/A'}) · Hash: <code>{hashDisplay}...</code>
             </p>
           </div>
 
@@ -629,7 +746,7 @@ const TrackingTimeline = ({ user }) => {
 
             <span style={{
               fontSize: '0.75rem',
-              fontWeight: 500,
+              fontWeight: 600,
               padding: '0.25rem 0.75rem',
               borderRadius: 'var(--radius-pill)',
               backgroundColor: isMppreDone || isPendingMppre || isMppeuDone ? 'var(--color-blush-peach)' : '#ffffff',
@@ -693,7 +810,7 @@ const TrackingTimeline = ({ user }) => {
         )}
       </motion.div>
 
-      <div className="timeline" style={{ marginLeft: '0.75rem', marginTop: '1.25rem', borderLeft: '2px solid var(--border)' }}>
+      <div className="timeline" style={{ marginLeft: '0.75rem', marginTop: '1.1rem', borderLeft: '2px solid var(--border)' }}>
         {steps.map((step, idx) => {
           let iconColor = 'var(--color-slate-gray)';
           let iconBg = 'var(--color-mist-gray)';
@@ -716,26 +833,25 @@ const TrackingTimeline = ({ user }) => {
               key={idx}
               initial={{ opacity: 0, x: -15 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.08 }}
-              whileHover={{ x: 5 }}
+              transition={{ delay: idx * 0.06 }}
+              whileHover={{ x: 4 }}
               style={{
                 display: 'flex',
-                gap: '1.15rem',
-                marginBottom: '1.35rem',
+                gap: '1rem',
+                marginBottom: '1.15rem',
                 position: 'relative',
                 cursor: 'default',
-                padding: '0.35rem 0.5rem',
+                padding: '0.3rem 0.5rem',
                 borderRadius: '8px',
                 transition: 'background-color 0.2s ease'
               }}
             >
-              {/* Línea conectora */}
               {idx !== steps.length - 1 && (
                 <div style={{
                   position: 'absolute',
                   left: '21px',
                   top: '36px',
-                  bottom: '-16px',
+                  bottom: '-14px',
                   width: '2px',
                   background: isDone ? 'var(--color-ink-black)' : 'var(--border)',
                   zIndex: 0
@@ -759,17 +875,17 @@ const TrackingTimeline = ({ user }) => {
                 {step.icon}
               </div>
 
-              <div style={{ paddingTop: '0.2rem' }}>
+              <div style={{ paddingTop: '0.15rem' }}>
                 <h4 style={{
                   margin: 0,
-                  fontSize: '0.94rem',
-                  fontWeight: 500,
+                  fontSize: '0.92rem',
+                  fontWeight: 600,
                   color: step.status === 'upcoming' ? 'var(--color-slate-gray)' : 'var(--color-ink-black)'
                 }}>
                   {step.title}
                 </h4>
                 <p style={{
-                  fontSize: '0.82rem',
+                  fontSize: '0.8rem',
                   color: 'var(--text-secondary)',
                   marginTop: '0.2rem',
                   margin: 0,
@@ -872,7 +988,6 @@ const TrackingTimeline = ({ user }) => {
 
               {/* Body */}
               <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                {/* Info Card Expediente */}
                 <div style={{
                   padding: '0.9rem 1.1rem',
                   background: 'var(--color-fog-white)',
@@ -897,7 +1012,6 @@ const TrackingTimeline = ({ user }) => {
                   </div>
                 </div>
 
-                {/* País de Destino */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.4rem' }}>
                     País de Destino (Convenio de La Haya de 1961) *
@@ -923,7 +1037,6 @@ const TrackingTimeline = ({ user }) => {
                   </select>
                 </div>
 
-                {/* Motivo del Trámite */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.4rem' }}>
                     Motivo de la Solicitud
@@ -950,7 +1063,6 @@ const TrackingTimeline = ({ user }) => {
                   </select>
                 </div>
 
-                {/* Observaciones opcionales */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.4rem' }}>
                     Observaciones Consulares (Opcional)
@@ -972,7 +1084,6 @@ const TrackingTimeline = ({ user }) => {
                   />
                 </div>
 
-                {/* Info Legal */}
                 <div style={{
                   padding: '0.75rem 0.95rem',
                   background: 'rgba(251, 225, 209, 0.4)',
