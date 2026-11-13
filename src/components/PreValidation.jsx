@@ -16,8 +16,25 @@ const buildDynamicChecklist = (record, user, forensicMetrics) => {
     String(record?.status || '').toUpperCase().includes('CERTIFICADO') ||
     String(record?.status || '').toUpperCase().includes('APOSTILLADO')
   );
-  const hasPubCode = Boolean(record?.solicitudCode || record?.stablePubCode);
-  const hasTaquilla = Boolean(record?.sede_taquilla || record?.sedeTaquilla || record?.estado);
+  let storedAudit = {};
+  try {
+    const cedClean = (user?.cedula || record?.cedula || '').replace(/\D/g, '');
+    if (cedClean) {
+      storedAudit = JSON.parse(localStorage.getItem(`usm_forensic_audit_${cedClean}`) || '{}');
+    }
+  } catch (_) {}
+
+  const pubCodeVal = record?.pubCode || record?.stablePubCode || storedAudit?.pubCode || (String(record?.solicitudCode || '').startsWith('PUB-') ? record?.solicitudCode : '');
+  const paymentRef = record?.paymentReference || record?.formData?.referencia_bancaria || storedAudit?.paymentReference || '';
+  const hasPubCode = Boolean(
+    pubCodeVal ||
+    paymentRef ||
+    record?.sarenVerified ||
+    storedAudit?.pubLiquidated ||
+    String(record?.paymentStatus || '').includes('LIQUIDADA') ||
+    isMppeu
+  );
+  const hasTaquilla = Boolean(record?.sede_taquilla || record?.sedeTaquilla || record?.estado || storedAudit?.sede_taquilla);
 
   return [
     {
@@ -56,13 +73,13 @@ const buildDynamicChecklist = (record, user, forensicMetrics) => {
     {
       id: 4,
       label: 'Planilla Única Bancaria (PUB) SAREN y Derechos de Registro',
-      status: hasPubCode || hasUploadedAudit ? 'success' : 'pending',
+      status: (hasPubCode || hasUploadedAudit) ? 'success' : 'pending',
       detailText: hasPubCode
-        ? `Código de liquidación y trámite vinculado: ${record.solicitudCode}`
+        ? `Liquidada y Conciliada: ${pubCodeVal || record?.solicitudCode || 'PUB-SAREN'}${paymentRef ? ` · Ref. SENIAT #${paymentRef}` : ''}${record?.bancoReceptor || record?.formData?.banco_destino ? ` (${record?.bancoReceptor || record?.formData?.banco_destino})` : ''}`
         : hasUploadedAudit
         ? 'Pre-validación documental aprobada para liquidación de Planilla PUB'
-        : 'Pendiente por emisión en el módulo Planilla Única Bancaria (PUB)',
-      missingText: 'Planilla PUB no generada para este documento'
+        : 'Pendiente por liquidación y conciliación bancaria en el módulo Planilla PUB (SAREN)',
+      missingText: 'Planilla PUB pendiente de pago o conciliación interbancaria'
     },
     {
       id: 5,

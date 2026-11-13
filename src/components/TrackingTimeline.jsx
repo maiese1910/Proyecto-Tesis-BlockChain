@@ -463,11 +463,14 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
     isMppreDone ||
     stUpper.includes('VERIFICADO')
   );
+  const pubCodeDisplay = latestRecord?.pubCode || latestRecord?.stablePubCode || (String(latestRecord?.solicitudCode || '').startsWith('PUB-') ? latestRecord.solicitudCode : '');
+  const paymentRefDisplay = latestRecord?.paymentReference || latestRecord?.formData?.referencia_bancaria || '';
   const isSarenDone = Boolean(
     latestRecord?.sarenVerified ||
+    pubCodeDisplay ||
+    paymentRefDisplay ||
     stUpper.includes('SAREN') ||
-    isMppeuDone ||
-    latestRecord?.solicitudCode
+    isMppeuDone
   );
 
   const hashDisplay = latestRecord?.hash ? latestRecord.hash.substring(0, 12) : 'N/A';
@@ -487,8 +490,8 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
     {
       title: 'Estación 2: Liquidación PUB y Registro Principal (SAREN)',
       desc: isSarenDone
-        ? `Planilla Única Bancaria (${solicitudDisplay}) emitida y aranceles de protocolización calculados.`
-        : 'Pendiente de generación de Planilla Única Bancaria (PUB) para protocolo estatal.',
+        ? `Planilla Única Bancaria (${pubCodeDisplay || solicitudDisplay}) liquidada y conciliada${paymentRefDisplay ? ` · Ref. SENIAT #${paymentRefDisplay}` : ''}.`
+        : 'Pendiente de liquidación y conciliación de Planilla Única Bancaria (PUB) para protocolo estatal.',
       status: isSarenDone ? 'completed' : 'current',
       icon: isSarenDone ? <CheckCircle size={17} /> : <FileText size={17} />
     },

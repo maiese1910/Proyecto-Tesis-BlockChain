@@ -574,7 +574,7 @@ function App() {
 
       case 'pub':
 
-        return <PUBForm user={user} initialData={pubInitialData} onVerifyHash={handleVerifyHashInApp} />;
+        return <PUBForm user={user} initialData={pubInitialData} onVerifyHash={handleVerifyHashInApp} onNavigate={setActiveTab} />;
 
       case 'history':
 

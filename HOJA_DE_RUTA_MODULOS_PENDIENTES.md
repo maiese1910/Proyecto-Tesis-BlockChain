@@ -3,11 +3,11 @@
 > **Proyecto de Tesis:** *"Prototipo de Plataforma Descentralizada con Inteligencia Artificial para la Digitalización, Validación y Apostilla Transfronteriza de Títulos Universitarios"*
 > **Universidad Santa María (USM) — Facultad de Ingeniería y Arquitectura**
 
-Este documento registra el estado actual de los módulos ya optimizados (**Módulos 1 al 4**) y detalla las correcciones técnicas e innovaciones de tesis pendientes para los **Módulos 5 al 11**, de modo que puedas retomar el desarrollo en futuras sesiones exactamente donde quedamos.
+Este documento registra el estado actual de los módulos ya optimizados (**Módulos 1 al 5**) y detalla las correcciones técnicas e innovaciones de tesis pendientes para los **Módulos 6 al 11**, de modo que puedas retomar el desarrollo en futuras sesiones exactamente donde quedamos.
 
 ---
 
-## ✅ Módulos Completados y Desplegados (1 al 4)
+## ✅ Módulos Completados y Desplegados (1 al 5)
 
 ### 1. Módulo 1: Portal de Inicio y Autenticación Estudiantil
 - **Archivos:** `src/components/LandingPortal.jsx`, `src/components/StudentAuth.jsx`, `src/components/StudentProfileModal.jsx`, `src/components/Sidebar.jsx`, `api/main.py`, `src/services/api.js`
@@ -44,23 +44,20 @@ Este documento registra el estado actual de los módulos ya optimizados (**Módu
   - Flujo de **Auditoría Interactiva de 5 Pasos** (`AUDIT_QUESTIONS`) corregido de principio a fin con cálculo porcentual de elegibilidad para apostilla.
   - Persistencia del historial de conversación por estudiante (`usm_chat_history_<cedula>`) y botón **"Exportar PDF"** para imprimir el informe de asesoría legal/técnica.
 
+### 5. Módulo 5: Generador de Planilla Única Bancaria (SAREN PUB)
+- **Archivos:** `src/components/PUBForm.jsx`, `src/components/PreValidation.jsx`, `src/components/TrackingTimeline.jsx`, `src/App.jsx`, `api/main.py`
+- **Estado:** **Completado (100%)**
+- **Implementaciones realizadas:**
+  - **Vinculación con trámite existente (Sin duplicados):** Selector superior de expediente OCR para actualizar el mismo hash y registro en `usm_blockchain_records`, `usm_pub_history` y backend (`/blockchain/register`), evitando crear trámites separados.
+  - **Autocompletado e integridad de identidad:** Precarga automática desde el perfil (`user`) y resultado OCR (`initialData`), con **Cédula del Titular Inmutable (`🔒`)** y salto automático de campos ya validados en el modo Asistente Chat.
+  - **Selector dinámico territorial:** Integración de `ESTADOS_VENEZUELA` (`Estado → Municipio → Taquilla SAREN/GTU`) con dirección y horario impresos en la planilla oficial.
+  - **Innovación de Tesis:** **Simulador de Liquidación y Conciliación Bancaria Interbancaria (SENIAT / SAREN)** con selección de banco recaudador de la Tesorería Nacional, referencia bancaria de 12 dígitos, sello de estatus `LIQUIDADA / CONCILIADA` y activación automática del Requisito 4 en `PreValidation.jsx` y de la Estación 2 en `TrackingTimeline.jsx`.
+
 ---
 
-## 🛠️ Módulos Pendientes por Pulir (5 al 11)
+## 🛠️ Módulos Pendientes por Pulir (6 al 11)
 
 A continuación se detallan las correcciones e innovaciones pendientes para las próximas sesiones, ordenadas por prioridad:
-
----
-
-### Módulo 5: Generador de Planilla Única Bancaria (SAREN PUB)
-- **Archivo principal:** `src/components/PUBForm.jsx`
-- **Qué funciona actualmente:**
-  - Formulario con selección de trámite SAREN, cálculo de aranceles en Bolívares/UT, selector dinámico de sede (`Estado → Municipio → Taquilla GTU/SAREN`), generación de código de barras y vista de impresión de la Planilla Única Bancaria.
-- **Qué falta corregir:**
-  1. **Vinculación con trámite existente (Evitar duplicados):** Actualmente, al generar una PUB se crea un nuevo registro en `usm_blockchain_records` separado del documento que el estudiante ya escaneó en el módulo OCR. Debe permitir seleccionar un documento ya digitalizado por el estudiante para **actualizar su estado con la PUB y la sede GTU asignada** (o crear uno nuevo solo si aún no ha escaneado el documento).
-  2. **Autocompletado e integridad de identidad:** Precargar automáticamente `cedula` y `nombre_completo` desde el perfil del estudiante autenticado (`user`) o del último resultado OCR (`ocrResult`), bloqueando la edición accidental de la cédula titular para evitar inconsistencias en el expediente.
-- **Innovación de Tesis a añadir:**
-  - **Simulador de Liquidación y Conciliación Bancaria Interbancaria (SENIAT / SAREN):** Añadir un paso/botón de *"Registrar Pago Bancario (Simulación Pasarela Tesorería Nacional)"* con selección de banco receptor (Banco de Venezuela, Banesco, Mercantil, Tesoro) y generación de número de referencia de 12 dígitos, cambiando el estatus de la planilla de `PENDIENTE DE PAGO` a `LIQUIDADA / CONCILIADA` y habilitando automáticamente el ítem de Arancel PUB en el módulo de **Pre-Validación**.
 
 ---
 

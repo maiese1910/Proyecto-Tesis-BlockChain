@@ -738,7 +738,17 @@ def map_record(r):
         "sedeHorario": r.get("sede_horario") or r.get("sedeHorario") or "",
         "countryDestiny": r.get("country_destiny") or r.get("countryDestiny") or "",
         "country_destiny": r.get("country_destiny") or r.get("countryDestiny") or "",
-        "motivoApostille": r.get("motivo_apostille") or r.get("motivoApostille") or ""
+        "motivoApostille": r.get("motivo_apostille") or r.get("motivoApostille") or "",
+        "sarenVerified": bool(r.get("saren_verified") or r.get("sarenVerified") or r.get("pub_code") or r.get("pubCode")),
+        "saren_verified": bool(r.get("saren_verified") or r.get("sarenVerified") or r.get("pub_code") or r.get("pubCode")),
+        "pubCode": r.get("pub_code") or r.get("pubCode") or r.get("stablePubCode") or "",
+        "pub_code": r.get("pub_code") or r.get("pubCode") or r.get("stablePubCode") or "",
+        "pubHash": r.get("pub_hash") or r.get("pubHash") or "",
+        "paymentReference": r.get("payment_reference") or r.get("paymentReference") or "",
+        "paymentStatus": r.get("payment_status") or r.get("paymentStatus") or "",
+        "bancoReceptor": r.get("banco_receptor") or r.get("bancoReceptor") or "",
+        "montoArancel": r.get("monto_arancel") or r.get("montoArancel") or "",
+        "formData": r.get("form_data") or r.get("formData") or None
     }
 
 # ─── Checklist SAREN / MPPEU ────────────────────────────────────────────────
@@ -1514,38 +1524,58 @@ def register_blockchain_document():
     sede_taquilla = data.get("sedeTaquilla") or data.get("sede_taquilla") or ""
     sede_direccion = data.get("sedeDireccion") or data.get("sede_direccion") or ""
     sede_horario = data.get("sedeHorario") or data.get("sede_horario") or ""
+    pub_code = data.get("pubCode") or data.get("pub_code") or data.get("stablePubCode") or ""
+    pub_hash = data.get("pubHash") or data.get("pub_hash") or ""
+    saren_verified = bool(data.get("sarenVerified") or data.get("saren_verified") or pub_code)
+    payment_reference = data.get("paymentReference") or data.get("payment_reference") or ""
+    payment_status = data.get("paymentStatus") or data.get("payment_status") or ("LIQUIDADA / CONCILIADA" if payment_reference else "")
+    banco_receptor = data.get("bancoReceptor") or data.get("banco_receptor") or ""
+    monto_arancel = data.get("montoArancel") or data.get("monto_arancel") or ""
+    form_data = data.get("formData") or data.get("form_data") or None
 
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-    tx_hash = "0xPENDIENTE_COTEJO"
+    tx_hash = data.get("txHash") or data.get("tx_hash") or "0xPENDIENTE_COTEJO"
+    clean_doc_h = _normalize_hex(doc_hash)
+
+    existing_idx = next((i for i, r in enumerate(_records_memory) if _normalize_hex(r.get("hash")) == clean_doc_h), None)
+    prev_rec = _records_memory[existing_idx] if existing_idx is not None else {}
 
     new_rec = {
-        "hash": doc_hash,
-        "owner_name": owner_name,
-        "cedula": cedula,
-        "account_cedula": account_cedula,
-        "account_owner": account_owner,
-        "account_email": account_email,
-        "document_type": document_type,
-        "document_url": document_url,
-        "tx_hash": tx_hash,
-        "status": "PENDIENTE_COTEJO_MPPEU",
-        "created_at": now_iso,
-        "verified_by": None,
-        "rejection_reason": None,
-        "solicitud_code": solicitud_code,
-        "mppeu_verified": False,
-        "mppre_verified": False,
-        "tomo": tomo,
-        "folio": folio,
-        "libro": libro,
-        "estado": estado,
-        "municipio": municipio,
-        "sede_taquilla": sede_taquilla,
-        "sede_direccion": sede_direccion,
-        "sede_horario": sede_horario
+        "hash": prev_rec.get("hash") or doc_hash,
+        "owner_name": owner_name or prev_rec.get("owner_name") or "Graduando USM",
+        "cedula": cedula if cedula != "V-00.000.000" else (prev_rec.get("cedula") or cedula),
+        "account_cedula": account_cedula or prev_rec.get("account_cedula") or cedula,
+        "account_owner": account_owner or prev_rec.get("account_owner") or "",
+        "account_email": account_email or prev_rec.get("account_email") or "",
+        "document_type": prev_rec.get("document_type") or document_type,
+        "document_url": document_url or prev_rec.get("document_url") or "",
+        "tx_hash": prev_rec.get("tx_hash") if (prev_rec.get("tx_hash") and "PENDIENTE" not in str(prev_rec.get("tx_hash"))) else tx_hash,
+        "status": prev_rec.get("status") or data.get("status") or ("SAREN_PUB_LIQUIDADA" if saren_verified else "PENDIENTE_COTEJO_MPPEU"),
+        "created_at": prev_rec.get("created_at") or now_iso,
+        "verified_by": prev_rec.get("verified_by"),
+        "rejection_reason": prev_rec.get("rejection_reason"),
+        "solicitud_code": prev_rec.get("solicitud_code") or solicitud_code,
+        "mppeu_verified": bool(prev_rec.get("mppeu_verified", False)),
+        "mppre_verified": bool(prev_rec.get("mppre_verified", False)),
+        "apostille_number": prev_rec.get("apostille_number"),
+        "tomo": tomo if tomo != "XVIII" else (prev_rec.get("tomo") or tomo),
+        "folio": folio if folio != "142" else (prev_rec.get("folio") or folio),
+        "libro": libro if libro != "Grados 2026" else (prev_rec.get("libro") or libro),
+        "estado": estado or prev_rec.get("estado") or "",
+        "municipio": municipio or prev_rec.get("municipio") or "",
+        "sede_taquilla": sede_taquilla or prev_rec.get("sede_taquilla") or "",
+        "sede_direccion": sede_direccion or prev_rec.get("sede_direccion") or "",
+        "sede_horario": sede_horario or prev_rec.get("sede_horario") or "",
+        "saren_verified": bool(saren_verified or prev_rec.get("saren_verified")),
+        "pub_code": pub_code or prev_rec.get("pub_code") or "",
+        "pub_hash": pub_hash or prev_rec.get("pub_hash") or "",
+        "payment_reference": payment_reference or prev_rec.get("payment_reference") or "",
+        "payment_status": payment_status or prev_rec.get("payment_status") or "",
+        "banco_receptor": banco_receptor or prev_rec.get("banco_receptor") or "",
+        "monto_arancel": monto_arancel or prev_rec.get("monto_arancel") or "",
+        "form_data": form_data or prev_rec.get("form_data")
     }
 
-    existing_idx = next((i for i, r in enumerate(_records_memory) if r.get("hash") == doc_hash), None)
     if existing_idx is not None:
         _records_memory[existing_idx] = new_rec
     else:
@@ -1721,7 +1751,15 @@ def _merge_records_lists(list_a, list_b):
                 'sedeDireccion': item.get('sedeDireccion') or cur.get('sedeDireccion') or item.get('sede_direccion') or cur.get('sede_direccion'),
                 'sedeHorario': item.get('sedeHorario') or cur.get('sedeHorario') or item.get('sede_horario') or cur.get('sede_horario'),
                 'countryDestiny': item.get('countryDestiny') or cur.get('countryDestiny') or item.get('country_destiny') or cur.get('country_destiny'),
-                'country_destiny': item.get('country_destiny') or cur.get('country_destiny') or item.get('countryDestiny') or cur.get('countryDestiny')
+                'country_destiny': item.get('country_destiny') or cur.get('country_destiny') or item.get('countryDestiny') or cur.get('countryDestiny'),
+                'sarenVerified': bool(item.get('sarenVerified') or cur.get('sarenVerified') or item.get('saren_verified') or cur.get('saren_verified') or item.get('pubCode') or cur.get('pubCode')),
+                'pubCode': item.get('pubCode') or cur.get('pubCode') or item.get('pub_code') or cur.get('pub_code') or '',
+                'pubHash': item.get('pubHash') or cur.get('pubHash') or item.get('pub_hash') or cur.get('pub_hash') or '',
+                'paymentReference': item.get('paymentReference') or cur.get('paymentReference') or item.get('payment_reference') or cur.get('payment_reference') or '',
+                'paymentStatus': item.get('paymentStatus') or cur.get('paymentStatus') or item.get('payment_status') or cur.get('payment_status') or '',
+                'bancoReceptor': item.get('bancoReceptor') or cur.get('bancoReceptor') or item.get('banco_receptor') or cur.get('banco_receptor') or '',
+                'montoArancel': item.get('montoArancel') or cur.get('montoArancel') or item.get('monto_arancel') or cur.get('monto_arancel') or '',
+                'formData': item.get('formData') or cur.get('formData') or item.get('form_data') or cur.get('form_data')
             })
     return list(merged.values())
 
