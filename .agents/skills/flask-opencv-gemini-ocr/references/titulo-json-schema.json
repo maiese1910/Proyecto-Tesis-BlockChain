@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExtraccionTituloUniversitarioVenezuela",
+  "type": "object",
+  "required": [
+    "cedula_identidad",
+    "nombre_completo",
+    "universidad",
+    "titulo_obtenido",
+    "fecha_grado",
+    "registro_universitario",
+    "validacion_institucional",
+    "metricas_calidad"
+  ],
+  "properties": {
+    "cedula_identidad": {
+      "type": "string",
+      "description": "Número de cédula de identidad del egresado (ej. V-28315101)"
+    },
+    "nombre_completo": {
+      "type": "string",
+      "description": "Nombres y apellidos completos exactamente como figuran en el pergamino"
+    },
+    "universidad": {
+      "type": "string",
+      "description": "Nombre oficial de la institución emisora (ej. Universidad Santa María)"
+    },
+    "titulo_obtenido": {
+      "type": "string",
+      "description": "Denominación del título conferido (ej. Ingeniero en Sistemas)"
+    },
+    "fecha_grado": {
+      "type": "string",
+      "description": "Fecha de expedición del título en formato ISO YYYY-MM-DD"
+    },
+    "registro_universitario": {
+      "type": "object",
+      "required": ["libro", "folio", "numero_acta"],
+      "properties": {
+        "libro": { "type": "string" },
+        "folio": { "type": "string" },
+        "numero_acta": { "type": "string" }
+      }
+    },
+    "validacion_institucional": {
+      "type": "object",
+      "properties": {
+        "nro_planilla_gtu_mppeu": { "type": ["string", "null"] },
+        "codigo_apostilla_mppre": { "type": ["string", "null"] },
+        "sellos_detectados": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "metricas_calidad": {
+      "type": "object",
+      "required": ["confianza_ocr", "legibilidad_sellos"],
+      "properties": {
+        "confianza_ocr": { "type": "number", "minimum": 0, "maximum": 1 },
+        "legibilidad_sellos": { "type": "string", "enum": ["ALTA", "MEDIA", "BAJA"] },
+        "observaciones": { "type": "string" }
+      }
+    }
+  }
+}
+

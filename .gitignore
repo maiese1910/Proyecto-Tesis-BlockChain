@@ -35,3 +35,9 @@ __pycache__/
 .solcx/
 usm_contract_cache.json
 usm_records_cache.json
+
+# Temporales OpenCV y artefactos de compilacion
+temp_ocr/
+*.tmp
+artifacts/
+cache/
