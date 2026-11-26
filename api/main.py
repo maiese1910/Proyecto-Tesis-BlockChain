@@ -528,8 +528,10 @@ def _load_records_cache():
         if os.path.exists(RECORDS_CACHE_FILE):
             with open(RECORDS_CACHE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, list):
+                if isinstance(data, list) and (len(data) > 0 or not ALLOW_DEFENSE_DEMO_FALLBACK):
                     _records_memory = data
+        if not _records_memory and ALLOW_DEFENSE_DEMO_FALLBACK:
+            _records_memory = copy.deepcopy(CANONICAL_DEMO_RECORDS)
     except Exception as e:
         logger.debug(f"No se pudo cargar cache de registros de /tmp: {e}")
 
@@ -768,6 +770,10 @@ def map_record(r):
         "verifiedBy": r.get("verified_by"),
         "rejectionReason": r.get("rejection_reason"),
         "solicitudCode": r.get("solicitud_code"),
+        "usmVerified": bool(r.get("usm_verified") or r.get("usmVerified") or "VERIFICADO_USM" in str(r.get("status", "")) or r.get("mppeu_verified") or r.get("mppre_verified")),
+        "usm_verified": bool(r.get("usm_verified") or r.get("usmVerified") or "VERIFICADO_USM" in str(r.get("status", "")) or r.get("mppeu_verified") or r.get("mppre_verified")),
+        "usmOfficer": r.get("usm_officer") or r.get("usmOfficer") or "",
+        "usmDate": r.get("usm_date") or r.get("usmDate") or "",
         "mppeuVerified": r.get("mppeu_verified", False),
         "mppeuOfficer": r.get("mppeu_officer"),
         "mppeuDate": r.get("mppeu_date"),
@@ -885,6 +891,36 @@ _planillas_memory = [
     {"id": "fondo_negro_usm", "nombre": "Formato Certificación Fondo Negro (USM)", "url": "#", "categoria": "Certificación Legal", "orden": 3},
     {"id": "solvencia_biblioteca_usm", "nombre": "Planilla Solvencia de Biblioteca y Laboratorios", "url": "#", "categoria": "Solvencia Académica", "orden": 4},
     {"id": "cita_gtu_mppeu", "nombre": "Planilla de Cita GTU (MPPEU)", "url": "#", "categoria": "Legalización Nacional", "orden": 5},
+]
+
+_admins_memory = []
+
+_guias_memory = [
+    {
+        "id": "guia_saren",
+        "ente": "saren",
+        "location": "Sede del Registro Principal (Según tu Estado/Municipio)",
+        "warning": "Cita previa obligatoria a través de la web del SAREN.",
+        "image_url": "/images/saren_facade.png",
+        "steps": [
+            {"title": "Planificación de Llegada", "time": "6:00 AM", "desc": "Los Registros Principales suelen atender por orden de llegada. Llega temprano."},
+            {"title": "Documentos Esenciales", "time": "Revisión Previa", "desc": "Debes tener: Título original legalizado por el GTU, la Planilla Única Bancaria (PUB) pagada y timbres fiscales."},
+            {"title": "Taquilla de Recepción", "time": "Paso 1 en sede", "desc": "Revisión de aranceles y cotejo de documentos."},
+            {"title": "Proceso de Registro", "time": "Paso 2 en sede", "desc": "Entrega de documento y retiro con el certificado del SAREN."}
+        ]
+    },
+    {
+        "id": "guia_mppre",
+        "ente": "mppre",
+        "location": "Oficina del MPPRE o IPOSTEL autorizada (Cita Electrónica)",
+        "warning": "Citas asignadas según el terminal de tu cédula.",
+        "image_url": "/images/mppre_facade.png",
+        "steps": [
+            {"title": "Día de Cita", "time": "7:30 AM", "desc": "El sistema de Apostilla Electrónica te da un día específico."},
+            {"title": "Validación de GTU", "time": "Requisito Estricto", "desc": "Tu título ya debe estar legalizado por el GTU del Ministerio de Educación Universitaria."},
+            {"title": "Entrega Física", "time": "Durante la atención", "desc": "Verificación del código de legalización previa."}
+        ]
+    }
 ]
 
 # ─── ENDPOINTS FLASK ──────────────────────────────────────────────────────────
@@ -1332,6 +1368,24 @@ def admin_login():
             "role": role
         }), 200
 
+    # Verificar en administradores creados en memoria (_admins_memory)
+    mem_admin = next((a for a in _admins_memory if (a.get("username") or "").lower() == username.lower()), None)
+    if mem_admin and verify_password(password, mem_admin.get("password", "")):
+        token = create_jwt_token({
+            "username": mem_admin["username"],
+            "cargo": mem_admin.get("cargo", "Administrador"),
+            "ente": mem_admin.get("ente", "Gubernamental"),
+            "role": mem_admin.get("role", "AUDITOR_GUBERNAMENTAL")
+        })
+        return jsonify({
+            "success": True,
+            "token": token,
+            "username": mem_admin["username"],
+            "cargo": mem_admin.get("cargo", "Administrador"),
+            "ente": mem_admin.get("ente", "Gubernamental"),
+            "role": mem_admin.get("role", "AUDITOR_GUBERNAMENTAL")
+        }), 200
+
     if not supabase:
         return jsonify({"detail": "Credenciales inválidas"}), 401
 
@@ -1379,35 +1433,46 @@ def create_admin():
     if not is_valid_pin_format(pin_ingresado) and not os.getenv("TESTING_ENV"):
         return jsonify({"detail": "Segregación de Funciones (SoD): Código PIN Institucional no válido."}), 403
 
-    if not supabase:
-        return jsonify({"detail": "Supabase no configurado"}), 500
+    if any((a.get("username") or "").lower() == username.lower() for a in _admins_memory):
+        return jsonify({"detail": "El usuario ya existe"}), 400
 
-    try:
-        exist = supabase.table("admins").select("username").eq("username", username).execute()
-        if len(exist.data) > 0:
-            return jsonify({"detail": "El usuario ya existe"}), 400
+    hashed_pwd = hash_password(password)
+    admin_record = {
+        "username": username,
+        "password": hashed_pwd,
+        "cargo": cargo or "Auditor Gubernamental",
+        "ente": ente or "SAREN",
+        "pin_institucional": pin_ingresado,
+        "role": "AUDITOR_GUBERNAMENTAL"
+    }
 
-        supabase.table("admins").insert({
-            "username": username,
-            "password": hash_password(password),
-            "cargo": cargo,
-            "ente": ente
-        }).execute()
+    if supabase:
+        try:
+            exist = supabase.table("admins").select("username").eq("username", username).execute()
+            if len(exist.data) > 0:
+                return jsonify({"detail": "El usuario ya existe"}), 400
+            supabase.table("admins").insert({
+                "username": username,
+                "password": hashed_pwd,
+                "cargo": cargo,
+                "ente": ente
+            }).execute()
+        except Exception as e:
+            logger.warning(f"Guardando admin en memoria por indisponibilidad de Supabase: {e}")
 
-        token = create_jwt_token({
-            "username": username,
-            "cargo": cargo,
-            "ente": ente,
-            "role": "AUDITOR_GUBERNAMENTAL"
-        })
-        return jsonify({
-            "success": True,
-            "message": "Administrador creado exitosamente",
-            "token": token,
-            "pin_institucional": pin_ingresado
-        }), 200
-    except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+    _admins_memory.append(admin_record)
+    token = create_jwt_token({
+        "username": username,
+        "cargo": cargo,
+        "ente": ente,
+        "role": "AUDITOR_GUBERNAMENTAL"
+    })
+    return jsonify({
+        "success": True,
+        "message": "Administrador creado exitosamente",
+        "token": token,
+        "pin_institucional": pin_ingresado
+    }), 200
 
 
 # ─── Perfiles de Estudiantes ─────────────────────────────────────────────────
@@ -2141,22 +2206,49 @@ def verify_record_status(doc_hash: str):
     _load_records_cache()
     data = request.get_json() or {}
     auditor_info = data.get("auditor_username", "mppeu_agente")
-    ente_info = data.get("auditor_ente", "MPPEU")
-    status_str = f"Verificado por {ente_info} ({auditor_info})"
+    ente_info = (data.get("auditor_ente") or "MPPEU").strip()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     clean_h = _normalize_hex(doc_hash)
 
+    is_usm = "USM" in ente_info.upper() or "RECTOR" in ente_info.upper()
+    is_saren = "SAREN" in ente_info.upper()
     is_mppeu = "MPPEU" in ente_info.upper() or "GTU" in ente_info.upper()
     is_mppre = "MPPRE" in ente_info.upper() or "CANCILLER" in ente_info.upper()
+
+    if is_usm:
+        status_str = "VERIFICADO_USM"
+    elif is_saren:
+        status_str = "PROTOCOLIZADO_SAREN"
+    else:
+        status_str = f"Verificado por {ente_info} ({auditor_info})"
+
+    tomo_val = (data.get("tomo") or "").strip()
+    folio_val = (data.get("folio") or "").strip()
+    libro_val = (data.get("libro") or "").strip()
 
     found = False
     for r in _records_memory:
         if _normalize_hex(r.get("hash")) == clean_h:
-            r["status"] = status_str
+            if _get_status_weight(status_str) >= _get_status_weight(r.get("status")) or is_usm or is_saren:
+                if not (r.get("mppre_verified") or r.get("mppeu_verified")):
+                    r["status"] = status_str
             r["verified_by"] = auditor_info
+            if is_usm:
+                r["usm_verified"] = True
+                r["usm_officer"] = auditor_info
+                r["usm_date"] = now_str
+            if is_saren:
+                r["saren_verified"] = True
             if is_mppeu:
                 r["mppeu_verified"] = True
             if is_mppre:
                 r["mppre_verified"] = True
+            if tomo_val:
+                r["tomo"] = tomo_val
+            if folio_val:
+                r["folio"] = folio_val
+            if libro_val:
+                r["libro"] = libro_val
             found = True
             break
 
@@ -2165,8 +2257,15 @@ def verify_record_status(doc_hash: str):
             "hash": doc_hash if doc_hash.startswith("0x") else f"0x{doc_hash}",
             "status": status_str,
             "verified_by": auditor_info,
+            "usm_verified": is_usm,
+            "usm_officer": auditor_info if is_usm else "",
+            "usm_date": now_str if is_usm else "",
+            "saren_verified": is_saren,
             "mppeu_verified": is_mppeu,
             "mppre_verified": is_mppre,
+            "tomo": tomo_val or "XVIII",
+            "folio": folio_val or "142",
+            "libro": libro_val or "Grados 2026",
             "created_at": datetime.datetime.utcnow().isoformat() + "Z"
         })
 
@@ -2970,31 +3069,7 @@ def get_guias_logistica():
                 return jsonify({"success": True, "guias": res.data}), 200
         except Exception:
             pass
-    return jsonify({"success": True, "guias": [
-        {
-            "ente": "saren",
-            "location": "Sede del Registro Principal (Según tu Estado/Municipio)",
-            "warning": "Cita previa obligatoria a través de la web del SAREN.",
-            "image_url": "/images/saren_facade.png",
-            "steps": [
-                {"title": "Planificación de Llegada", "time": "6:00 AM", "desc": "Los Registros Principales suelen atender por orden de llegada. Llega temprano."},
-                {"title": "Documentos Esenciales", "time": "Revisión Previa", "desc": "Debes tener: Título original legalizado por el GTU, la Planilla Única Bancaria (PUB) pagada y timbres fiscales."},
-                {"title": "Taquilla de Recepción", "time": "Paso 1 en sede", "desc": "Revisión de aranceles y cotejo de documentos."},
-                {"title": "Proceso de Registro", "time": "Paso 2 en sede", "desc": "Entrega de documento y retiro con el certificado del SAREN."}
-            ]
-        },
-        {
-            "ente": "mppre",
-            "location": "Oficina del MPPRE o IPOSTEL autorizada (Cita Electrónica)",
-            "warning": "Citas asignadas según el terminal de tu cédula.",
-            "image_url": "/images/mppre_facade.png",
-            "steps": [
-                {"title": "Día de Cita", "time": "7:30 AM", "desc": "El sistema de Apostilla Electrónica te da un día específico."},
-                {"title": "Validación de GTU", "time": "Requisito Estricto", "desc": "Tu título ya debe estar legalizado por el GTU del Ministerio de Educación Universitaria."},
-                {"title": "Entrega Física", "time": "Durante la atención", "desc": "Verificación del código de legalización previa."}
-            ]
-        }
-    ]}), 200
+    return jsonify({"success": True, "guias": _guias_memory}), 200
 
 
 @app.route("/admin/guias", methods=["POST"])
@@ -3003,14 +3078,25 @@ def create_guia():
     admin_payload = get_current_admin()
     if not admin_payload or admin_payload.get("role") == "estudiante":
         return jsonify({"detail": "Autorización institucional requerida."}), 401
-    if not supabase:
-        return jsonify({"detail": "Supabase no configurado"}), 500
-    try:
-        data = request.get_json() or {}
-        supabase.table("guias_logistica").insert(data).execute()
-        return jsonify({"success": True, "message": "Guía creada"}), 200
-    except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+    global _guias_memory
+    data = request.get_json() or {}
+    new_g = {
+        "id": data.get("id") or f"guia_{secrets.token_hex(4)}",
+        "ente": (data.get("ente") or "saren").strip().lower(),
+        "location": (data.get("location") or "Sede Ministerial").strip(),
+        "warning": (data.get("warning") or "Cita previa obligatoria.").strip(),
+        "image_url": data.get("image_url") or "/images/saren_facade.png",
+        "steps": data.get("steps") or [
+            {"title": "Recepción en Taquilla", "time": "8:00 AM", "desc": "Presentar documento original y comprobante."}
+        ]
+    }
+    if supabase:
+        try:
+            supabase.table("guias_logistica").insert(new_g).execute()
+        except Exception as e:
+            logger.warning(f"Guardando guía en memoria local: {e}")
+    _guias_memory = [g for g in _guias_memory if g.get("ente") != new_g["ente"]] + [new_g]
+    return jsonify({"success": True, "message": "Guía creada exitosamente", "guia": new_g}), 200
 
 
 @app.route("/planillas", methods=["GET"])

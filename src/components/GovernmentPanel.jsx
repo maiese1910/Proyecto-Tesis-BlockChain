@@ -66,9 +66,15 @@ const GovernmentPanel = ({ adminData }) => {
 
 
 
-  // Modo ministerial de visualización: MPPEU (Taquilla GTU) | MPPRE (Cancillería Apostilla) | ALL (Auditoría Integral)
+  // Modo ministerial de visualización: SAREN (Estación 2 PUB) | MPPEU (Estación 3 Taquilla GTU) | MPPRE (Estación 4 Cancillería) | ALL (Auditoría Integral 4 Estaciones)
 
-  const initialMode = (currentAuditorEnte === 'MPPRE') ? 'MPPRE' : (currentAuditorEnte === 'MPPEU' || currentAuditorEnte === 'GTU') ? 'MPPEU' : 'MPPEU';
+  const initialMode = (currentAuditorEnte === 'MPPRE')
+    ? 'MPPRE'
+    : (currentAuditorEnte === 'SAREN')
+    ? 'SAREN'
+    : (currentAuditorEnte === 'USM')
+    ? 'ALL'
+    : 'MPPEU';
 
   const [ministerialMode, setMinisterialMode] = useState(initialMode);
 
@@ -776,11 +782,15 @@ const GovernmentPanel = ({ adminData }) => {
 
       }
 
-      setRecords(prev => prev.map(r => 
-
-        selectedHashes.includes(r.hash) ? { ...r, status: `Verificado por ${currentAuditorEnte} (${currentAuditorName})`, verifiedBy: currentAuditorName } : r
-
-      ));
+      const batchStatus = `Verificado por ${currentAuditorEnte} (${currentAuditorName})`;
+      setRecords(prev => prev.map(r => {
+        if (selectedHashes.includes(r.hash)) {
+          const updated = { ...r, status: batchStatus, verifiedBy: currentAuditorName };
+          updateLocalRecord(updated);
+          return updated;
+        }
+        return r;
+      }));
 
       setSelectedHashes([]);
 
@@ -1040,6 +1050,14 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
     }
 
+    if (ministerialMode === 'SAREN') {
+      const isSarenDone = Boolean(r.sarenVerified || r.pubCode || (r.status || '').includes('SAREN') || (r.status || '').includes('PROTOCOLIZADO'));
+      if (filterStatus === 'PENDING') return matchesSearch && !isSarenDone && !isRejected;
+      if (filterStatus === 'VERIFIED') return matchesSearch && isSarenDone;
+      if (filterStatus === 'REJECTED') return matchesSearch && isRejected;
+      return matchesSearch;
+    }
+
 
 
     if (filterStatus === 'PENDING') return matchesSearch && !isVerified && !isRejected;
@@ -1097,6 +1115,30 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
         flexWrap: 'wrap'
 
       }}>
+
+        <button
+          onClick={() => setMinisterialMode('SAREN')}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.55rem',
+            padding: '0.75rem 1.1rem',
+            borderRadius: 'var(--radius-pill)',
+            border: 'none',
+            background: ministerialMode === 'SAREN' ? 'var(--color-ink-black)' : 'transparent',
+            color: ministerialMode === 'SAREN' ? '#ffffff' : 'var(--color-slate-gray)',
+            fontWeight: 500,
+            fontSize: '0.84rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Award size={16} />
+          <span>Estación 2: SAREN (Conciliación PUB)</span>
+        </button>
 
         <button
 
@@ -5175,13 +5217,17 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                   </div>
 
-                  <p style={{ fontSize: '9pt' }}><strong>Nombre Solicitante:</strong> {activePUBRecord.ownerName}</p>
+                  <p style={{ fontSize: '9pt' }}><strong>Nombre Solicitante:</strong> {activePUBRecord.ownerName || activePUBRecord.owner_name}</p>
 
                   <p style={{ fontSize: '9pt' }}><strong>Cédula:</strong> {activePUBRecord.cedula}</p>
 
+                  <p style={{ fontSize: '9pt' }}><strong>Código PUB / GTU:</strong> {activePUBRecord.pubCode || activePUBRecord.solicitudCode || 'GTU-2026-USM'}</p>
+
+                  <p style={{ fontSize: '9pt' }}><strong>Referencia Bancaria / Banco:</strong> {activePUBRecord.paymentReference || activePUBRecord.formData?.referencia_bancaria || 'Conciliada'} · {activePUBRecord.bancoReceptor || activePUBRecord.formData?.banco_destino || 'Banco de Venezuela'}</p>
+
                   <p style={{ fontSize: '9pt' }}><strong>Hash Blockchain SHA-256:</strong> <span style={{ fontFamily: 'monospace', fontSize: '8pt' }}>{activePUBRecord.hash}</span></p>
 
-                  <p style={{ fontSize: '9pt' }}><strong>Monto Liquidado SAREN:</strong> Bs. 210,00 (0.70 UT)</p>
+                  <p style={{ fontSize: '9pt' }}><strong>Monto Liquidado SAREN:</strong> Bs. {activePUBRecord.montoArancel || activePUBRecord.formData?.monto || '210,00'} (Arancel Fiscal)</p>
 
                   <p style={{ fontSize: '9pt' }}><strong>Auditor Firmante:</strong> {activePUBRecord.verifiedBy || currentAuditorName} ({currentAuditorCargo})</p>
 
