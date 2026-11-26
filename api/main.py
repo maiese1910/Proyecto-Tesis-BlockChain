@@ -63,10 +63,14 @@ except Exception as e_gem:
     GeminiVisionExtractor = None
 try:
     import cv2
-    import numpy as np
 except Exception as e_cv:
-    logger.warning(f"No se pudo importar cv2/numpy: {e_cv}")
+    logger.debug(f"OpenCV no disponible en este entorno: {e_cv}")
     cv2 = None
+
+try:
+    import numpy as np
+except Exception as e_np:
+    logger.debug(f"NumPy no disponible en este entorno: {e_np}")
     np = None
 
 try:
@@ -74,6 +78,8 @@ try:
     HAS_USM_OCR = True
 except Exception as e_ocr:
     logger.warning(f"No se pudo importar ocr_service: {e_ocr}")
+    USMOcrService = None
+    AcademicDegreeNER = None
     HAS_USM_OCR = False
 HAS_WEB3 = True
 HAS_SUPABASE = True
@@ -101,22 +107,53 @@ class _LazySupabaseProxy:
         self._attempted = False
         self._available = False
 
+    def _import_supabase_create_client(self):
+        """
+        Importa `create_client` de la librería PyPI `supabase`, evitando que el directorio
+        local `supabase/` (migraciones SQL de Supabase CLI) sombree el paquete en sys.path
+        tanto en ejecución local desde la raíz como en Vercel (/var/task).
+        """
+        import importlib
+        repo_root = os.path.abspath(os.path.join(_api_dir, ".."))
+        existing = sys.modules.get("supabase")
+        if existing is not None and getattr(existing, "__file__", None) is None:
+            sys.modules.pop("supabase", None)
+
+        orig_path = list(sys.path)
+        try:
+            cwd = os.path.abspath(os.getcwd())
+            sys.path = [
+                p for p in orig_path
+                if p not in ("", ".") and os.path.abspath(p) not in (repo_root, cwd)
+            ]
+            mod = importlib.import_module("supabase")
+            if getattr(mod, "__file__", None) is None:
+                raise ImportError("Paquete PyPI 'supabase' no instalado en site-packages")
+            return mod.create_client
+        finally:
+            sys.path = orig_path
+
     def _get_client(self):
         if not self._attempted:
             self._attempted = True
-            if SUPABASE_URL and SUPABASE_KEY and 'vqxgcaxfixbyihyyvexn' not in SUPABASE_URL:
+            if SUPABASE_URL and SUPABASE_KEY:
+                prev_timeout = None
                 try:
-                    from supabase import create_client
+                    create_client = self._import_supabase_create_client()
                     import socket
                     from urllib.parse import urlparse
                     host = urlparse(SUPABASE_URL).hostname
                     if host:
-                        socket.setdefaulttimeout(0.3)
-                        socket.gethostbyname(host)
+                        prev_timeout = socket.getdefaulttimeout()
+                        socket.setdefaulttimeout(2.0)
+                        try:
+                            socket.gethostbyname(host)
+                        finally:
+                            socket.setdefaulttimeout(prev_timeout)
                     self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
                     self._available = True
                 except Exception as e:
-                    logger.warning(f"Supabase inalcanzable o DNS no disponible ({e}). Operando en modo local de alta velocidad.")
+                    logger.warning(f"Supabase inalcanzable o librería no instalada ({e}). Operando en modo híbrido local.")
                     self._client = None
                     self._available = False
         return self._client if self._available else None
@@ -473,7 +510,8 @@ CANONICAL_DEMO_RECORDS = [
     }
 ]
 
-_records_memory = []
+import copy
+_records_memory = copy.deepcopy(CANONICAL_DEMO_RECORDS) if ALLOW_DEFENSE_DEMO_FALLBACK else []
 
 RECORDS_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_records_cache.json")
 
@@ -500,8 +538,18 @@ _load_records_cache()
 STUDENTS_AUTH_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_students_auth_cache.json")
 
 def _hash_student_password(password: str) -> str:
-    salt = "usm_student_salt_2026"
-    return hashlib.sha256(f"{salt}_{password}".encode("utf-8")).hexdigest()
+    return hash_password(password)
+
+def _verify_student_password(password: str, stored_hash: str) -> bool:
+    if not stored_hash:
+        return False
+    # Compatibilidad con hashes bcrypt / pbkdf2
+    if stored_hash.startswith("$2") or stored_hash.startswith("pbkdf2:") or stored_hash.startswith("sha256:"):
+        return verify_password(password, stored_hash)
+    # Compatibilidad retroactiva con hashes legados SHA-256 en caché
+    legacy = hashlib.sha256(f"usm_student_salt_2026_{password}".encode("utf-8")).hexdigest()
+    import hmac
+    return hmac.compare_digest(legacy, stored_hash)
 
 _students_auth_memory = [
     {
@@ -980,9 +1028,21 @@ def register_student():
 
     existing_idx = next((i for i, s in enumerate(_students_auth_memory) if s.get("email", "").lower() == email), None)
     if existing_idx is not None:
-        _students_auth_memory[existing_idx] = student_profile
-    else:
-        _students_auth_memory.append(student_profile)
+        return jsonify({
+            "success": False,
+            "error": "Este correo electrónico ya se encuentra registrado. Inicia sesión o utiliza 'Olvidé mi contraseña'.",
+            "code": "EMAIL_ALREADY_REGISTERED"
+        }), 409
+
+    ced_digits_new = re.sub(r"\D", "", cedula)
+    if ced_digits_new and any(re.sub(r"\D", "", s.get("cedula") or "") == ced_digits_new for s in _students_auth_memory):
+        return jsonify({
+            "success": False,
+            "error": "Esta Cédula de Identidad ya está vinculada a una cuenta académica registrada.",
+            "code": "CEDULA_ALREADY_REGISTERED"
+        }), 409
+
+    _students_auth_memory.append(student_profile)
     _save_students_cache()
 
     # Sincronizar también con perfiles y cache
@@ -996,8 +1056,27 @@ def register_student():
 
     increment_stat("graduandos_activos", 1, log_entry=f"NUEVO REGISTRO: Graduando {nombre} ({cedula}) registrado en el portal USM.")
 
+    token = create_jwt_token({
+        "sub": student_profile.get("id"),
+        "email": email,
+        "role": "estudiante",
+        "cedula": cedula
+    })
+
     safe_profile = {k: v for k, v in student_profile.items() if k != "password_hash"}
-    return jsonify({"success": True, "profile": safe_profile}), 200
+    return jsonify({"success": True, "token": token, "profile": safe_profile}), 200
+
+
+@app.route("/student/check-email", methods=["POST"])
+@app.route("/api/student/check-email", methods=["POST"])
+def check_student_email():
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"registered": False}), 200
+    exists = any((s.get("email") or "").lower() == email for s in _students_auth_memory)
+    return jsonify({"registered": exists}), 200
 
 
 @app.route("/student/login", methods=["POST"])
@@ -1011,49 +1090,22 @@ def login_student():
     if not email or not password:
         return jsonify({"success": False, "error": "Correo y contraseña requeridos"}), 400
 
-    pwd_hash = _hash_student_password(password)
-
     student = next((s for s in _students_auth_memory if s.get("email", "").lower() == email), None)
 
     if not student:
-        # Permitir registro dinámico automático para la cuenta de Mauro
-        if "mauromaiese" in email or "mauro" in email:
-            student = {
-                "id": "usr-mauro-maiese",
-                "email": email,
-                "password_hash": pwd_hash,
-                "nombre": "Mauro Daniel Maiese Ferreira",
-                "cedula": "V-28.315.101",
-                "telefono": "0414-2831510",
-                "fecha_nacimiento": "1998-10-19",
-                "carrera": "Ingeniería en Sistemas",
-                "semestre": "10mo",
-                "role": "estudiante",
-                "is_profile_complete": True,
-                "is_cedula_locked": True,
-                "created_at": datetime.datetime.now().isoformat()
-            }
-            _students_auth_memory.append(student)
-            _save_students_cache()
-        else:
-            return jsonify({
-                "success": False,
-                "error": "El usuario no se encuentra registrado en el sistema. Debes registrarte primero.",
-                "code": "USER_NOT_REGISTERED"
-            }), 404
+        return jsonify({
+            "success": False,
+            "error": "El usuario no se encuentra registrado en el sistema. Debes registrarte primero.",
+            "code": "USER_NOT_REGISTERED"
+        }), 404
 
-    # Validar contraseña
-    if student.get("password_hash") != pwd_hash:
-        # Si es Mauro y es su contraseña personal, la actualizamos para que quede registrada permanentemente
-        if "mauromaiese" in email or "mauro" in email:
-            student["password_hash"] = pwd_hash
-            _save_students_cache()
-        else:
-            return jsonify({
-                "success": False,
-                "error": "La contraseña ingresada es incorrecta. Por favor verifica tus datos.",
-                "code": "INVALID_PASSWORD"
-            }), 401
+    # Validar contraseña con bcrypt/PBKDF2 (con soporte retroactivo)
+    if not _verify_student_password(password, student.get("password_hash", "")):
+        return jsonify({
+            "success": False,
+            "error": "La contraseña ingresada es incorrecta. Por favor verifica tus datos.",
+            "code": "INVALID_PASSWORD"
+        }), 401
 
     token = create_jwt_token({
         "sub": student.get("id"),
@@ -1118,6 +1170,7 @@ def reset_student_password():
     _load_students_cache()
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
+    cedula = (data.get("cedula") or "").strip()
     new_password = (data.get("new_password") or data.get("password") or "").strip()
 
     if not email or not new_password:
@@ -1126,6 +1179,19 @@ def reset_student_password():
     student = next((s for s in _students_auth_memory if (s.get("email") or "").lower() == email), None)
     if not student:
         return jsonify({"success": False, "error": "Usuario no encontrado."}), 404
+
+    # Verificar identidad por JWT de sesión o coincidencia exacta de cédula registrada
+    auth_payload = get_current_admin()
+    is_jwt_owner = bool(auth_payload and (auth_payload.get("email") or "").lower() == email)
+    ced_digits = re.sub(r"\D", "", cedula)
+    stored_ced_digits = re.sub(r"\D", "", student.get("cedula") or "")
+    is_cedula_match = bool(ced_digits and stored_ced_digits and ced_digits == stored_ced_digits)
+
+    if not is_jwt_owner and not is_cedula_match:
+        return jsonify({
+            "success": False,
+            "error": "Verificación de identidad requerida: la Cédula de Identidad debe coincidir con la cuenta registrada."
+        }), 403
 
     student["password_hash"] = _hash_student_password(new_password)
     student["updated_at"] = datetime.datetime.now().isoformat()
@@ -1153,14 +1219,25 @@ def update_student_profile():
         None
     )
 
+    if student:
+        # Verificar que exista JWT válido del propietario o coincidencia estricta de correo + cédula
+        auth_payload = get_current_admin()
+        is_jwt_owner = bool(auth_payload and ((auth_payload.get("email") or "").lower() == (student.get("email") or "").lower()))
+        stored_ced_digits = re.sub(r"\D", "", student.get("cedula") or "")
+        is_identity_match = bool(
+            email and (student.get("email") or "").lower() == email and
+            stored_ced_digits and ced_digits and stored_ced_digits == ced_digits
+        )
+        if not is_jwt_owner and not is_identity_match:
+            return jsonify({"success": False, "error": "No autorizado para modificar este perfil."}), 403
+
     if not student:
-        # Si el usuario aún no estaba en _students_auth_memory pero tiene sesión activa, lo creamos
         if not email and not cedula:
             return jsonify({"success": False, "error": "Identificador de estudiante requerido."}), 400
         student = {
             "id": data.get("id") or f"usr-{secrets.token_hex(6)}",
             "email": email,
-            "password_hash": _hash_student_password(data.get("new_password") or "Usm2026*"),
+            "password_hash": _hash_student_password(data.get("new_password") or secrets.token_urlsafe(12)),
             "nombre": (data.get("nombre") or "Graduando USM").strip(),
             "cedula": cedula,
             "telefono": (data.get("telefono") or "").strip(),
@@ -1174,7 +1251,6 @@ def update_student_profile():
         }
         _students_auth_memory.append(student)
     else:
-        # La cédula es inmutable por seguridad legal; actualizamos los demás campos permitidos
         if data.get("nombre"):
             student["nombre"] = data["nombre"].strip()
         if "telefono" in data:
@@ -1218,6 +1294,7 @@ def update_student_profile():
 
 
 @app.route("/admin/login", methods=["POST"])
+@app.route("/api/admin/login", methods=["POST"])
 def admin_login():
     data = request.get_json() or {}
     username = data.get("username", "").strip()
@@ -1282,6 +1359,7 @@ def admin_login():
 
 
 @app.route("/admin/users", methods=["POST"])
+@app.route("/api/admin/users", methods=["POST"])
 def create_admin():
     admin_payload = get_current_admin()
     if not admin_payload:
@@ -1473,7 +1551,11 @@ def verify_blockchain_document(doc_hash: str):
             logger.warning(f"Database verification fallback error: {e}")
 
     for r in _records_memory:
-        if r.get("hash") in hash_variations or _normalize_hex(r.get("hash")) == clean_hash.lower():
+        if (
+            r.get("hash") in hash_variations
+            or _normalize_hex(r.get("hash")) == clean_hash.lower()
+            or _normalize_hex(r.get("tx_hash")) == clean_hash.lower()
+        ):
             try:
                 dt = datetime.datetime.fromisoformat(r.get("created_at").replace('Z', '+00:00'))
                 ts = int(dt.timestamp())
@@ -1587,7 +1669,18 @@ def register_blockchain_document():
         try:
             supabase.table("records").upsert(new_rec).execute()
         except Exception as e:
-            logger.warning(f"No se pudo guardar en Supabase: {e}")
+            logger.warning(f"Upsert completo falló ({e}), reintentando con columnas base de records...")
+            try:
+                base_keys = {
+                    "hash", "owner_name", "cedula", "document_type", "document_url",
+                    "solicitud_code", "tomo", "folio", "libro", "tx_hash", "status",
+                    "mppeu_verified", "mppre_verified", "apostille_number",
+                    "rejection_reason", "created_at"
+                }
+                base_rec = {k: v for k, v in new_rec.items() if k in base_keys}
+                supabase.table("records").upsert(base_rec).execute()
+            except Exception as e2:
+                logger.warning(f"No se pudo guardar en Supabase: {e2}")
 
     increment_stat("docs_prevalidados", 1, log_entry=f"SOLICITUD: Trámite {solicitud_code} emitido para {owner_name}.")
     return jsonify({
@@ -1601,8 +1694,15 @@ def register_blockchain_document():
     }), 200
 
 
-UPLOAD_DOCS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "documents")
-os.makedirs(UPLOAD_DOCS_DIR, exist_ok=True)
+if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    UPLOAD_DOCS_DIR = os.path.join(tempfile.gettempdir(), "usm_uploads", "documents")
+else:
+    UPLOAD_DOCS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "documents")
+try:
+    os.makedirs(UPLOAD_DOCS_DIR, exist_ok=True)
+except OSError:
+    UPLOAD_DOCS_DIR = os.path.join(tempfile.gettempdir(), "usm_uploads", "documents")
+    os.makedirs(UPLOAD_DOCS_DIR, exist_ok=True)
 
 @app.route("/api/documents/upload", methods=["POST"])
 @app.route("/documents/upload", methods=["POST"])
@@ -1816,6 +1916,9 @@ def get_records_by_cedula(cedula: str):
 @app.route("/api/blockchain/contract-address", methods=["GET", "POST"])
 def manage_contract_address():
     if request.method == "POST":
+        admin_payload = get_current_admin()
+        if not admin_payload or admin_payload.get("role") == "estudiante":
+            return jsonify({"success": False, "error": "Autorización institucional requerida para modificar el contrato."}), 401
         data = request.get_json() or {}
         new_addr = data.get("contractAddress") or data.get("contract_address")
         if not new_addr or not new_addr.startswith("0x") or len(new_addr) != 42:
@@ -1828,6 +1931,9 @@ def manage_contract_address():
 @app.route("/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/mppeu-certify", methods=["POST"])
 def mppeu_certify_record(doc_hash: str):
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"success": False, "error": "Token de autorización ministerial (MPPEU) requerido."}), 401
     _load_records_cache()
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppeu_agente")
@@ -1960,6 +2066,9 @@ def request_apostille_endpoint(doc_hash: str):
 @app.route("/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/mppre-apostille", methods=["POST"])
 def mppre_apostille_record(doc_hash: str):
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"success": False, "error": "Token de autorización consular (MPPRE) requerido."}), 401
     _load_records_cache()
     data = request.get_json() or {}
     auditor_name = data.get("auditor_username", "mppre_agente")
@@ -2026,6 +2135,9 @@ def mppre_apostille_record(doc_hash: str):
 @app.route("/blockchain/records/<doc_hash>/verify", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/verify", methods=["POST"])
 def verify_record_status(doc_hash: str):
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"success": False, "error": "Token de autorización ministerial requerido."}), 401
     _load_records_cache()
     data = request.get_json() or {}
     auditor_info = data.get("auditor_username", "mppeu_agente")
@@ -2083,6 +2195,9 @@ def verify_record_status(doc_hash: str):
 @app.route("/blockchain/records/<doc_hash>/reject", methods=["POST"])
 @app.route("/api/blockchain/records/<doc_hash>/reject", methods=["POST"])
 def reject_record_status(doc_hash: str):
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"success": False, "error": "Token de autorización ministerial requerido."}), 401
     _load_records_cache()
     data = request.get_json() or {}
     reason = (data.get("reason") or "Inconsistencia física u observación registral").strip()
@@ -2193,7 +2308,11 @@ def get_digital_certificate(doc_hash: str):
 
     if not owner_name:
         for r in _records_memory:
-            if r.get("hash") in hash_variations:
+            if (
+                r.get("hash") in hash_variations
+                or _normalize_hex(r.get("hash")) == clean_hash.lower()
+                or _normalize_hex(r.get("tx_hash")) == clean_hash.lower()
+            ):
                 owner_name = r.get("owner_name", "Graduando USM")
                 cedula = r.get("cedula", "V-28.315.101")
                 doc_type = r.get("document_type", "Título Universitario USM")
@@ -2254,6 +2373,7 @@ def send_client_raw_transaction():
 
 
 @app.route("/hash/generate", methods=["POST"])
+@app.route("/api/hash/generate", methods=["POST"])
 def generate_document_hash():
     try:
         req_data = request.get_json() or {}
@@ -2271,18 +2391,27 @@ def generate_document_hash():
         return jsonify({"detail": str(e)}), 500
 
 
-# ─── MÓDULO OCR: Reconocimiento Óptico Especializado USM ─────────────────────
+# ─── MÓDULO OCR: Reconocimiento Óptico Especializado USM (100% funcional sin API key) ───
 @app.route("/ocr/status", methods=["GET"])
 @app.route("/api/ocr/status", methods=["GET"])
 def ocr_engine_status():
-    has_frk = USMOcrService.check_fraktur_available() if HAS_USM_OCR else False
+    has_frk = USMOcrService.check_fraktur_available() if HAS_USM_OCR and USMOcrService else False
+    has_tess = USMOcrService.check_tesseract_available() if HAS_USM_OCR and USMOcrService else False
+    gemini_ready = bool(GeminiVisionExtractor and GeminiVisionExtractor.is_configured())
     return jsonify({
         "success": True,
+        "keyless_ocr_ready": True,
+        "gemini_configured": gemini_ready,
         "engines": {
+            "client_wasm_ner": {
+                "available": True,
+                "requires_api_key": False,
+                "notes": "Motor público sin API key: Tesseract.js WASM + pypdf + AcademicDegreeNER"
+            },
             "tesseract": {
-                "available": HAS_USM_OCR,
+                "available": has_tess and cv2 is not None,
                 "fraktur_gothic_installed": has_frk,
-                "notes": "Modelo 'frk' listo para tipografía gótica Old English Text MT" if has_frk else "Fallback activo con preprocesamiento morfológico"
+                "notes": "Modelo 'frk' listo para tipografía gótica Old English Text MT" if has_frk else "Fallback activo con Tesseract.js WASM + AcademicDegreeNER"
             },
             "ollama_vision": {
                 "available": True,
@@ -2297,8 +2426,9 @@ def ocr_engine_status():
 @app.route("/api/ocr/extract", methods=["POST"])
 def ocr_extract_document():
     """
-    Extracción avanzada y análisis semántico de diplomas académicos.
-    Soporte dual: texto reconocido por el cliente (Tesseract.js WASM) y motores de servidor (OpenCV, Tesseract, Ollama).
+    Extracción avanzada y análisis semántico de diplomas académicos (100% sin API key).
+    Soporte dual: texto reconocido por el cliente (Tesseract.js WASM), PDFs digitales/escaneados
+    (PyMuPDF/pypdf/zlib) y motores locales opcionales (OpenCV, Tesseract, Ollama).
     """
     try:
         image_bytes = None
@@ -2327,7 +2457,10 @@ def ocr_extract_document():
                 except Exception as e:
                     return jsonify({"success": False, "error": f"Base64 inválido: {str(e)}"}), 400
 
-        # Si el cliente ya extrajo el texto mediante Tesseract.js (WASM) en el navegador
+        if not HAS_USM_OCR or USMOcrService is None:
+            return jsonify({"success": False, "error": "Módulo AcademicDegreeNER no disponible en el servidor."}), 503
+
+        # 1. Si el cliente ya extrajo el texto mediante Tesseract.js (WASM) en el navegador
         if raw_text_client and len(raw_text_client.strip()) > 15:
             ner_fields = USMOcrService.rule_based_ner(raw_text_client)
             resp = USMOcrService.format_for_frontend(
@@ -2341,40 +2474,18 @@ def ocr_extract_document():
         if not image_bytes:
             return jsonify({"success": False, "error": "Debe proporcionar 'file', 'image_base64' o 'raw_text'."}), 400
 
-        # Soporte especializado para documentos PDF (PyMuPDF / pypdf)
+        # 2. Soporte especializado para documentos PDF sin API key (PyMuPDF -> pypdf -> zlib)
         extracted_pdf_text = ""
-        if image_bytes and (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40]):
-            rendered_image = None
-            try:
-                import fitz
-                doc = fitz.open(stream=image_bytes, filetype="pdf")
-                for page in doc:
-                    extracted_pdf_text += page.get_text() + "\n"
-                if len(doc) > 0:
-                    pix = doc[0].get_pixmap(dpi=300)
-                    rendered_image = pix.tobytes("png")
-                doc.close()
-            except Exception as pdf_err:
-                logger.warning(f"Aviso PyMuPDF: {pdf_err}")
-                try:
-                    import pypdf
-                    reader = pypdf.PdfReader(io.BytesIO(image_bytes))
-                    for p in reader.pages:
-                        extracted_pdf_text += (p.extract_text() or "") + "\n"
-                except Exception as pypdf_err:
-                    logger.warning(f"Aviso pypdf: {pypdf_err}")
+        extracted_pdf_img_bytes = None
+        is_pdf = bool(image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40])
+        if is_pdf:
+            extracted_pdf_text = USMOcrService.extract_pdf_text_bytes(image_bytes)
+            if len(extracted_pdf_text.strip()) < 25:
+                extracted_pdf_img_bytes = USMOcrService.extract_pdf_first_image_bytes(image_bytes)
+                if extracted_pdf_img_bytes:
+                    image_bytes = extracted_pdf_img_bytes
 
-            if rendered_image:
-                image_bytes = rendered_image
-
-        # Decodificación con OpenCV
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        if img_cv is None:
-            return jsonify({"success": False, "error": "Formato de imagen inválido o no reconocido por OpenCV."}), 400
-
-        # 1. Modo Forzado Visión Ollama
+        # 3. Modo Forzado Visión Ollama (solo si se solicita explícitamente)
         if mode == "vision_ai":
             try:
                 res = USMOcrService.extract_with_ollama_vision(image_bytes)
@@ -2386,16 +2497,29 @@ def ocr_extract_document():
                 )
                 return jsonify(resp), 200
             except Exception as e:
-                logger.warning(f"Ollama local no disponible, activando motor Tesseract: {e}")
+                logger.warning(f"Ollama local no disponible, activando motor local: {e}")
 
-        # 2. Modo Híbrido / Auto por defecto (Combinando texto nativo PDF y OCR Tesseract)
-        tess_res = USMOcrService.extract_with_tesseract(img_cv)
-        tess_text = tess_res.get("full_text", "")
-        combined_text = f"{extracted_pdf_text.strip()}\n{tess_text}".strip()
+        # 4. Modo Híbrido servidor (OpenCV + Tesseract solo si están disponibles en el host)
+        tess_text = ""
+        tess_res = {"engine": "serverless_pdf_ner", "fraktur_enabled": False}
+        if cv2 is not None and np is not None and not (is_pdf and image_bytes.startswith(b"%PDF")):
+            try:
+                nparr = np.frombuffer(image_bytes, np.uint8)
+                img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img_cv is not None:
+                    tess_res = USMOcrService.extract_with_tesseract(img_cv)
+                    tess_text = tess_res.get("full_text", "")
+            except Exception as cv_err:
+                logger.warning(f"Decodificación OpenCV omitida: {cv_err}")
+
+        combined_text = "\n".join(part for part in [extracted_pdf_text.strip(), tess_text.strip(), (raw_text_client or "").strip()] if part).strip()
 
         if combined_text:
             merged_fields = AcademicDegreeNER.extract_all(combined_text)
-            engine_name = "PyMuPDF + Tesseract Fraktur Hybrid" if extracted_pdf_text else tess_res.get('engine', 'tesseract_hybrid')
+            engine_name = (
+                "PyMuPDF + Tesseract Fraktur Hybrid" if (extracted_pdf_text and tess_text)
+                else ("PDF Parser + AcademicDegreeNER (Sin API Key)" if extracted_pdf_text else tess_res.get("engine", "tesseract_hybrid"))
+            )
             resp = USMOcrService.format_for_frontend(
                 merged_fields,
                 combined_text,
@@ -2405,21 +2529,22 @@ def ocr_extract_document():
             resp["fraktur_enabled"] = tess_res.get("fraktur_enabled", False)
             return jsonify(resp), 200
 
-        # 3. Si Tesseract en servidor no tiene binario y había raw_text breve
-        if raw_text_client:
-            ner_fields = USMOcrService.rule_based_ner(raw_text_client)
-            resp = USMOcrService.format_for_frontend(
-                ner_fields,
-                raw_text_client,
-                "Client OCR + Flask NER",
-                user_cedula=user_cedula
-            )
-            return jsonify(resp), 200
+        # 5. Si era PDF escaneado (sin capa de texto) y logramos extraer su página en imagen, devolverla al navegador para Tesseract.js WASM
+        if extracted_pdf_img_bytes:
+            return jsonify({
+                "success": True,
+                "needs_client_ocr": True,
+                "extracted_image_base64": base64.b64encode(extracted_pdf_img_bytes).decode("utf-8"),
+                "engine": "PDF Rasterizado -> Tesseract.js WASM Cliente",
+                "fields": {},
+                "full_text": ""
+            }), 200
 
         return jsonify({
             "success": False,
-            "error": "No se pudo extraer texto del documento. Por favor asegúrese de que la imagen sea nítida o procese con el motor WebAssembly del navegador."
-        }), 422
+            "needs_client_ocr": True,
+            "error": "No se detectó texto en el servidor; procesando mediante motor OCR del navegador (sin API key)."
+        }), 200
 
     except Exception as e:
         logger.error(f"Error procesando OCR: {e}", exc_info=True)
@@ -2430,19 +2555,15 @@ def ocr_extract_document():
 @app.route("/api/ocr/gemini", methods=["POST"])
 def ocr_gemini_endpoint():
     """
-    Endpoint de digitalización multimodal con Google Gemini 1.5 Flash.
-    Configurado con response_mime_type='application/json' para garantizar JSON puro.
-    Supera fuentes góticas, caligrafías bicolores y elimina artefactos visuales.
+    Endpoint opcional de digitalización con Google Gemini cuando GEMINI_API_KEY está configurada.
+    Si no hay API Key, activa inmediatamente el fallback local sin API Key ni demoras.
     """
     raw_bytes = None
 
-    # Caso 1: Archivo subido en formulario multipart ('file')
     if "file" in request.files:
         uploaded = request.files["file"]
         if uploaded.filename != "":
             raw_bytes = uploaded.read()
-
-    # Caso 2: Carga vía JSON ('image_base64')
     elif request.is_json:
         payload = request.get_json() or {}
         image_b64 = payload.get("image_base64")
@@ -2463,65 +2584,53 @@ def ocr_gemini_endpoint():
             "error": "Debe enviar la imagen mediante 'file' (form-data) o 'image_base64' (JSON)."
         }), 400
 
-    if GeminiVisionExtractor is not None:
+    if GeminiVisionExtractor is not None and GeminiVisionExtractor.is_configured():
         success, fields, err_msg = GeminiVisionExtractor.extract_from_image_bytes(raw_bytes)
     else:
-        success, fields, err_msg = False, {}, "GeminiVisionExtractor no está disponible." 
+        success, fields, err_msg = False, {}, "Modo público sin GEMINI_API_KEY: usando OCR local."
+
     if not success:
-        logger.warning(f"Gemini Vision no disponible ({err_msg}). Activando fallback local PyMuPDF / OpenCV / NER...")
         extracted_text = ""
-        # 1. Si es PDF, extraer texto directamente con PyMuPDF
-        if raw_bytes.startswith(b"%PDF") or b"%PDF-" in raw_bytes[:40]:
-            try:
-                import fitz
-                doc = fitz.open(stream=raw_bytes, filetype="pdf")
-                for page in doc:
-                    extracted_text += (page.get_text() or "") + "\n"
-                doc.close()
-            except Exception as e_pdf:
-                logger.warning(f"Fallback PyMuPDF error: {e_pdf}")
+        if HAS_USM_OCR and USMOcrService is not None:
+            if raw_bytes.startswith(b"%PDF") or b"%PDF-" in raw_bytes[:40]:
+                extracted_text = USMOcrService.extract_pdf_text_bytes(raw_bytes)
 
-        # 2. Si no es PDF o el texto fue escaso, intentar con OpenCV / Tesseract
-        if len(extracted_text.strip()) < 15 and cv2 is not None:
-            try:
-                img_bytes = raw_bytes
-                if raw_bytes.startswith(b"%PDF") or b"%PDF-" in raw_bytes[:40]:
-                    import fitz
-                    doc = fitz.open(stream=raw_bytes, filetype="pdf")
-                    if len(doc) > 0:
-                        pix = doc[0].get_pixmap(dpi=200)
-                        img_bytes = pix.tobytes("png")
-                    doc.close()
-                nparr = np.frombuffer(img_bytes, np.uint8)
-                img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                if img_cv is not None and HAS_USM_OCR:
-                    tess_res = USMOcrService.extract_with_tesseract(img_cv)
-                    extracted_text = tess_res.get("full_text", "")
-            except Exception as e_tess:
-                logger.warning(f"Fallback Tesseract error: {e_tess}")
+            if len(extracted_text.strip()) < 15 and cv2 is not None and np is not None:
+                try:
+                    img_bytes = raw_bytes
+                    if raw_bytes.startswith(b"%PDF") or b"%PDF-" in raw_bytes[:40]:
+                        img_bytes = USMOcrService.extract_pdf_first_image_bytes(raw_bytes) or raw_bytes
+                    if not img_bytes.startswith(b"%PDF"):
+                        nparr = np.frombuffer(img_bytes, np.uint8)
+                        img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                        if img_cv is not None:
+                            tess_res = USMOcrService.extract_with_tesseract(img_cv)
+                            extracted_text = tess_res.get("full_text", "")
+                except Exception as e_tess:
+                    logger.debug(f"Fallback Tesseract aviso: {e_tess}")
 
-        # 3. Si se extrajo texto mediante PyMuPDF o Tesseract, procesar entidades con AcademicDegreeNER
-        if len(extracted_text.strip()) >= 8 and HAS_USM_OCR:
-            ner_res = USMOcrService.rule_based_ner(extracted_text)
-            fields = {
-                "nombre_completo": ner_res.get("titular") or ner_res.get("nombre_completo"),
-                "cedula": ner_res.get("cedula"),
-                "institucion_educativa": ner_res.get("institucion"),
-                "mencion_carrera": ner_res.get("titulo_conferido") or ner_res.get("carrera"),
-                "fecha_emision": ner_res.get("fecha_expedicion") or ner_res.get("fecha"),
-                "facultad": ner_res.get("facultad"),
-                "model_used": "PyMuPDF / AcademicDegreeNER (Local Fallback)"
-            }
-            return jsonify({
-                "success": True,
-                "engine": "PyMuPDF + AcademicDegreeNER (Fallback Local)",
-                "data": fields
-            }), 200
+            if len(extracted_text.strip()) >= 8:
+                ner_res = USMOcrService.rule_based_ner(extracted_text)
+                fields = {
+                    "nombre_completo": ner_res.get("titular") or ner_res.get("nombre_completo"),
+                    "cedula": ner_res.get("cedula"),
+                    "institucion_educativa": ner_res.get("institucion"),
+                    "mencion_carrera": ner_res.get("titulo_conferido") or ner_res.get("carrera"),
+                    "fecha_emision": ner_res.get("fecha_expedicion") or ner_res.get("fecha"),
+                    "facultad": ner_res.get("facultad"),
+                    "model_used": "PDF / AcademicDegreeNER (Sin API Key)"
+                }
+                return jsonify({
+                    "success": True,
+                    "engine": "AcademicDegreeNER Local (Sin API Key)",
+                    "data": fields
+                }), 200
 
         return jsonify({
             "success": False,
-            "error": err_msg or "No se pudo extraer texto del documento."
-        }), 500
+            "fallback_client_ocr": True,
+            "error": err_msg
+        }), 200
 
     model_label = fields.get("model_used", "Multimodal Vision")
     return jsonify({
@@ -2535,6 +2644,7 @@ def ocr_gemini_endpoint():
 chat_sessions = {}
 
 @app.route("/chat/message", methods=["POST"])
+@app.route("/api/chat/message", methods=["POST"])
 def chat_rest_endpoint():
     data = request.get_json() or {}
     session_id = data.get("session_id", "default")
@@ -2776,13 +2886,18 @@ def chat_rest_endpoint():
     }), 200
 # ─── Datos Dinámicos y Contenido ─────────────────────────────────────────────
 @app.route("/admin/checklist", methods=["GET"])
+@app.route("/api/admin/checklist", methods=["GET"])
 def get_checklist_items():
     items = get_checklist()
     return jsonify({"success": True, "items": items}), 200
 
 
 @app.route("/admin/checklist", methods=["POST"])
+@app.route("/api/admin/checklist", methods=["POST"])
 def create_checklist_item():
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"detail": "Autorización institucional requerida."}), 401
     new_id = int(datetime.datetime.now().timestamp() * 1000) % 1000000
     item_dict = request.get_json() or {}
     norm = normalize_checklist_item({**item_dict, "id": new_id})
@@ -2803,7 +2918,11 @@ def create_checklist_item():
 
 
 @app.route("/admin/checklist/<int:item_id>", methods=["PUT"])
+@app.route("/api/admin/checklist/<int:item_id>", methods=["PUT"])
 def update_checklist_item(item_id: int):
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"detail": "Autorización institucional requerida."}), 401
     item_dict = request.get_json() or {}
     norm = normalize_checklist_item({**item_dict, "id": item_id})
     if supabase:
@@ -2826,7 +2945,11 @@ def update_checklist_item(item_id: int):
 
 
 @app.route("/admin/checklist/<int:item_id>", methods=["DELETE"])
+@app.route("/api/admin/checklist/<int:item_id>", methods=["DELETE"])
 def delete_checklist_item(item_id: int):
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"detail": "Autorización institucional requerida."}), 401
     global _checklist_memory
     if supabase:
         try:
@@ -2838,6 +2961,7 @@ def delete_checklist_item(item_id: int):
 
 
 @app.route("/guias", methods=["GET"])
+@app.route("/api/guias", methods=["GET"])
 def get_guias_logistica():
     if supabase:
         try:
@@ -2874,7 +2998,11 @@ def get_guias_logistica():
 
 
 @app.route("/admin/guias", methods=["POST"])
+@app.route("/api/admin/guias", methods=["POST"])
 def create_guia():
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"detail": "Autorización institucional requerida."}), 401
     if not supabase:
         return jsonify({"detail": "Supabase no configurado"}), 500
     try:
@@ -2886,6 +3014,7 @@ def create_guia():
 
 
 @app.route("/planillas", methods=["GET"])
+@app.route("/api/planillas", methods=["GET"])
 def get_planillas():
     if supabase:
         try:
@@ -2898,7 +3027,11 @@ def get_planillas():
 
 
 @app.route("/admin/planillas", methods=["POST"])
+@app.route("/api/admin/planillas", methods=["POST"])
 def create_planilla():
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"detail": "Autorización institucional requerida."}), 401
     global _planillas_memory
     data = request.get_json() or {}
     new_p = {
@@ -2919,7 +3052,11 @@ def create_planilla():
 
 
 @app.route("/admin/planillas/<planilla_id>", methods=["DELETE"])
+@app.route("/api/admin/planillas/<planilla_id>", methods=["DELETE"])
 def delete_planilla(planilla_id: str):
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"detail": "Autorización institucional requerida."}), 401
     global _planillas_memory
     if supabase:
         try:
@@ -2931,6 +3068,7 @@ def delete_planilla(planilla_id: str):
 
 
 @app.route("/carreras", methods=["GET"])
+@app.route("/api/carreras", methods=["GET"])
 def get_carreras():
     if supabase:
         try:
@@ -2946,6 +3084,7 @@ def get_carreras():
 
 
 @app.route("/pub/fields", methods=["GET"])
+@app.route("/api/pub/fields", methods=["GET"])
 def get_pub_fields():
     if supabase:
         try:
@@ -2972,6 +3111,9 @@ def get_pub_fields():
 @app.route("/admin/clean-test-data", methods=["POST", "DELETE"])
 @app.route("/api/admin/clean-test-data", methods=["POST", "DELETE"])
 def clean_test_data():
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"success": False, "error": "Autorización de administrador institucional requerida."}), 401
     global _records_memory
     _records_memory = []
     if os.path.exists(RECORDS_CACHE_FILE):
@@ -2989,8 +3131,10 @@ def clean_test_data():
 @app.route("/admin/reset-demo-records", methods=["POST"])
 @app.route("/api/admin/reset-demo-records", methods=["POST"])
 def reset_demo_records():
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"success": False, "error": "Autorización de administrador institucional requerida."}), 401
     global _records_memory
-    import copy
     _records_memory = copy.deepcopy(CANONICAL_DEMO_RECORDS)
     _save_records_cache()
     return jsonify({"success": True, "message": "Registros de demostración restaurados.", "records": _records_memory}), 200
@@ -2998,4 +3142,4 @@ def reset_demo_records():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     logger.info(f"🏛️  Iniciando Servidor Flask USM-ApostillaBot en http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=False)

@@ -47,16 +47,39 @@ try {
 
 export const supabase = clientInstance;
 
+// Hash criptográfico local para respaldo offline (nunca almacenar contraseñas en texto plano en localStorage)
+async function hashLocalPassword(pwd, email = '') {
+  const payload = `usm_v2::${(email || '').trim().toLowerCase()}::${pwd || ''}`;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+      return 'sha256v2:' + Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) {}
+  }
+  let h = 2166136261;
+  for (let i = 0; i < payload.length; i++) {
+    h ^= payload.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return 'fnv1a:' + (h >>> 0).toString(16);
+}
+
+async function verifyLocalPassword(storedEntry, plainPassword, email) {
+  if (!storedEntry) return false;
+  if (storedEntry.passwordHash) {
+    const candidate = await hashLocalPassword(plainPassword, email);
+    return storedEntry.passwordHash === candidate;
+  }
+  if (storedEntry.password) {
+    return storedEntry.password === plainPassword;
+  }
+  return true;
+}
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * SERVICIO INTEGRAL DE AUTENTICACIÓN ACADÉMICA (SUPABASE AUTH)
  * ═══════════════════════════════════════════════════════════════════════════
- * Soporta:
- * 1. Login con Correo y Contraseña
- * 2. Registro con Correo, Contraseña y Cédula Legal Inmutable
- * 3. Recuperación de Contraseña (Olvidé mi clave)
- * 4. Login Passwordless (Email OTP / Magic Link) con Turnstile
- * 5. Onboarding Progresivo y Fallback Local para Defensa
  */
 export const authPasswordless = {
   /**
@@ -74,14 +97,19 @@ export const authPasswordless = {
 
     // 1. Intentar validar con el backend oficial
     try {
-            const res = await authAPI.loginStudent(cleanEmail, cleanPassword);
+      const res = await authAPI.loginStudent(cleanEmail, cleanPassword);
       if (res && res.success && res.profile) {
         try {
-          const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
-          if (!registeredList.some(u => (u.email || '').toLowerCase() === cleanEmail)) {
-            registeredList.push({ email: cleanEmail, password: cleanPassword, profile: res.profile });
-            localStorage.setItem('usm_registered_users', JSON.stringify(registeredList));
+          if (res.token) {
+            sessionStorage.setItem('usm_student_token', res.token);
+            localStorage.setItem('usm_student_token', res.token);
           }
+          const pwdHash = await hashLocalPassword(cleanPassword, cleanEmail);
+          const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
+          const filteredReg = registeredList.filter(u => (u.email || '').toLowerCase() !== cleanEmail);
+          filteredReg.push({ email: cleanEmail, passwordHash: pwdHash, profile: res.profile });
+          localStorage.setItem('usm_registered_users', JSON.stringify(filteredReg));
+
           const allUsers = JSON.parse(localStorage.getItem('usm_all_users') || '[]');
           if (!allUsers.some(u => (u.email || '').toLowerCase() === cleanEmail)) {
             allUsers.push(res.profile);
@@ -125,12 +153,13 @@ export const authPasswordless = {
       }
     } catch (_) {}
 
-    // 3. Validar contra las cuentas registradas localmente en este dispositivo
+    // 3. Validar contra las cuentas registradas localmente en este dispositivo (hash seguro)
     try {
       const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
       const userFound = registeredList.find(u => (u.email || '').toLowerCase() === cleanEmail);
       if (userFound) {
-        if (userFound.password && userFound.password !== cleanPassword) {
+        const validLocal = await verifyLocalPassword(userFound, cleanPassword, cleanEmail);
+        if (!validLocal) {
           const invalidCredsErr = new Error('La contraseña ingresada es incorrecta. Por favor verifica tus datos.');
           invalidCredsErr.code = 'INVALID_PASSWORD';
           throw invalidCredsErr;
@@ -141,30 +170,7 @@ export const authPasswordless = {
       if (e.code === 'INVALID_PASSWORD') throw e;
     }
 
-    // 4. Si es la cuenta del tesista (Mauro) y aún no se había registrado con contraseña en este navegador
-    if (cleanEmail === 'mauromaiese7@gmail.com' || cleanEmail.includes('mauromaiese')) {
-      const authorProfile = {
-        id: 'usr-mauro-maiese',
-        email: cleanEmail,
-        nombre: 'Mauro Daniel Maiese Ferreira',
-        cedula: 'V-28.315.101',
-        telefono: '0414-2831510',
-        fecha_nacimiento: '1998-10-19',
-        carrera: 'Ingeniería en Sistemas',
-        semestre: '10mo',
-        is_profile_complete: true,
-        is_cedula_locked: true,
-        role: 'estudiante'
-      };
-      try {
-        const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
-        registeredList.push({ email: cleanEmail, password: cleanPassword, profile: authorProfile });
-        localStorage.setItem('usm_registered_users', JSON.stringify(registeredList));
-      } catch (_) {}
-      return { success: true, user: { id: authorProfile.id, email: cleanEmail }, profile: authorProfile };
-    }
-
-    // 5. Si no existe en ningún lado, indicar claramente que debe registrarse
+    // 4. Si no existe en ningún lado, indicar claramente que debe registrarse
     const notFoundErr = new Error('El usuario no se encuentra registrado en el sistema. Debes registrarte primero.');
     notFoundErr.code = 'USER_NOT_REGISTERED';
     throw notFoundErr;
@@ -197,13 +203,40 @@ export const authPasswordless = {
       created_at: new Date().toISOString()
     };
 
-    // 1. Guardar persistentemente en la lista de cuentas registradas con contraseña
+    // 1. Registrar primero en el backend para validar unicidad de correo y cédula
     try {
+      const regRes = await authAPI.registerStudent({
+        email: cleanEmail,
+        password: password,
+        nombre: cleanName,
+        cedula: fullCedula,
+        telefono: telefono ? telefono.trim() : '',
+        fecha_nacimiento: fecha_nacimiento || '',
+        carrera: cleanCarrera,
+        semestre: cleanSemestre
+      });
+      if (regRes?.token) {
+        sessionStorage.setItem('usm_student_token', regRes.token);
+        localStorage.setItem('usm_student_token', regRes.token);
+      }
+      if (regRes?.profile?.id) {
+        newProfile.id = regRes.profile.id;
+      }
+    } catch (errApi) {
+      if (errApi.status === 409) {
+        throw errApi;
+      }
+      console.warn('Backend student register error (saved offline):', errApi);
+    }
+
+    // 2. Guardar persistentemente en localStorage con hash criptográfico (nunca texto plano)
+    try {
+      const pwdHash = await hashLocalPassword(password, cleanEmail);
       const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
       const filtered = registeredList.filter(u => (u.email || '').toLowerCase() !== cleanEmail);
       filtered.push({
         email: cleanEmail,
-        password: password,
+        passwordHash: pwdHash,
         profile: newProfile
       });
       localStorage.setItem('usm_registered_users', JSON.stringify(filtered));
@@ -214,22 +247,6 @@ export const authPasswordless = {
         localStorage.setItem('usm_all_users', JSON.stringify(allUsers));
       }
     } catch (_) {}
-
-    // 2. Registrar en el backend
-    try {
-            await authAPI.registerStudent({
-        email: cleanEmail,
-        password: password,
-        nombre: cleanName,
-        cedula: fullCedula,
-        telefono: telefono ? telefono.trim() : '',
-        fecha_nacimiento: fecha_nacimiento || '',
-        carrera: cleanCarrera,
-        semestre: cleanSemestre
-      });
-    } catch (errApi) {
-      console.warn('Backend student register error (saved offline):', errApi);
-    }
 
     // 3. Intentar registrar en Supabase Auth si está online
     try {
@@ -314,42 +331,50 @@ export const authPasswordless = {
   /**
    * Actualizar la contraseña del usuario (sincroniza Backend Flask + LocalStorage + Supabase)
    */
-  async updatePassword(newPassword, email = null) {
+  async updatePassword(newPassword, email = null, cedula = '') {
     const cleanPwd = (newPassword || '').trim();
     let targetEmail = (email || '').trim().toLowerCase();
+    let targetCedula = (cedula || '').trim();
 
-    if (!targetEmail) {
+    if (!targetEmail || !targetCedula) {
       try {
         const stored = JSON.parse(localStorage.getItem('usm_user') || sessionStorage.getItem('usm_user') || 'null');
-        if (stored?.email) targetEmail = stored.email.toLowerCase();
+        if (!targetEmail && stored?.email) targetEmail = stored.email.toLowerCase();
+        if (!targetCedula && stored?.cedula) targetCedula = stored.cedula;
       } catch (_) {}
     }
 
     let updatedProfile = null;
 
-    // 1. Actualizar en el Backend Flask
+    // 1. Actualizar en el Backend Flask (validando identidad por cédula o JWT)
     if (targetEmail) {
       try {
-        const res = await authAPI.resetStudentPassword(targetEmail, cleanPwd);
+        const res = await authAPI.resetStudentPassword(targetEmail, cleanPwd, targetCedula);
         if (res?.profile) updatedProfile = res.profile;
-      } catch (_) {}
+      } catch (err) {
+        if (err && (err.status === 400 || err.status === 403 || err.status === 404)) {
+          throw err;
+        }
+      }
 
-      // 2. Actualizar en localStorage (usm_registered_users)
+      // 2. Actualizar en localStorage (usm_registered_users) con hash criptográfico
       try {
+        const pwdHash = await hashLocalPassword(cleanPwd, targetEmail);
         const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
         let foundLocal = false;
         const updatedList = registeredList.map(u => {
           if ((u.email || '').toLowerCase() === targetEmail) {
             foundLocal = true;
             if (!updatedProfile && u.profile) updatedProfile = u.profile;
-            return { ...u, password: cleanPwd };
+            const { password: _removed, ...rest } = u;
+            return { ...rest, passwordHash: pwdHash };
           }
           return u;
         });
         if (foundLocal) {
           localStorage.setItem('usm_registered_users', JSON.stringify(updatedList));
         } else if (updatedProfile) {
-          updatedList.push({ email: targetEmail, password: cleanPwd, profile: updatedProfile });
+          updatedList.push({ email: targetEmail, passwordHash: pwdHash, profile: updatedProfile });
           localStorage.setItem('usm_registered_users', JSON.stringify(updatedList));
         }
       } catch (_) {}
@@ -477,15 +502,11 @@ export const authPasswordless = {
       return { registered: true };
     }
 
-    // Verificar en el backend
+    // Verificar en el backend usando endpoint dedicado (sin enviar contraseñas falsas a /login)
     try {
-            const res = await authAPI.loginStudent(cleanEmail, 'dummy_probe_check');
-      if (res && res.profile) return { registered: true };
-    } catch (errApi) {
-      if (errApi.status === 401 || errApi.code === 'INVALID_PASSWORD') {
-        return { registered: true };
-      }
-    }
+      const res = await authAPI.checkEmail(cleanEmail);
+      if (res && res.registered) return { registered: true };
+    } catch (_) {}
 
     return { registered: false };
   },
@@ -714,14 +735,16 @@ export const authPasswordless = {
       const registeredList = JSON.parse(localStorage.getItem('usm_registered_users') || '[]');
       const cleanEm = (mergedProfile.email || '').toLowerCase();
       const cleanCed = (mergedProfile.cedula || '').replace(/\D/g, '');
+      const nextPwdHash = updates.new_password ? await hashLocalPassword(updates.new_password.trim(), cleanEm) : null;
       const nextRegList = registeredList.map(item => {
         const itemEm = (item.email || '').toLowerCase();
         const itemCed = (item.profile?.cedula || '').replace(/\D/g, '');
         if ((cleanEm && itemEm === cleanEm) || (cleanCed && itemCed === cleanCed)) {
+          const { password: _removed, ...restItem } = item;
           return {
-            ...item,
+            ...restItem,
             email: mergedProfile.email || item.email,
-            password: updates.new_password ? updates.new_password.trim() : item.password,
+            passwordHash: nextPwdHash || item.passwordHash,
             profile: mergedProfile,
           };
         }
@@ -757,5 +780,7 @@ export const authPasswordless = {
       await supabase.auth.signOut();
     } catch (_) {}
     localStorage.removeItem('usm_user');
+    sessionStorage.removeItem('usm_student_token');
+    localStorage.removeItem('usm_student_token');
   },
 };

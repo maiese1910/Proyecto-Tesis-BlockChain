@@ -74,12 +74,12 @@ const GovernmentLoginPortal = ({ onAdminLogin }) => {
 
     try {
       const res = await authAPI.loginAdmin(username.trim(), password.trim());
-      if (res.access_token || res.username || res.ente) {
+      if (res && (res.token || res.access_token || res.success)) {
         const adminData = {
-          username: res.username || username,
+          username: res.username || username.trim(),
           ente: res.ente || entesConfig[selectedEnte].name.split(' ')[0],
           cargo: res.cargo || entesConfig[selectedEnte].role,
-          token: res.access_token,
+          token: res.token || res.access_token,
         };
         localStorage.setItem('admin_auth', 'true');
         localStorage.setItem('admin_data', JSON.stringify(adminData));
@@ -88,18 +88,10 @@ const GovernmentLoginPortal = ({ onAdminLogin }) => {
         setError('Credenciales no autorizadas. Verifica tu usuario y contraseña.');
       }
     } catch (err) {
-      if (err.status === 401) {
+      if (err.status === 401 || err.status === 403) {
         setError('Acceso denegado: Usuario o contraseña institucional incorrectos.');
       } else {
-        // Fallback local seguro para defensa de tesis
-        const demoAdmin = {
-          username: username.trim(),
-          ente: entesConfig[selectedEnte].name.split(' ')[0],
-          cargo: entesConfig[selectedEnte].role,
-        };
-        localStorage.setItem('admin_auth', 'true');
-        localStorage.setItem('admin_data', JSON.stringify(demoAdmin));
-        onAdminLogin(demoAdmin);
+        setError(err.message || 'No se pudo conectar con el servidor de autenticación ministerial.');
       }
     } finally {
       setLoading(false);

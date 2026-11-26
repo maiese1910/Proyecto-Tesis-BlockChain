@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 """
-Módulo de Extracción y Visión Forense con Google Gemini (gemini-1.5-flash)
+Módulo de Extracción y Visión Forense con Google Gemini
 Especializado en digitalización de títulos universitarios solemnes,
 resolución de caligrafía gótica (Old English Text MT / Diploma / Cancilleresca)
 y estructuración semántica estricta.
@@ -27,8 +29,6 @@ try:
 except ImportError:
     genai = None
     GoogleAPIError = Exception
-
-DEFAULT_B64_KEY = "QVEuQWI4Uk42TEx0NXdGRWdBbW0wdmZZaXhFSi1nWDUtOUZ0M3ZLZmZkTmpNcmtJU19xV0E="
 
 GEMINI_PROMPT_SYSTEM = """Eres un perito forense y especialista en visión artificial de documentos académicos, actas de grado y títulos universitarios de cualquier institución nacional o internacional.
 Analiza con máxima precisión visual y contextual la imagen del título universitario adjunto y extrae rigurosamente los datos que están literalmente escritos en este diploma específico.
@@ -72,9 +72,9 @@ Debes devolver ÚNICAMENTE un objeto JSON con las siguientes 5 claves:
 class GeminiVisionExtractor:
     @staticmethod
     def get_candidate_models():
-        load_dotenv(override=True)
+        load_dotenv(override=False)
         preferred = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        defaults = [preferred, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite"]
+        defaults = [preferred, "gemini-2.5-flash", "gemini-2.0-flash"]
         seen = set()
         candidates = []
         for m in defaults:
@@ -85,26 +85,26 @@ class GeminiVisionExtractor:
 
     @staticmethod
     def _get_api_key() -> Optional[str]:
-        load_dotenv(override=True)
+        load_dotenv(override=False)
         api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("VITE_GEMINI_API_KEY") or "").strip()
-        if not api_key:
-            try:
-                api_key = base64.b64decode(DEFAULT_B64_KEY).decode("utf-8").strip()
-            except Exception:
-                api_key = None
-        return api_key or None
+        return api_key if len(api_key) > 10 else None
+
+    @classmethod
+    def is_configured(cls) -> bool:
+        return cls._get_api_key() is not None
 
     @classmethod
     def _call_gemini_rest(cls, api_key: str, model_name: str, payload: dict) -> Optional[str]:
         """
-        Realiza una petición REST directa compatible tanto con claves estándar ('AIza...')
-        como con claves de autorización de Google Cloud / AI Studio ('AQ.Ab8RN6...').
-        Prueba primero generativelanguage.googleapis.com y luego aiplatform.googleapis.com.
+        Realiza una petición REST directa con timeout acotado (6s) para no exceder límites serverless.
         """
         endpoints = [
             f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}",
-            f"https://aiplatform.googleapis.com/v1/publishers/google/models/{model_name}:generateContent?key={api_key}"
         ]
+        if api_key.startswith("AQ."):
+            endpoints.append(
+                f"https://aiplatform.googleapis.com/v1/publishers/google/models/{model_name}:generateContent?key={api_key}"
+            )
         body_bytes = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
@@ -114,7 +114,7 @@ class GeminiVisionExtractor:
         for url in endpoints:
             try:
                 req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=18) as resp:
+                with urllib.request.urlopen(req, timeout=6) as resp:
                     resp_data = json.loads(resp.read().decode("utf-8"))
                     candidates = resp_data.get("candidates") or []
                     if candidates:
@@ -136,16 +136,15 @@ class GeminiVisionExtractor:
     @classmethod
     def extract_from_image_bytes(cls, image_bytes: bytes) -> Tuple[bool, Dict[str, Any], Optional[str]]:
         """
-        Envía los bytes de la imagen a Google Gemini Vision con soporte nativo para claves AQ. y AIzaSy.
-        Retorna (éxito, diccionario_5_claves, mensaje_error).
+        Envía los bytes de la imagen a Google Gemini Vision si GEMINI_API_KEY está configurada.
+        Si no hay API Key, retorna de inmediato para que actúe el pipeline OCR local sin latencia.
         """
         api_key = cls._get_api_key()
         if not api_key:
-            return False, {}, "GEMINI_API_KEY no configurada en las variables de entorno (.env)."
+            return False, {}, "GEMINI_API_KEY no configurada; utilizando motor OCR local."
 
         pil_image = None
         jpeg_bytes = None
-        # Soporte para documentos PDF (PyMuPDF fitz)
         if image_bytes and (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40]):
             try:
                 import fitz
@@ -192,7 +191,6 @@ class GeminiVisionExtractor:
         candidates = cls.get_candidate_models()
         last_error = "No se pudo consultar ningún modelo de Gemini."
 
-        # 1. Intento vía REST directo (Soporta claves AQ. y AIzaSy en generativelanguage y aiplatform)
         for model_name in candidates:
             raw_text = cls._call_gemini_rest(api_key, model_name, rest_payload)
             if raw_text:
@@ -213,50 +211,12 @@ class GeminiVisionExtractor:
                 except Exception as parse_err:
                     last_error = f"Error parseando JSON de {model_name}: {parse_err}"
 
-        # 2. Fallback con SDK google-generativeai si está disponible
-        if genai:
-            try:
-                genai.configure(api_key=api_key)
-                generation_config = {
-                    "response_mime_type": "application/json",
-                    "temperature": 0.0,
-                    "top_p": 0.1
-                }
-                for model_name in candidates:
-                    try:
-                        model = genai.GenerativeModel(
-                            model_name=model_name,
-                            generation_config=generation_config
-                        )
-                        response = model.generate_content([pil_image, GEMINI_PROMPT_SYSTEM])
-                        if not response or not response.text:
-                            continue
-                        raw_text = response.text.strip()
-                        clean_json = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.MULTILINE).strip()
-                        parsed = json.loads(clean_json)
-                        if isinstance(parsed, list):
-                            parsed = parsed[0] if parsed else {}
-                        result = {
-                            "nombre_completo": parsed.get("nombre_completo") or None,
-                            "cedula": parsed.get("cedula") or None,
-                            "institucion_educativa": parsed.get("institucion_educativa") or None,
-                            "mencion_carrera": parsed.get("mencion_carrera") or None,
-                            "fecha_emision": parsed.get("fecha_emision") or None,
-                            "model_used": model_name
-                        }
-                        return True, result, None
-                    except Exception as e:
-                        last_error = str(e)
-                        continue
-            except Exception as cfg_err:
-                last_error = str(cfg_err)
-
         return False, {}, f"Error en API de Gemini: {last_error}"
 
     @classmethod
     def generate_institutional_response(cls, user_message: str, user_info: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         """
-        Genera una respuesta contextual e inteligente sobre trámites académicos y gubernamentales (USM, GTU, SAREN, MPPRE, Blockchain).
+        Genera una respuesta contextual e inteligente sobre trámites académicos y gubernamentales.
         """
         api_key = cls._get_api_key()
         if not api_key:
@@ -311,22 +271,5 @@ Pregunta del usuario: {user_message}"""
             reply = cls._call_gemini_rest(api_key, model_name, rest_payload)
             if reply:
                 return True, reply
-
-        if genai:
-            try:
-                genai.configure(api_key=api_key)
-                for model_name in candidates:
-                    try:
-                        model = genai.GenerativeModel(
-                            model_name=model_name,
-                            generation_config={"temperature": 0.25, "top_p": 0.8}
-                        )
-                        response = model.generate_content(prompt_assistant)
-                        if response and response.text:
-                            return True, response.text.strip()
-                    except Exception:
-                        continue
-            except Exception:
-                pass
 
         return False, ""

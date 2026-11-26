@@ -1,24 +1,37 @@
+from __future__ import annotations
+
 """
 Servicio OCR Especializado y Analizador Semántico (NER) para Títulos y Diplomas Universitarios.
 Soporte universal: Títulos de la Universidad Santa María (USM), Universidades Nacionales y Extranjeras.
 Manejo de fuentes góticas (Old English Text MT / Diploma) y tipografía serif.
 """
 
+import io
 import os
 import re
 import json
+import zlib
 import logging
 from typing import Dict, Any, Optional
 
 try:
     import cv2
-    import numpy as np
-    import pytesseract
-    from PIL import Image
 except Exception:
     cv2 = None
+
+try:
+    import numpy as np
+except Exception:
     np = None
+
+try:
+    import pytesseract
+except Exception:
     pytesseract = None
+
+try:
+    from PIL import Image
+except Exception:
     Image = None
 
 try:
@@ -42,10 +55,11 @@ TESSERACT_PATHS = [
     r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
     r"C:\Users\MAURO\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
 ]
-for p in TESSERACT_PATHS:
-    if os.path.exists(p):
-        pytesseract.pytesseract.tesseract_cmd = p
-        break
+if pytesseract is not None:
+    for p in TESSERACT_PATHS:
+        if os.path.exists(p):
+            pytesseract.pytesseract.tesseract_cmd = p
+            break
 
 
 class AcademicDegreeNER:
@@ -299,7 +313,11 @@ class AcademicDegreeNER:
                 cand = ' '.join(m.group(1).strip().split())
                 cand = re.sub(r'^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana|de\s+la\s+c[eé]dula\s+de)\s+', '', cand, flags=re.IGNORECASE)
                 cand = re.sub(r'\s*(?:titular\s+de\s+la\s+c[eé]dula|titular|c[eé]dula|de\s+la\s+c[eé]dula).*$', '', cand, flags=re.IGNORECASE | re.DOTALL).strip()
-                if 4 <= len(cand) <= 55 and not re.search(r'^(?:de\s+la\s+c[eé]dula|cedula\s+de)$', cand, re.IGNORECASE):
+                if (
+                    4 <= len(cand) <= 55
+                    and not re.search(r'^(?:de\s+la\s+c[eé]dula|cedula\s+de)$', cand, re.IGNORECASE)
+                    and not re.search(r'\b(?:rep[uú]blica|bolivariana|venezuela|universidad|facultad|rector|ministerio|secretar[ií]a)\b', cand, re.IGNORECASE)
+                ):
                     return cand
 
         return None
@@ -522,32 +540,170 @@ class AcademicDegreeNER:
         return None
 
     @classmethod
+    def extract_registro_universitario(cls, text: str) -> Dict[str, Optional[str]]:
+        """Extrae metadatos registrales (libro, tomo, folio, acta) si figuran en el diploma."""
+        tomo_m = re.search(r'\btomo\s*(?:n[°ºo\.]*\s*)?[:#-]?\s*([IVXLCDM0-9A-Za-z\-]{1,12})', text, re.IGNORECASE)
+        folio_m = re.search(r'\bfolio\s*(?:n[°ºo\.]*\s*)?[:#-]?\s*([0-9A-Za-z\-]{1,12})', text, re.IGNORECASE)
+        libro_m = re.search(r'\blibro\s*(?:de\s+[a-záéíóúñ\s]{2,20})?(?:n[°ºo\.]*\s*)?[:#-]?\s*([IVXLCDM0-9A-Za-z\-]{1,16})', text, re.IGNORECASE)
+        acta_m = re.search(r'\bacta\s*(?:de\s+grado\s*)?(?:n[°ºo\.]*\s*)?[:#-]?\s*([0-9A-Za-z\-/]{1,16})', text, re.IGNORECASE)
+        return {
+            "tomo": tomo_m.group(1).strip() if tomo_m else None,
+            "folio": folio_m.group(1).strip() if folio_m else None,
+            "libro": libro_m.group(1).strip() if libro_m else None,
+            "numero_acta": acta_m.group(1).strip() if acta_m else None
+        }
+
+    @classmethod
     def extract_all(cls, text: str) -> Dict[str, Any]:
         """Extrae el conjunto completo de metadatos académicos de forma neutral."""
+        reg = cls.extract_registro_universitario(text)
         return {
             "institucion": cls.extract_institution(text),
             "titular": cls.extract_titular(text),
             "titulo_conferido": cls.extract_degree(text),
             "facultad": cls.extract_faculty(text),
             "fecha_expedicion": cls.extract_date(text),
-            "cedula": cls.extract_cedula(text)
+            "cedula": cls.extract_cedula(text),
+            "tomo": reg["tomo"],
+            "folio": reg["folio"],
+            "libro": reg["libro"],
+            "numero_acta": reg["numero_acta"]
         }
 
 
 class USMOcrService:
     """
     Motor Híbrido de Reconocimiento Óptico de Caracteres y Visión Local.
+    Funciona al 100% sin API key en servidor local y en despliegue serverless (Vercel).
     """
+
+    @classmethod
+    def check_tesseract_available(cls) -> bool:
+        """Verifica si el binario de Tesseract y pytesseract están disponibles."""
+        if pytesseract is None:
+            return False
+        try:
+            pytesseract.get_tesseract_version()
+            return True
+        except Exception:
+            return False
 
     @classmethod
     def check_fraktur_available(cls) -> bool:
         """Verifica si el paquete de idioma 'frk' (Fraktur) está instalado en Tesseract."""
+        if pytesseract is None:
+            return False
         try:
             langs = pytesseract.get_languages(config="")
             return "frk" in langs
         except Exception as e:
-            logger.warning(f"No se pudo consultar idiomas de Tesseract: {e}")
+            logger.debug(f"No se pudo consultar idiomas de Tesseract: {e}")
             return False
+
+    @classmethod
+    def extract_pdf_text_bytes(cls, pdf_bytes: bytes) -> str:
+        """
+        Extrae texto nativo de documentos PDF en memoria sin requerir API key.
+        Orden: PyMuPDF (fitz) -> pypdf (puro Python, compatible con Vercel) -> descompresión zlib de streams.
+        """
+        if not pdf_bytes:
+            return ""
+        extracted = ""
+        # 1. PyMuPDF (fitz) si está instalado
+        try:
+            import fitz
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            try:
+                for page in doc:
+                    extracted += (page.get_text() or "") + "\n"
+            finally:
+                doc.close()
+            if len(extracted.strip()) >= 12:
+                return extracted.strip()
+        except Exception as e_fitz:
+            logger.debug(f"PyMuPDF no disponible o sin texto: {e_fitz}")
+
+        # 2. pypdf (puro Python, ligero y compatible con Vercel Serverless)
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+            for page in reader.pages:
+                extracted += (page.extract_text() or "") + "\n"
+            if len(extracted.strip()) >= 12:
+                return extracted.strip()
+        except Exception as e_pypdf:
+            logger.debug(f"pypdf aviso: {e_pypdf}")
+
+        # 3. Fallback puro Python: descomprimir streams FlateDecode con zlib y leer operadores Tj/TJ
+        try:
+            pieces = []
+            for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+                raw_stream = m.group(1)
+                decompressed = None
+                for wbits in (zlib.MAX_WBITS, -zlib.MAX_WBITS):
+                    try:
+                        decompressed = zlib.decompress(raw_stream, wbits)
+                        break
+                    except Exception:
+                        continue
+                data = decompressed if decompressed is not None else raw_stream
+                try:
+                    txt = data.decode("latin-1", errors="ignore")
+                except Exception:
+                    continue
+                for tj in re.finditer(r'\(([^()\\]*(?:\\.[^()\\]*)*)\)\s*(?:Tj|\'|")', txt):
+                    s = tj.group(1).replace(r'\(', '(').replace(r'\)', ')').replace(r'\\', '\\').strip()
+                    if s:
+                        pieces.append(s)
+                for arr in re.finditer(r'\[(.*?)\]\s*TJ', txt, re.DOTALL):
+                    inner_parts = [p.replace(r'\(', '(').replace(r'\)', ')') for p in re.findall(r'\(([^()\\]*(?:\\.[^()\\]*)*)\)', arr.group(1))]
+                    if inner_parts:
+                        pieces.append("".join(inner_parts))
+            fallback_txt = " ".join(pieces).strip()
+            if len(fallback_txt) > len(extracted.strip()):
+                return fallback_txt
+        except Exception as e_zlib:
+            logger.debug(f"zlib PDF fallback aviso: {e_zlib}")
+
+        return extracted.strip()
+
+    @classmethod
+    def extract_pdf_first_image_bytes(cls, pdf_bytes: bytes) -> Optional[bytes]:
+        """
+        Para PDFs escaneados sin capa de texto: rasteriza página 1 con fitz o extrae la
+        imagen embebida más grande mediante pypdf para procesarla en el navegador con Tesseract.js.
+        """
+        if not pdf_bytes:
+            return None
+        try:
+            import fitz
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            try:
+                if len(doc) > 0:
+                    pix = doc[0].get_pixmap(dpi=240)
+                    return pix.tobytes("png")
+            finally:
+                doc.close()
+        except Exception:
+            pass
+
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+            if len(reader.pages) > 0:
+                images = list(getattr(reader.pages[0], "images", []))
+                if images:
+                    largest = max(images, key=lambda im: len(im.data or b""))
+                    if largest.data:
+                        if Image is not None:
+                            pil_img = Image.open(io.BytesIO(largest.data)).convert("RGB")
+                            out = io.BytesIO()
+                            pil_img.save(out, format="JPEG", quality=88)
+                            return out.getvalue()
+                        return largest.data
+        except Exception as e_img:
+            logger.debug(f"No se pudo extraer imagen embebida del PDF: {e_img}")
+        return None
 
     @classmethod
     def extract_with_tesseract(cls, image_cv: np.ndarray) -> Dict[str, Any]:
@@ -700,35 +856,42 @@ class USMOcrService:
     def format_for_frontend(data_fields: Dict[str, Any], raw_text: str = "", engine_name: str = "ocr_service", user_cedula: Optional[str] = None) -> Dict[str, Any]:
         """
         Adapta el resultado extraído al formato exacto del frontend OCRExtractor.jsx
+        y expone la estructura normalizada del esquema objetivo de tesis.
         """
         titular = data_fields.get("titular") or data_fields.get("nombre_completo")
-        # Si se detectó cédula en el texto se usa; si no, se asocia la cédula del graduando autenticado
-        cedula = data_fields.get("cedula") or user_cedula
-        institucion = data_fields.get("institucion") or None
-        carrera = data_fields.get("titulo_conferido") or data_fields.get("carrera")
-        fecha = data_fields.get("fecha_expedicion") or data_fields.get("fecha")
+        ced_from_doc = data_fields.get("cedula")
+        cedula = ced_from_doc or user_cedula
+        institucion = data_fields.get("institucion") or data_fields.get("institucion_educativa") or None
+        carrera = data_fields.get("titulo_conferido") or data_fields.get("carrera") or data_fields.get("mencion_carrera")
+        fecha = data_fields.get("fecha_expedicion") or data_fields.get("fecha") or data_fields.get("fecha_emision")
         facultad = data_fields.get("facultad")
 
         fields = {
             "nombre_completo": {"value": titular, "confidence": 0.95 if titular else 0.0},
-            "cedula": {"value": cedula, "confidence": 0.98 if cedula else 0.0},
+            "cedula": {"value": cedula, "confidence": 0.98 if ced_from_doc else (0.75 if cedula else 0.0)},
             "institucion": {"value": institucion, "confidence": 0.99 if institucion else 0.0},
             "facultad": {"value": facultad, "confidence": 0.92 if facultad else 0.0},
             "carrera": {"value": carrera, "confidence": 0.95 if carrera else 0.0},
             "fecha": {"value": fecha, "confidence": 0.90 if fecha else 0.0}
         }
 
-        # Calcular confianza general basada en si los datos clave fueron hallados
         found_keys = sum(1 for k in ["nombre_completo", "institucion", "carrera", "fecha"] if fields[k]["value"])
         overall_conf = round(found_keys / 4.0, 2)
-        if overall_conf < 0.5:
-            overall_conf = 0.85 if titular or carrera else 0.50
+        if found_keys == 0:
+            overall_conf = 0.0
 
         return {
             "success": True,
             "fields": fields,
             "data": data_fields,
+            "registro_universitario": {
+                "tomo": data_fields.get("tomo") or "",
+                "folio": data_fields.get("folio") or "",
+                "libro": data_fields.get("libro") or "",
+                "numero_acta": data_fields.get("numero_acta") or ""
+            },
             "overall_confidence": overall_conf,
-            "raw_text_preview": (raw_text[:600] + ("..." if len(raw_text) > 600 else "")) if raw_text else f"Extracción procesada mediante {engine_name}.",
+            "raw_text_preview": (raw_text[:800] + ("..." if len(raw_text) > 800 else "")) if raw_text else f"Extracción procesada mediante {engine_name}.",
+            "full_text": raw_text,
             "engine": engine_name
         }

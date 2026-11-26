@@ -1,15 +1,25 @@
+from __future__ import annotations
+
 """
 Módulo de Visión Computacional Especializado para Títulos Universitarios y Pergaminos.
 Universidad Santa María (USM) - Proyecto de Grado
 """
 
+from typing import Any, Tuple
+
 try:
     import cv2
-    import numpy as np
-    from PIL import Image
 except Exception:
     cv2 = None
+
+try:
+    import numpy as np
+except Exception:
     np = None
+
+try:
+    from PIL import Image
+except Exception:
     Image = None
 
 
@@ -17,14 +27,18 @@ class USMDocumentPreprocessor:
     """
     Pipeline de procesamiento morfológico y geométrico de imágenes con OpenCV.
     Especializado en pergaminos y documentos solemnes con tipografías góticas y serif.
+    Incluye fallback seguro cuando OpenCV no está instalado en entornos serverless.
     """
 
     @staticmethod
-    def deskew(image: np.ndarray) -> np.ndarray:
+    def deskew(image: Any) -> Any:
         """
         Detecta y corrige el ángulo de inclinación del documento escaneado.
         Utiliza el rectángulo delimitador de área mínima sobre contornos de texto binarizado.
         """
+        if cv2 is None or np is None or image is None:
+            return image
+
         if len(image.shape) == 3:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         else:
@@ -65,7 +79,7 @@ class USMDocumentPreprocessor:
         return image
 
     @classmethod
-    def preprocess_for_gothic(cls, image: np.ndarray) -> np.ndarray:
+    def preprocess_for_gothic(cls, image: Any) -> Any:
         """
         Preprocesamiento morfológico adaptativo para fuentes góticas (Old English Text MT / Diploma):
         1. Corrección de ángulo (Deskew).
@@ -74,6 +88,9 @@ class USMDocumentPreprocessor:
         4. Binarización Gaussiana Adaptativa.
         5. Cierre morfológico leve para unir trazos quebrados.
         """
+        if cv2 is None or np is None or image is None:
+            return image
+
         # 1. Corrección angular
         corrected = cls.deskew(image)
 
@@ -107,12 +124,15 @@ class USMDocumentPreprocessor:
         return clean_image
 
     @classmethod
-    def segment_zones(cls, image: np.ndarray):
+    def segment_zones(cls, image: Any) -> Tuple[Any, Any]:
         """
         Segmentación espacial por áreas tipográficas en pergaminos universitarios:
         - Zona 1 (Encabezado gótico): 38% superior (República, USM, Nombre del Título).
         - Zona 2 (Cuerpo del texto serif): 62% inferior (Graduando, C.I., Autoridades, Registro).
         """
+        if image is None or not hasattr(image, "shape"):
+            return image, image
+
         h, w = image.shape[:2]
         header_cutoff = int(h * 0.38)
 
@@ -120,4 +140,3 @@ class USMDocumentPreprocessor:
         body_roi = image[header_cutoff:h, 0:w]
 
         return header_roi, body_roi
-

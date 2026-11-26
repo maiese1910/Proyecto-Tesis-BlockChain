@@ -262,34 +262,46 @@ const GovernmentPanel = ({ adminData }) => {
 
 
 
-      // Combinar registros asegurando unicidad por hash
+      // Combinar registros asegurando unicidad por hash y priorizando el estatus más avanzado
+      const statusWeight = (st) => {
+        const s = String(st || '').toUpperCase();
+        if (s.includes('APOSTILL')) return 50;
+        if (s.includes('CERTIFICAD')) return 40;
+        if (s.includes('VERIFICAD')) return 30;
+        if (s.includes('COTEJO')) return 20;
+        if (s.includes('RECHAZ')) return 15;
+        return 10;
+      };
 
       const map = new Map();
 
       apiRecs.forEach(r => {
-
-        if (r && r.hash) map.set(r.hash, r);
-
+        if (r && r.hash) map.set(r.hash.toUpperCase(), r);
       });
 
       localRecs.forEach(r => {
-
         if (r && r.hash) {
-
-          if (!map.has(r.hash)) {
-
-            map.set(r.hash, r);
-
+          const key = r.hash.toUpperCase();
+          if (!map.has(key)) {
+            map.set(key, r);
           } else {
-
-            const existing = map.get(r.hash);
-
-            map.set(r.hash, { ...existing, ...r });
-
+            const existing = map.get(key);
+            const useLocalStatus = statusWeight(r.status) > statusWeight(existing.status);
+            map.set(key, {
+              ...r,
+              ...existing,
+              status: useLocalStatus ? r.status : existing.status,
+              mppeuVerified: Boolean(existing.mppeuVerified || r.mppeuVerified),
+              mppreVerified: Boolean(existing.mppreVerified || r.mppreVerified),
+              apostilleNumber: existing.apostilleNumber || r.apostilleNumber,
+              documentUrl: existing.documentUrl || existing.document_url || r.documentUrl || r.document_url || r.fileUrl,
+              document_url: existing.document_url || existing.documentUrl || r.document_url || r.documentUrl || r.fileUrl,
+              sede_taquilla: existing.sede_taquilla || existing.sedeTaquilla || r.sede_taquilla || r.sedeTaquilla,
+              estado: existing.estado || r.estado,
+              municipio: existing.municipio || r.municipio
+            });
           }
-
         }
-
       });
 
 
@@ -4066,8 +4078,6 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                 whileHover={{ y: -3 }}
 
                 style={{
-
-                  background: '#ffffff',
 
                   border: isSelected ? '1.5px solid var(--color-sienna-brown)' : '1px solid var(--border)',
 

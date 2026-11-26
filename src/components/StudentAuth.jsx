@@ -430,8 +430,10 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
     try {
       // Verificar OTP de recuperación
       await authPasswordless.verifyRecoveryCode(cleanEmail, cleanCode);
-      // Actualizar a la nueva contraseña en Backend, LocalStorage y Supabase
-      const res = await authPasswordless.updatePassword(newPassword, cleanEmail);
+      // Actualizar a la nueva contraseña en Backend, LocalStorage y Supabase (validando cédula)
+      const rawCed = forgotCedulaNum.replace(/\D/g, '');
+      const fullCedula = rawCed ? `${forgotCedulaTipo}-${formatCedulaInput(rawCed)}` : '';
+      const res = await authPasswordless.updatePassword(newPassword, cleanEmail, fullCedula);
       setSuccessMsg('¡Contraseña actualizada con éxito! Ingresando a tu expediente...');
 
       let profile = res?.profile || await authPasswordless.findRegisteredProfile(cleanEmail);

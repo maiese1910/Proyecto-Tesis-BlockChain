@@ -18,8 +18,20 @@ async function apiFetch(path, options = {}) {
   const { method = 'GET', body, token, ...rest } = options;
 
   const headers = { 'Content-Type': 'application/json', ...rest.headers };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  let resolvedToken = token;
+  if (!resolvedToken && typeof window !== 'undefined') {
+    try {
+      const isAdminPath = path.includes('/admin') || path.includes('/mppeu-certify') || path.includes('/mppre-apostille') || path.endsWith('/verify') || path.endsWith('/reject') || path.includes('/contract-address');
+      if (isAdminPath) {
+        const storedAdmin = JSON.parse(localStorage.getItem('admin_data') || 'null');
+        if (storedAdmin?.token) resolvedToken = storedAdmin.token;
+      } else {
+        resolvedToken = sessionStorage.getItem('usm_student_token') || localStorage.getItem('usm_student_token') || null;
+      }
+    } catch (_) {}
+  }
+  if (resolvedToken) {
+    headers['Authorization'] = `Bearer ${resolvedToken}`;
   }
 
   const config = { method, headers, ...rest };
@@ -72,19 +84,22 @@ export const authAPI = {
     apiFetch('/admin/users', { method: 'POST', body: data, token }),
 
   loginStudent: (email, password) =>
-    apiFetch('/student/login', { method: 'POST', body: { email, password } }),
+    apiFetch('/api/student/login', { method: 'POST', body: { email, password } }),
 
   registerStudent: (data) =>
-    apiFetch('/student/register', { method: 'POST', body: data }),
+    apiFetch('/api/student/register', { method: 'POST', body: data }),
+
+  checkEmail: (email) =>
+    apiFetch('/api/student/check-email', { method: 'POST', body: { email } }),
 
   verifyStudentIdentity: (email, cedula) =>
-    apiFetch('/student/verify-identity', { method: 'POST', body: { email, cedula } }),
+    apiFetch('/api/student/verify-identity', { method: 'POST', body: { email, cedula } }),
 
-  resetStudentPassword: (email, newPassword) =>
-    apiFetch('/student/reset-password', { method: 'POST', body: { email, new_password: newPassword } }),
+  resetStudentPassword: (email, newPassword, cedula = '') =>
+    apiFetch('/api/student/reset-password', { method: 'POST', body: { email, new_password: newPassword, cedula } }),
 
   updateStudentProfile: (data) =>
-    apiFetch('/student/update-profile', { method: 'POST', body: data }),
+    apiFetch('/api/student/update-profile', { method: 'POST', body: data }),
 };
 
 // ─── Perfiles ───────────────────────────────────────────────────────────────

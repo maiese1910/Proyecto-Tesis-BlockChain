@@ -1,0 +1,35 @@
+# Entornos locales y dependencias pesadas no requeridas en Vercel
+venv/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.git/
+.env
+.env.local
+.env.production
+
+# Artefactos pesados que inflan el límite Lambda de 250 MB (tesseract no existe en Vercel)
+api/tessdata/
+api/uploads/
+CAPITULO/
+test-screenshots/
+next-architecture/
+blockchain/
+supabase/
+.agents/
+
+# Scripts de pruebas locales y documentación pesada
+test_*.py
+test_*.mjs
+validate_browser.mjs
+check_errors.mjs
+screenshot.mjs
+deploy.py
+run_system.py
+create_admin.py
+DOCUMENTACION.md
+SISTEMA_USM_APOSTILLABOT.md
+*.log
+*.tmp
+

@@ -208,11 +208,11 @@ export const safeString = (v) => {
   };
 
   const PROCESS_STEPS = [
-    { label: "Cargando y optimizando imagen", icon: Upload },
+    { label: "Cargando y optimizando documento", icon: Upload },
     { label: "Calibración de nitidez y contraste", icon: Zap },
-    { label: "Segmentación visual del título", icon: Scan },
-    { label: "Inferencia Multimodal IA (Gemini Vision)", icon: Brain },
-    { label: "Estructuración semántica forense", icon: FileText },
+    { label: "Lectura óptica OCR (WASM / PDF sin API Key)", icon: Scan },
+    { label: "Análisis semántico y Fuzzy Matching (NER)", icon: Brain },
+    { label: "Estructuración y verificación de campos", icon: FileText },
   ];
 
   const ProcessStep = ({ step, active, done }) => {
@@ -405,8 +405,8 @@ export const safeString = (v) => {
     const patInvertido = text.match(/(?:t[ií1]tulo|grado)\s+(?:de|be)\s+[^A-Z\n]*[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?\s+(?:a|al|a\s+la)\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s*,?\s*(?:titular|c[eé]dula|por\s+haber|cumplido|$))/i);
     // Patrón 3: Rectoral: "hago saber: que: [TITULAR]"
     const patRectoral = text.match(/(?:hago\s+saber\s*:\s*(?:que\s*:\s*)?|rector\(?a?\)?\s*\n*)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|cumpli[oó]|por\s+lo\s+cual))/i);
-    // Patrón 4: Concesión directa: "confiere a [TITULAR] el título"
-    const patConcesion = text.match(/(?:confiere|otorga|certifica)\s+(?:a|al|a\s+la)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:el\s*t[ií1]tulo|el\s*grado|para\s*optar|ha\s*cumplido|c[eé]dula|$))/i);
+    // Patrón 4: Concesión directa: "confiere a [TITULAR] titular / el título"
+    const patConcesion = text.match(/(?:confiere|contiere|otorga|certifica)\s+(?:a|al|a\s+la)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular|el\s*t[ií1]tulo|el\s*grado|para\s*optar|ha\s*cumplido|c[eé]dula|$))/i);
     // Patrón 5: Cumplimiento: "Por cuanto [TITULAR] ha cumplido..."
     const patCumplimiento = text.match(/por\s+cuanto\s*[:#-]?\s*\n*(?:el\s+ciudadano|la\s+ciudadana)?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s+ha\s+cumplido|\s+en\s+nombre)/i);
 
@@ -416,10 +416,14 @@ export const safeString = (v) => {
     else if (patRectoral) titular = patRectoral[1].trim().replace(/\s+/g, " ");
     else if (patCumplimiento) titular = patCumplimiento[1].trim().replace(/\s+/g, " ");
 
+    const HEADER_NOISE_RE = /\b(?:universidad|facultad|escuela|rep[uú]blica|bolivariana|venezuela|ministerio|secretar[ií]a|secretario|rector|decano|consejo|diploma|derecho|ciencias|pol[ií]ticas|medicina|sistemas|ingenier[ií]a|ingenier[oa]|licenciad[oa]|abogad[oa]|arquitect[oa]|arquitectura|hacen|constar|por\s+cuanto|confiere|dado|cumplido|requisitos|caracas|panam[aá]|registrado|libro|tomo|folio|t[ií]tulo|c[eé]dula)\b/i;
+
     if (titular) {
       titular = titular.replace(/^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana|de\s+la\s+c[eé]dula\s+de)\s+/i, "");
-      titular = titular.replace(/\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|de\s+la\s+c[eé]dula).*$/i, "");
-      if (titular.length < 4 || titular.length > 55 || /^(?:de\s+la\s+c[eé]dula|cedula\s+de)$/i.test(titular)) titular = null;
+      titular = titular.replace(/\s*(?:titular\s+de\s+la\s+c[eé]dula|titular|c[eé]dula|de\s+la\s+c[eé]dula).*$/i, "").trim();
+      if (titular.length < 4 || titular.length > 55 || HEADER_NOISE_RE.test(titular) || /^(?:de\s+la\s+c[eé]dula|cedula\s+de)$/i.test(titular)) {
+        titular = null;
+      }
     }
 
     // Escaneo forense por líneas: acepta tanto MAYÚSCULAS SOSTENIDAS como TitleCase
@@ -427,7 +431,7 @@ export const safeString = (v) => {
       const lineas = text.split("\n").map(l => l.trim()).filter(Boolean);
       for (const l of lineas) {
         if (/^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}){1,4}$/.test(l)) {
-          if (!/Universidad|Facultad|Escuela|República|Secretaría|Secretario|Rector|Decano|Consejo|Diploma|Derecho|Ciencias|Políticas|Medicina|Sistemas|Ingeniería|Hacen|Constar|Por\s+cuanto|Confiere|Dado|Cumplido|Requisitos|Caracas|Panamá/i.test(l)) {
+          if (!HEADER_NOISE_RE.test(l)) {
             titular = l;
             break;
           }
@@ -458,6 +462,18 @@ export const safeString = (v) => {
         carrera = "Médico Cirujano";
       } else if (/Ingenier[ií][oa]\s+(?:en|de)?\s+Sistemas/i.test(text) || /Sistemas/i.test(text)) {
         carrera = "Ingeniero en Sistemas";
+      } else if (/Ingenier[ií][oa]\s+Mec[aá]nic[oa]/i.test(text)) {
+        carrera = "Ingeniero Mecánico";
+      } else if (/Ingenier[ií][oa]\s+Civil/i.test(text)) {
+        carrera = "Ingeniero Civil";
+      } else if (/Ingenier[ií][oa]\s+Industrial/i.test(text)) {
+        carrera = "Ingeniero Industrial";
+      } else if (/Ingenier[ií][oa]\s+El[eé]ctric(?:o|a|ista)/i.test(text)) {
+        carrera = "Ingeniero Electricista";
+      } else if (/Ingenier[ií][oa]\s+Electr[oó]nic[oa]/i.test(text)) {
+        carrera = "Ingeniero Electrónico";
+      } else if (/Ingenier[ií][oa]\s+Qu[ií]mic[oa]/i.test(text)) {
+        carrera = "Ingeniero Químico";
       } else if (/\babogad[oa]\b/i.test(text)) {
         carrera = "Abogado";
       } else if (/Administraci[oó]n/i.test(text)) {
@@ -1267,6 +1283,7 @@ export const safeString = (v) => {
     const [optimizationStats, setOptimizationStats] = useState(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [forensicReport, setForensicReport] = useState(null);
+    const [ocrProgressText, setOcrProgressText] = useState("");
     const fileInputRef = useRef(null);
 
     const analyzeDocumentForensics = useCallback((dataUrl, isPdf = false) => {
@@ -1355,12 +1372,7 @@ export const safeString = (v) => {
 
     const getGeminiApiKey = () => {
       const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (envKey && envKey.trim().length > 10) return envKey.trim();
-      try {
-        return atob("QVEuQWI4Uk42TEx0NXdGRWdBbW0wdmZZaXhFSi1nWDUtOUZ0M3ZLZmZkTmpNcmtJU19xV0E=");
-      } catch (_) {
-        return "";
-      }
+      return (envKey && envKey.trim().length > 10) ? envKey.trim() : "";
     };
 
     const extractGeminiDirectClient = async (base64Img) => {
@@ -1502,20 +1514,6 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           });
           setImagePreview(opt.dataUrl);
           setImageBase64(opt.base64);
-
-          // Subida inmediata a Supabase Storage (Bóveda en la nube)
-          try {
-            uploadDocumentToStorage(opt, {
-              docHash: `PRELIM_${Date.now()}`,
-              ownerName: user?.nombre || 'Graduando',
-              cedula: user?.cedula || 'V-00.000.000',
-              filename: file.name
-            }).then((upRes) => {
-              if (upRes?.url) {
-                console.info("Documento custodiado en Supabase Storage:", upRes.url);
-              }
-            }).catch(() => {});
-          } catch (_) {}
         }
       } catch (optErr) {
         console.warn("Optimización opcional omitida, usando documento estándar:", optErr);
@@ -1650,177 +1648,253 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
     });
   };
 
+  const runBrowserTesseract = async (imageSource, passLabel = "OCR") => {
+    const { createWorker } = await import('tesseract.js');
+    const worker = await createWorker('spa', 1, {
+      logger: (m) => {
+        if (m && typeof m.progress === 'number') {
+          const pct = Math.round(m.progress * 100);
+          if (m.status === 'loading tesseract core' || m.status === 'loading language traineddata') {
+            setOcrProgressText(`Cargando motor OCR en el navegador (${pct}%)...`);
+          } else if (m.status === 'recognizing text') {
+            setOcrProgressText(`${passLabel}: reconociendo texto del diploma (${pct}%)...`);
+          }
+        }
+      }
+    });
+    try {
+      const ret = await worker.recognize(imageSource);
+      return (ret?.data?.text || "").trim();
+    } finally {
+      await worker.terminate();
+    }
+  };
+
   const handleProcess = async () => {
       if (!imagePreview) return;
       setProcessing(true); setResult(null); setError(null); setGtuRegistered(null);
+      setOcrProgressText("Preparando documento...");
       try {
         setCurrentStep(0);
-        // 1. Optimización rápida de imagen (<40ms) en canvas para transmisión instantánea (de 8MB a ~250KB)
+        // 1. Optimización rápida de imagen (<40ms) en canvas para transmisión/OCR instantáneo
         const optimizedBase64 = await getOptimizedImageBase64(imagePreview);
         const targetB64 = optimizedBase64 || imageBase64;
+        const isPdf = (targetB64 && targetB64.startsWith("JVBERi0")) || (imagePreview && imagePreview.startsWith("data:application/pdf"));
 
         setCurrentStep(1);
-        await new Promise(r => setTimeout(r, 80));
+        await new Promise(r => setTimeout(r, 60));
 
-        setCurrentStep(2);
-        await new Promise(r => setTimeout(r, 80));
-
-        setCurrentStep(3);
-        let geminiSucceeded = false;
-        let recognizedText = "";
-
-        const applyExtractionResults = (gData, engineName) => {
+        const applyExtractionResults = (gData, engineName, rawPreviewText = "") => {
           const safeData = (gData && typeof gData === 'object') ? gData : {};
-          let titular = safeString(safeData.nombre_completo || safeData.nombre || safeData.titular || safeData.graduando);
-          if (!titular && recognizedText) {
-            const loc = parseDegreeAcademic(recognizedText, user?.cedula, user?.nombre);
-            if (loc?.nombre_completo?.value) titular = safeString(loc.nombre_completo.value);
-          }
-          const ced = safeString(safeData.cedula || user?.cedula);
-          const rawInst = safeString(safeData.institucion_educativa || safeData.institucion || user?.institucion || "");
+          const rawTitular = safeString(safeData.nombre_completo || safeData.nombre || safeData.titular || safeData.graduando);
+          const titular = rawTitular || safeString(user?.nombre);
+          const rawCed = safeString(safeData.cedula);
+          const ced = rawCed || safeString(user?.cedula);
+          const rawInst = safeString(safeData.institucion_educativa || safeData.institucion || "");
           const inst = matchOfficialUniversity(rawInst) || rawInst;
-          const rawCarrera = safeString(safeData.mencion_carrera || safeData.carrera || user?.carrera || user?.mencion || "");
+          const rawCarrera = safeString(safeData.mencion_carrera || safeData.carrera || safeData.titulo_conferido || "");
           const carrera = matchOfficialCareer(rawCarrera) || rawCarrera;
           const fecha = safeString(normalizeDateText(safeData.fecha_expedicion || safeData.fecha_emision || safeData.fecha) || "");
-          const fac = safeString(safeData.facultad || user?.facultad || "");
+          const fac = safeString(safeData.facultad || "");
+
+          const detectedCore = [rawTitular, inst, carrera, fecha].filter(Boolean).length;
+          const computedConf = detectedCore > 0 ? Math.min(0.99, Math.max(0.55, Number((detectedCore / 4).toFixed(2)))) : 0.35;
 
           setCurrentStep(4);
           setResult({
             success: true,
             engine: engineName,
-            overall_confidence: 0.99,
+            overall_confidence: computedConf,
             fields: {
-              nombre_completo: { value: titular, confidence: titular ? 0.99 : 0.85 },
-              cedula: { value: ced, confidence: 0.99 },
-              institucion: { value: inst, confidence: 0.99 },
-              facultad: { value: fac, confidence: 0.95 },
-              carrera: { value: carrera, confidence: 0.99 },
-              fecha: { value: fecha, confidence: 0.98 }
+              nombre_completo: { value: titular || null, confidence: rawTitular ? 0.96 : (titular ? 0.65 : 0.0) },
+              cedula: { value: ced || null, confidence: rawCed ? 0.98 : (ced ? 0.75 : 0.0) },
+              institucion: { value: inst || null, confidence: inst ? 0.98 : 0.0 },
+              facultad: { value: fac || null, confidence: fac ? 0.92 : 0.0 },
+              carrera: { value: carrera || null, confidence: carrera ? 0.96 : 0.0 },
+              fecha: { value: fecha || null, confidence: fecha ? 0.94 : 0.0 }
             },
-            raw_text_preview: `Extracción completada con éxito mediante ${engineName}.\nInstitución: ${inst}\nTitular: ${titular}\nCédula: ${ced}\nCarrera: ${carrera}\nFecha: ${fecha}`
+            raw_text_preview: rawPreviewText || `Extracción completada mediante ${engineName}.\nInstitución: ${inst || 'Por verificar'}\nTitular: ${titular || 'Por verificar'}\nCédula: ${ced || 'Por verificar'}\nCarrera: ${carrera || 'Por verificar'}\nFecha: ${fecha || 'Por verificar'}`
           });
           setShowValidationModal(true);
         };
 
-        // PRIORIDAD 1: Inferencia directa cliente con Google Gemini Multimodal (~1.2s - 1.5s)
-        try {
-          const directRes = await extractGeminiDirectClient(targetB64);
-          if (directRes && directRes.success && directRes.data) {
-            applyExtractionResults(directRes.data, directRes.engine);
-            geminiSucceeded = true;
-          }
-        } catch (directErr) {
-          console.info("Llamada directa cliente Gemini no disponible:", directErr.message);
-        }
-
-        // PRIORIDAD 2: Inferencia vía backend Flask (/api/ocr/gemini)
-        if (!geminiSucceeded) {
+        // RUTA OPCIONAL 1: Si existe VITE_GEMINI_API_KEY explícita en el entorno
+        let geminiSucceeded = false;
+        if (getGeminiApiKey()) {
+          setCurrentStep(2);
+          setOcrProgressText("Consultando Gemini Vision (API configurada)...");
           try {
-            const geminiRes = await ocrAPI.extractGemini(targetB64);
-            if (geminiRes && geminiRes.success && geminiRes.data) {
-              applyExtractionResults(geminiRes.data, geminiRes.engine || "Google Gemini Vision API");
+            const directRes = await extractGeminiDirectClient(targetB64);
+            if (directRes && directRes.success && directRes.data) {
+              applyExtractionResults(directRes.data, directRes.engine);
               geminiSucceeded = true;
             }
-          } catch (backendGeminiErr) {
-            console.info("Backend Flask Gemini no disponible:", backendGeminiErr.message);
+          } catch (directErr) {
+            console.info("Llamada directa Gemini omitida, continuando con motor público sin API key:", directErr.message);
           }
         }
 
-        // CONTINGENCIA OFFLINE: Solo si no hay conexión a internet o fallaron ambos Gemini
+        // RUTA PRINCIPAL PÚBLICA SIN API KEY (100% funcional en URL pública / Vercel)
         if (!geminiSucceeded) {
+          setCurrentStep(2);
           let recognizedText = "";
-          const isPdf = (targetB64 && targetB64.startsWith("JVBERi0")) || (imagePreview && imagePreview.startsWith("data:application/pdf"));
-
-          if (isPdf) {
-            try {
-              recognizedText = extractTextFromPdfBase64(targetB64);
-            } catch (e) {
-              console.warn("Extracción PDF texto en cliente:", e);
-            }
-          }
-
-          if (!recognizedText && !isPdf) {
-            try {
-              const processedImage = await preprocessImageCanvas(imagePreview);
-              const { createWorker } = await import('tesseract.js');
-              const worker = await createWorker('spa');
-              const ret = await worker.recognize(processedImage);
-              recognizedText = ret.data.text || "";
-              await worker.terminate();
-            } catch (tessErr) {
-              console.warn("Client OCR fallback:", tessErr);
-            }
-          }
-
           let backendDocFields = null;
           let backendFullText = "";
           let backendEngine = "";
-          try {
-            const docRes = await ocrAPI.extractDocument(targetB64, recognizedText || null, user?.cedula || null);
-            if (docRes) {
-              if (docRes.fields) backendDocFields = docRes.fields;
-              if (docRes.full_text) backendFullText = docRes.full_text;
-              else if (docRes.raw_text_preview) backendFullText = docRes.raw_text_preview;
-              if (docRes.engine) backendEngine = docRes.engine;
+
+          if (isPdf) {
+            // Para PDFs: 1) Extraer texto nativo (pypdf/PyMuPDF/zlib) o imagen embebida en servidor Flask
+            setOcrProgressText("Extrayendo texto estructurado del documento PDF...");
+            let extractedPdfImgB64 = null;
+            try {
+              const pdfServerRes = await ocrAPI.extractDocument(targetB64, null, user?.cedula || null);
+              if (pdfServerRes) {
+                if (pdfServerRes.fields) backendDocFields = pdfServerRes.fields;
+                if (pdfServerRes.full_text) backendFullText = pdfServerRes.full_text;
+                else if (pdfServerRes.raw_text_preview) backendFullText = pdfServerRes.raw_text_preview;
+                if (pdfServerRes.engine) backendEngine = pdfServerRes.engine;
+                if (pdfServerRes.extracted_image_base64) extractedPdfImgB64 = pdfServerRes.extracted_image_base64;
+              }
+            } catch (pdfSrvErr) {
+              console.info("Extracción PDF en servidor no disponible, usando parser local:", pdfSrvErr.message);
             }
-          } catch (bErr) {
-            console.warn("Aviso backend extractDocument:", bErr);
+
+            if (backendFullText && backendFullText.length >= 20) {
+              recognizedText = backendFullText;
+            } else if (extractedPdfImgB64) {
+              // PDF escaneado (sin capa de texto): aplicar Tesseract.js WASM sobre la imagen extraída
+              try {
+                const imgDataUrl = extractedPdfImgB64.startsWith("data:")
+                  ? extractedPdfImgB64
+                  : `data:image/jpeg;base64,${extractedPdfImgB64}`;
+                const processedPdfImg = await preprocessImageCanvas(imgDataUrl);
+                recognizedText = await runBrowserTesseract(processedPdfImg, "OCR sobre PDF escaneado");
+                backendEngine = "PDF Escaneado + Tesseract.js WASM + AcademicDegreeNER";
+              } catch (pdfOcrErr) {
+                console.warn("OCR cliente sobre imagen PDF falló:", pdfOcrErr);
+              }
+            } else {
+              // Contingencia 100% offline para PDFs sin servidor
+              try {
+                recognizedText = extractTextFromPdfBase64(targetB64);
+              } catch (e) {
+                console.warn("Extracción PDF texto en cliente:", e);
+              }
+            }
+          } else {
+            // Para Imágenes (JPG/PNG/WEBP): OCR real en el navegador con Tesseract.js WASM (sin API key)
+            try {
+              const processedImage = await preprocessImageCanvas(imagePreview);
+              recognizedText = await runBrowserTesseract(processedImage, "Pase 1 (Alto Contraste)");
+
+              // Verificar si la binarización perdió encabezado/texto clave; si faltan campos, hacer pase 2 sobre imagen original
+              const prelimFields = parseDegreeAcademic(recognizedText, null, null);
+              const prelimHits = ["institucion", "nombre_completo", "carrera", "fecha"].filter(k => prelimFields[k]?.value).length;
+              if (prelimHits < 2) {
+                const secondPassSource = targetB64 ? `data:image/jpeg;base64,${targetB64}` : imagePreview;
+                const secondPassText = await runBrowserTesseract(secondPassSource, "Pase 2 (Escala Original)");
+                if (secondPassText) {
+                  recognizedText = `${recognizedText}\n${secondPassText}`.trim();
+                }
+              }
+            } catch (tessErr) {
+              console.warn("Client OCR WASM aviso:", tessErr);
+            }
           }
 
-          if (backendFullText && (!recognizedText || recognizedText.length < 20)) {
-            recognizedText = backendFullText;
+          // Paso 3: Enviar texto reconocido al backend Flask para refinamiento NER + Fuzzy Matching oficial
+          setCurrentStep(3);
+          setOcrProgressText("Ejecutando análisis semántico NER y normalización de catálogos...");
+          if (!backendDocFields || (recognizedText && recognizedText.length > (backendFullText || "").length)) {
+            try {
+              const docRes = await ocrAPI.extractDocument(
+                isPdf ? null : targetB64,
+                recognizedText || null,
+                user?.cedula || null
+              );
+              if (docRes && docRes.success) {
+                if (docRes.fields) backendDocFields = docRes.fields;
+                if (docRes.full_text && docRes.full_text.length > recognizedText.length) {
+                  recognizedText = docRes.full_text;
+                }
+                if (docRes.engine) backendEngine = docRes.engine;
+              }
+            } catch (bErr) {
+              console.info("Backend NER no disponible, usando parser académico local:", bErr.message);
+            }
           }
 
-          let localFields = parseDegreeAcademic(recognizedText, user?.cedula, user?.nombre);
+          // Combinar resultados NER cliente + NER backend (sin inventar datos del perfil todavía para medir precisión real)
+          const localFields = parseDegreeAcademic(recognizedText, null, null);
           if (backendDocFields) {
             Object.keys(localFields).forEach(k => {
-              if (backendDocFields[k]?.value && (!localFields[k]?.value || localFields[k]?.confidence < 0.75)) {
-                localFields[k] = backendDocFields[k];
+              const bField = backendDocFields[k];
+              if (bField?.value && (!localFields[k]?.value || (localFields[k]?.confidence || 0) < (bField.confidence || 0.75))) {
+                const val = k === "institucion"
+                  ? (matchOfficialUniversity(safeString(bField.value)) || safeString(bField.value))
+                  : k === "carrera"
+                    ? (matchOfficialCareer(safeString(bField.value)) || safeString(bField.value))
+                    : safeString(bField.value);
+                localFields[k] = { value: val, confidence: bField.confidence || 0.92 };
               }
             });
           }
 
-          // Completar campos solo a partir del perfil real del usuario si no fueron detectados por OCR
-          if (!localFields.institucion?.value && user?.institucion) {
-            localFields.institucion = {
-              value: user.institucion,
-              confidence: 0.88
-            };
-          }
-          if (!localFields.facultad?.value && user?.facultad) {
-            localFields.facultad = {
-              value: user.facultad,
-              confidence: 0.85
-            };
-          }
-          if (!localFields.carrera?.value && (user?.carrera || user?.mencion)) {
-            localFields.carrera = {
-              value: user.carrera || user.mencion,
-              confidence: 0.88
-            };
-          }
-          if (!localFields.fecha?.value) {
-            localFields.fecha = {
-              value: null,
-              confidence: 0
-            };
+          // Si el servidor tiene GEMINI_API_KEY configurada y el OCR local extrajo menos de 3 campos clave, intentar mejora rápida en servidor
+          const extractedCount = ["institucion", "nombre_completo", "carrera", "fecha"].filter(k => localFields[k]?.value).length;
+          if (extractedCount < 3) {
+            try {
+              const geminiRes = await ocrAPI.extractGemini(targetB64);
+              if (geminiRes && geminiRes.success && geminiRes.data) {
+                applyExtractionResults(geminiRes.data, geminiRes.engine || "Google Gemini Vision API", recognizedText);
+                geminiSucceeded = true;
+              }
+            } catch (_) {
+              // Normal en despliegues públicos sin GEMINI_API_KEY
+            }
           }
 
-          setCurrentStep(4);
-          setResult({
-            success: true,
-            engine: isPdf ? "PyMuPDF / Parser PDF Académico" : "Motor Híbrido Local",
-            fields: localFields,
-            overall_confidence: 0.92,
-            raw_text_preview: recognizedText || "Extracción offline completada con asistencia semántica de perfil."
-          });
-          setShowValidationModal(true);
+          if (!geminiSucceeded) {
+            const docDetectedCount = ["institucion", "nombre_completo", "carrera", "fecha"].filter(k => localFields[k]?.value).length;
+            // Si la cédula no aparece impresa en el diploma, asociar la cédula inmutable de la sesión del egresado
+            if (!localFields.cedula?.value && user?.cedula) {
+              localFields.cedula = { value: user.cedula, confidence: 0.75 };
+            }
+            // Pre-sugerir nombre del perfil solo con confianza moderada si el OCR no pudo leerlo (el modal exige validación)
+            if (!localFields.nombre_completo?.value && user?.nombre) {
+              localFields.nombre_completo = { value: user.nombre, confidence: 0.60 };
+            }
+            if (!localFields.fecha?.value) {
+              localFields.fecha = { value: null, confidence: 0 };
+            }
+
+            const honestConfidence = docDetectedCount > 0
+              ? Number((docDetectedCount / 4).toFixed(2))
+              : 0.25;
+
+            const finalEngine = backendEngine || (isPdf
+              ? "Parser PDF Académico + NER (Sin API Key)"
+              : "Tesseract.js WASM + AcademicDegreeNER (Sin API Key)");
+
+            setCurrentStep(4);
+            setResult({
+              success: true,
+              engine: finalEngine,
+              fields: localFields,
+              overall_confidence: honestConfidence,
+              raw_text_preview: recognizedText
+                ? recognizedText.slice(0, 800)
+                : "No se detectó texto legible suficiente en la imagen. Revisa la iluminación o confirma los campos manualmente en el modal."
+            });
+            setShowValidationModal(true);
+          }
         }
       } catch (err) {
         setError(err.message || "Error al procesar el documento.");
       } finally {
         setProcessing(false);
         setCurrentStep(-1);
+        setOcrProgressText("");
       }
     };
 
@@ -2294,9 +2368,14 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {processing ? (
               <div className="glass-panel" style={{ padding: "1.5rem" }}>
-                <h3 style={{ margin: "0 0 1.5rem 0", display: "flex", alignItems: "center", gap: "0.6rem", color: "var(--color-ink-black)", fontFamily: "var(--font-serif)", fontWeight: 400 }}>
+                <h3 style={{ margin: "0 0 1rem 0", display: "flex", alignItems: "center", gap: "0.6rem", color: "var(--color-ink-black)", fontFamily: "var(--font-serif)", fontWeight: 400 }}>
                   <Brain size={20} color="var(--color-sienna-brown)" className="animate-spin" /> Procesando documento...
                 </h3>
+                {ocrProgressText && (
+                  <p style={{ margin: "0 0 1rem 0", fontSize: "0.82rem", color: "var(--color-sienna-brown)", fontWeight: 600 }}>
+                    {ocrProgressText}
+                  </p>
+                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                   {[0, 1, 2, 3, 4].map(i => <ProcessStep key={i} step={i} active={currentStep === i} done={currentStep > i} />)}
                 </div>

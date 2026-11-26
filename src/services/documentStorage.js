@@ -156,7 +156,7 @@ export async function optimizeDocument(fileOrDataUrl, options = {}) {
     if (!pdfDataUrl && (fileOrDataUrl instanceof Blob || fileOrDataUrl instanceof File)) {
       pdfDataUrl = await new Promise((res) => {
         const r = new FileReader();
-        r.onload = () => res(r.target.result);
+        r.onload = (ev) => res(ev?.target?.result || r.result || '');
         r.onerror = () => res('');
         r.readAsDataURL(fileOrDataUrl);
       });
@@ -293,8 +293,8 @@ export async function optimizeDocument(fileOrDataUrl, options = {}) {
     // Si aún no teníamos srcUrl (por ejemplo, navegadores sin createObjectURL)
     if (!srcUrl && (fileOrDataUrl instanceof Blob || fileOrDataUrl instanceof File)) {
       const r = new FileReader();
-      r.onload = () => {
-        srcUrl = r.target.result;
+      r.onload = (ev) => {
+        srcUrl = ev?.target?.result || r.result || '';
         img.src = srcUrl;
       };
       r.onerror = () => {

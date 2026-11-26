@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Servidor Backend en Flask - USM-ApostillaBot
 Plataforma Descentralizada con IA para la Digitalización, Validación y Apostilla de Títulos Universitarios
@@ -5,27 +7,37 @@ Universidad Santa María (USM) - MPPEU - MPPRE
 """
 
 import os
+import sys
+
+_api_dir = os.path.dirname(os.path.abspath(__file__))
+if _api_dir not in sys.path:
+    sys.path.insert(0, _api_dir)
+
 import base64
 import logging
+
 try:
     import cv2
-    import numpy as np
 except Exception:
     cv2 = None
+
+try:
+    import numpy as np
+except Exception:
     np = None
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from vision_preprocessor import USMDocumentPreprocessor
-from ocr_service import USMOcrService
+from ocr_service import USMOcrService, AcademicDegreeNER
 from gemini_service import GeminiVisionExtractor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("USM_Flask_API")
 
 app = Flask(__name__)
-# CORS habilitado para conectar con frontend en Vue.js / Tailwind CSS
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 @app.route("/health", methods=["GET"])
@@ -38,6 +50,8 @@ def health_check():
         "backend": "Flask (Python 3.12)",
         "service": "USM-ApostillaBot Core OCR & AI",
         "tesseract_fraktur_installed": has_frk,
+        "gemini_configured": GeminiVisionExtractor.is_configured(),
+        "keyless_ocr_ready": True,
         "ollama_vision_supported": True,
         "supported_institutions": ["Universidad Santa María (USM)"],
         "typography_support": ["Old English Text MT", "Diploma", "Times New Roman"]
@@ -51,9 +65,16 @@ def ocr_engine_status():
     has_frk = USMOcrService.check_fraktur_available()
     return jsonify({
         "success": True,
+        "keyless_ocr_ready": True,
+        "gemini_configured": GeminiVisionExtractor.is_configured(),
         "engines": {
-            "tesseract": {
+            "client_wasm_ner": {
                 "available": True,
+                "requires_api_key": False,
+                "notes": "Motor público sin API key: Tesseract.js WASM + PDF nativo + AcademicDegreeNER"
+            },
+            "tesseract": {
+                "available": cv2 is not None and USMOcrService.check_tesseract_available(),
                 "fraktur_gothic_installed": has_frk,
                 "notes": "Pesos 'frk.traineddata' requeridos para lectura de encabezados góticos" if not has_frk else "Modelo 'frk' listo para producción"
             },
@@ -71,18 +92,14 @@ def ocr_engine_status():
 def extract_document():
     """
     Endpoint principal para la digitalización y extracción de pergaminos universitarios.
-    Acepta:
-    1. Archivo subido mediante multipart/form-data ('file')
-    2. Carga en JSON con 'image_base64' y opcionalmente 'raw_text'
-    Parámetros opcionales:
-    - 'mode': 'vision_ai' (Ollama) | 'hybrid' (OpenCV + Tesseract Fraktur) | 'auto' (Inteligente)
+    Opera 100% sin API key mediante PDF text extraction (PyMuPDF/pypdf/zlib),
+    Tesseract local y AcademicDegreeNER sobre texto extraído en cliente (Tesseract.js WASM).
     """
     image_bytes = None
     mode = "auto"
     raw_text_client = None
     user_cedula = None
 
-    # Caso 1: Archivo subido en formulario multipart
     if "file" in request.files:
         uploaded_file = request.files["file"]
         if uploaded_file.filename != "":
@@ -90,10 +107,8 @@ def extract_document():
             mode = request.form.get("mode", "auto")
             raw_text_client = request.form.get("raw_text")
             user_cedula = request.form.get("user_cedula")
-
-    # Caso 2: Payload JSON con base64 o raw_text
     elif request.is_json:
-        data = request.get_json()
+        data = request.get_json() or {}
         mode = data.get("mode", "auto")
         raw_text_client = data.get("raw_text")
         user_cedula = data.get("user_cedula")
@@ -106,7 +121,7 @@ def extract_document():
             except Exception as e:
                 return jsonify({"success": False, "error": f"Base64 inválido: {str(e)}"}), 400
 
-    # Si el cliente ya extrajo el texto (ej: Tesseract.js WASM en navegador)
+    # Si el cliente ya extrajo el texto (ej: Tesseract.js WASM o PDF nativo en navegador)
     if raw_text_client and len(raw_text_client.strip()) > 15:
         ner_fields = USMOcrService.rule_based_ner(raw_text_client)
         resp = USMOcrService.format_for_frontend(
@@ -139,40 +154,42 @@ def extract_document():
                 logger.warning(f"Ollama local no disponible, activando fallback híbrido: {e}")
                 mode = "hybrid"
 
-        # Soporte especializado para documentos PDF (PyMuPDF / fitz)
+        # 2. Soporte especializado para documentos PDF sin API key (PyMuPDF / pypdf / zlib)
         extracted_pdf_text = ""
-        if image_bytes and (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40]):
+        is_pdf = bool(image_bytes and (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40]))
+        if is_pdf:
+            extracted_pdf_text = USMOcrService.extract_pdf_text_bytes(image_bytes)
             rendered_image = None
             try:
                 import fitz
                 doc = fitz.open(stream=image_bytes, filetype="pdf")
-                for page in doc:
-                    extracted_pdf_text += page.get_text() + "\n"
                 if len(doc) > 0:
                     pix = doc[0].get_pixmap(dpi=300)
                     rendered_image = pix.tobytes("png")
                 doc.close()
             except Exception as pdf_err:
-                logger.warning(f"Aviso PyMuPDF: {pdf_err}")
+                logger.debug(f"Rasterización PyMuPDF omitida: {pdf_err}")
 
             if rendered_image:
                 image_bytes = rendered_image
 
-        # Decodificación para OpenCV
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        image_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        # 3. Decodificación con OpenCV solo si está instalado en el servidor
+        tess_text = ""
+        tess_result = {"engine": "serverless_ner", "fraktur_enabled": False}
+        if cv2 is not None and np is not None and not (is_pdf and image_bytes.startswith(b"%PDF")):
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            image_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if image_cv is not None:
+                tess_result = USMOcrService.extract_with_tesseract(image_cv)
+                tess_text = tess_result.get("full_text", "")
 
-        if image_cv is None:
-            return jsonify({"success": False, "error": "No se pudo decodificar el formato de la imagen."}), 400
-
-        # 2. Modo Híbrido (OpenCV Morfología + Tesseract frk+spa + Texto Digital PDF)
-        tess_result = USMOcrService.extract_with_tesseract(image_cv)
-        tess_text = tess_result.get("full_text", "")
-        combined_text = f"{extracted_pdf_text.strip()}\n{tess_text}".strip()
+        combined_text = "\n".join(part for part in [extracted_pdf_text.strip(), tess_text.strip(), (raw_text_client or "").strip()] if part).strip()
 
         if combined_text:
             merged_fields = AcademicDegreeNER.extract_all(combined_text)
-            engine_name = "PyMuPDF + Tesseract Fraktur Hybrid" if extracted_pdf_text else tess_result.get('engine', 'tesseract_hybrid')
+            engine_name = "PDF Parser + AcademicDegreeNER (Sin API Key)" if extracted_pdf_text and not tess_text else (
+                "PyMuPDF + Tesseract Fraktur Hybrid" if extracted_pdf_text else tess_result.get("engine", "tesseract_hybrid")
+            )
             resp = USMOcrService.format_for_frontend(
                 merged_fields,
                 combined_text,
@@ -182,20 +199,9 @@ def extract_document():
             resp["fraktur_enabled"] = tess_result.get("fraktur_enabled", False)
             return jsonify(resp), 200
 
-        # 3. Fallback a raw_text si el motor Tesseract en servidor no tiene binarios instalados
-        if raw_text_client:
-            ner_fields = USMOcrService.rule_based_ner(raw_text_client)
-            resp = USMOcrService.format_for_frontend(
-                ner_fields,
-                raw_text_client,
-                "Client OCR + Flask NER",
-                user_cedula=user_cedula
-            )
-            return jsonify(resp), 200
-
         return jsonify({
             "success": False,
-            "error": "No se pudo extraer texto del documento. Por favor utilice el motor de reconocimiento en el navegador."
+            "error": "No se pudo extraer texto en el servidor. El navegador procesará la imagen mediante OCR WebAssembly (sin API key)."
         }), 422
 
     except Exception as e:
@@ -210,19 +216,15 @@ def extract_document():
 @app.route("/api/ocr/gemini", methods=["POST"])
 def ocr_gemini_endpoint():
     """
-    Endpoint de digitalización multimodal con Google Gemini 1.5 Flash.
-    Configurado con response_mime_type='application/json' para garantizar JSON puro.
-    Supera fuentes góticas, caligrafías bicolores y elimina artefactos visuales.
+    Endpoint de digitalización multimodal con Google Gemini si GEMINI_API_KEY está configurada.
+    Si no existe API key, activa automáticamente el fallback local sin API key.
     """
     raw_bytes = None
 
-    # Caso 1: Archivo subido en formulario multipart ('file')
     if "file" in request.files:
         uploaded = request.files["file"]
         if uploaded.filename != "":
             raw_bytes = uploaded.read()
-
-    # Caso 2: Carga vía JSON ('image_base64')
     elif request.is_json:
         payload = request.get_json() or {}
         image_b64 = payload.get("image_base64")
@@ -245,10 +247,37 @@ def ocr_gemini_endpoint():
 
     success, fields, err_msg = GeminiVisionExtractor.extract_from_image_bytes(raw_bytes)
     if not success:
+        # Fallback local sin API key (PDF o Tesseract)
+        extracted_text = USMOcrService.extract_pdf_text_bytes(raw_bytes) if (raw_bytes.startswith(b"%PDF") or b"%PDF-" in raw_bytes[:40]) else ""
+        if len(extracted_text.strip()) < 15 and cv2 is not None and np is not None:
+            try:
+                nparr = np.frombuffer(raw_bytes, np.uint8)
+                img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img_cv is not None:
+                    tess_res = USMOcrService.extract_with_tesseract(img_cv)
+                    extracted_text = tess_res.get("full_text", "")
+            except Exception:
+                pass
+        if len(extracted_text.strip()) >= 8:
+            ner_res = USMOcrService.rule_based_ner(extracted_text)
+            return jsonify({
+                "success": True,
+                "engine": "Motor Local AcademicDegreeNER (Sin API Key)",
+                "data": {
+                    "nombre_completo": ner_res.get("titular") or ner_res.get("nombre_completo"),
+                    "cedula": ner_res.get("cedula"),
+                    "institucion_educativa": ner_res.get("institucion"),
+                    "mencion_carrera": ner_res.get("titulo_conferido") or ner_res.get("carrera"),
+                    "fecha_emision": ner_res.get("fecha_expedicion") or ner_res.get("fecha"),
+                    "facultad": ner_res.get("facultad"),
+                    "model_used": "Local NER Fallback"
+                }
+            }), 200
         return jsonify({
             "success": False,
-            "error": err_msg
-        }), 500
+            "error": err_msg,
+            "fallback_client_ocr": True
+        }), 200 if not GeminiVisionExtractor.is_configured() else 503
 
     model_label = fields.get("model_used", "Multimodal Vision")
     return jsonify({
@@ -259,7 +288,6 @@ def ocr_gemini_endpoint():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("FLASK_OCR_PORT", 5000))
     logger.info(f"Iniciando USM-ApostillaBot Flask API en http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=True)
-
+    app.run(host="0.0.0.0", port=port, debug=False)

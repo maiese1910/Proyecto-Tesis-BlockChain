@@ -1,4 +1,9 @@
 {
+  "build": {
+    "env": {
+      "PUPPETEER_SKIP_DOWNLOAD": "true"
+    }
+  },
   "builds": [
     {
       "src": "api/main.py",
@@ -38,11 +43,15 @@
       "dest": "/api/main.py"
     },
     {
-      "src": "/ws/(.*)",
+      "src": "/student/(.*)",
       "dest": "/api/main.py"
     },
     {
-      "src": "/admin(.*)",
+      "src": "/documents/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/admin/(login|users|checklist|guias|planillas|clean-test-data|reset-demo-records)(.*)",
       "dest": "/api/main.py"
     },
     {
