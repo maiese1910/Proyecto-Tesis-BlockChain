@@ -83,14 +83,14 @@ Este documento registra el estado actual de los módulos ya optimizados (**Módu
   - Catálogo completo de 6 planillas oficiales (incluyendo *Carta de Autorización a Terceros*) autocompletadas reactivamente desde el perfil y el expediente activo del estudiante, con escape HTML seguro y deduplicación de formularios dinámicos.
   - Barra de **Edición Rápida antes de Imprimir / Descargar PDF** dentro de la vista previa (teléfono, tomo, folio, sede/taquilla y datos del apoderado) con actualización instantánea.
 
-### 10. Módulo 10: Paneles de Rectorado USM y Gobierno (MPPEU / SAREN / MPPRE)
+### 10. Módulo 10: Panel Administrativo Ministerial (GTU — MPPEU / Cancillería — MPPRE)
 - **Archivos:** `src/AdminApp.jsx`, `src/components/AdminDashboard.jsx`, `src/components/GovernmentPanel.jsx`, `src/components/GovernmentLoginPortal.jsx`, `api/main.py`
 - **Estado:** **Completado (100%)**
 - **Implementaciones realizadas:**
-  - Unificación de `/admin` y `/gobierno` bajo `GovernmentLoginPortal.jsx` con selector visual de los 4 entes (`USM`, `SAREN`, `MPPEU`, `MPPRE`), `<WalletConnect />` en cabecera y conmutador directo entre Rectorado USM y Bandeja Interministerial.
-  - **Estación 1 (Bandeja de Refrendo Rectoral USM en `AdminDashboard.jsx`):** Sincronización en tiempo real de todos los expedientes escaneados por los estudiantes, visor del pergamino/PDF, edición de Libro/Tomo/Folio, acción oficial de **Refrendo Rectoral (`VERIFICADO_USM`)** y rechazo con observación técnica.
-  - **Innovación de Tesis:** **Bitácora de Auditoría Institucional Inmutable (Audit Trail Exportable CSV/PDF)** que registra cronológicamente todas las firmas y resoluciones de las 4 estaciones (`USM`, `SAREN`, `MPPEU`, `MPPRE`) con timestamp, funcionario, ente y hash SHA-256 / TxHash Sepolia.
-  - Pestaña dedicada **Estación 2: SAREN (Conciliación PUB)** y sincronización reactiva de aprobaciones en lote en `GovernmentPanel.jsx`, más CRUD completo en memoria/backend para creación de auditores, planillas (con eliminación) y guías logísticas en `api/main.py`.
+  - Portal `/admin` y `/gobierno` centrado exclusivamente en los dos entes auditores ministeriales: **GTU — MPPEU (Gestión de Trámites Universitarios)** y **Cancillería — MPPRE (Apostilla Electrónica de La Haya)**, con `<WalletConnect />` en la cabecera y conmutador directo entre la Bandeja Principal GTU/MPPRE y el Centro de Bitácora y Configuración Ministerial.
+  - **Bandeja y Control Rápido GTU / MPPRE (`GovernmentPanel.jsx` y `AdminDashboard.jsx`):** Sincronización en tiempo real de los expedientes estudiantiles, inspección del título digitalizado y datos de acta (Libro/Tomo/Folio), certificación en taquilla **`CERTIFICADO_MPPEU`**, emisión de Apostilla Electrónica **`APOSTILLADO_MPPRE`**, aprobación por lote sincronizada y rechazo con observación oficial.
+  - **Innovación de Tesis:** **Bitácora de Auditoría Ministerial Inmutable (Audit Trail Exportable CSV/PDF)** que registra cronológicamente todas las firmas y resoluciones de **GTU (`MPPEU`)** y **Cancillería (`MPPRE`)** con timestamp, funcionario, ente y hash SHA-256 / TxHash Sepolia.
+  - CRUD completo con respaldo en memoria y backend para creación de auditores (`MPPEU` / `MPPRE`), checklist de requisitos, planillas oficiales (con eliminación) y guías logísticas de sedes en `api/main.py`.
 
 ### 11. Módulo 11: Pulido Final de Responsividad Móvil y UX Global
 - **Archivos:** `src/index.css`, `src/components/ApostilleCertificate.jsx`, `src/components/Sidebar.jsx`, `src/main.jsx`
@@ -101,4 +101,4 @@ Este documento registra el estado actual de los módulos ya optimizados (**Módu
 ---
 
 ## 🎉 Estado Global de la Hoja de Ruta: 11 / 11 Módulos Completados (100%)
-Todos los módulos del sistema (**Módulos 1 al 11**), tanto del Portal del Graduando como de los Paneles Institucionales de Rectorado USM, SAREN, MPPEU y MPPRE, se encuentran implementados, auditados y verificados de extremo a extremo.
+Todos los módulos del sistema (**Módulos 1 al 11**), tanto del Portal del Graduando como del Panel Administrativo Ministerial de Auditores (**GTU — MPPEU** y **Cancillería — MPPRE**), se encuentran implementados, auditados y verificados de extremo a extremo.

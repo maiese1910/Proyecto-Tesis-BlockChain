@@ -11,7 +11,7 @@ import { authAPI } from '../services/api';
  * Desacoplado del portal público de los estudiantes graduandos.
  */
 const GovernmentLoginPortal = ({ onAdminLogin }) => {
-  const [selectedEnte, setSelectedEnte] = useState('mppeu'); // 'mppeu' | 'saren' | 'mppre' | 'usm'
+  const [selectedEnte, setSelectedEnte] = useState('mppeu'); // 'mppeu' | 'mppre'
   const [username, setUsername] = useState('mppeu_agente');
   const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
@@ -21,38 +21,20 @@ const GovernmentLoginPortal = ({ onAdminLogin }) => {
     mppeu: {
       name: 'MPPEU (Taquilla GTU)',
       subtitle: 'Ministerio del Poder Popular para la Educación Universitaria',
-      role: 'Inspector de Cotejo Universitario',
+      role: 'Auditor de Gestión de Trámites Universitarios (GTU)',
       icon: Building2,
       color: '#0284c7',
       defaultUser: 'mppeu_agente',
       defaultPass: 'admin123',
     },
-    saren: {
-      name: 'SAREN (Registro Principal)',
-      subtitle: 'Servicio Autónomo de Registros y Notarías',
-      role: 'Registrador Público / Protocolización',
-      icon: Award,
-      color: '#d97706',
-      defaultUser: 'saren_admin',
-      defaultPass: 'admin123',
-    },
     mppre: {
       name: 'MPPRE (Cancillería)',
       subtitle: 'Ministerio del Poder Popular para Relaciones Exteriores',
-      role: 'Director de Apostilla Electrónica de La Haya',
+      role: 'Auditor de Legalización y Apostilla Electrónica de La Haya',
       icon: Globe,
       color: '#059669',
       defaultUser: 'mppre_agente',
       defaultPass: 'admin123',
-    },
-    usm: {
-      name: 'USM (Auditoría Central)',
-      subtitle: 'Secretaría General — Universidad Santa María',
-      role: 'Administrador Rectoral',
-      icon: Shield,
-      color: '#5d2a1a',
-      defaultUser: 'admin',
-      defaultPass: 'usm2026',
     },
   };
 

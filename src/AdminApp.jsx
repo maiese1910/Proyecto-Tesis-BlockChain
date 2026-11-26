@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Building2, ArrowLeftRight } from 'lucide-react';
+import { Shield, ArrowLeftRight } from 'lucide-react';
 import GovernmentPanel from './components/GovernmentPanel';
 import AdminDashboard from './components/AdminDashboard';
 import GovernmentLoginPortal from './components/GovernmentLoginPortal';
@@ -18,15 +18,17 @@ const AdminApp = () => {
       return null;
     }
   });
-  // Permite al Rectorado USM alternar entre su panel rectoral (Estación 1 + Config + Bitácora) y la bandeja interministerial (4 Estaciones)
-  const [adminViewMode, setAdminViewMode] = useState('rectorado');
+  // Vista activa del auditor (GTU-MPPEU o Cancillería-MPPRE):
+  // 'bandeja' -> GovernmentPanel (Cotejo GTU / Apostilla MPPRE / IA / Lotes)
+  // 'config_bitacora' -> AdminDashboard (Bitácora CSV/PDF + Cotejo Rápido + Checklist/Planillas/Guías)
+  const [adminViewMode, setAdminViewMode] = useState('bandeja');
 
   const handleLogin = (data) => {
     localStorage.setItem('admin_auth', 'true');
     localStorage.setItem('admin_data', JSON.stringify(data));
     setAdminData(data);
     setIsAuthenticated(true);
-    setAdminViewMode(data?.ente === 'USM' ? 'rectorado' : 'ministerial');
+    setAdminViewMode('bandeja');
   };
 
   const handleLogout = () => {
@@ -40,8 +42,10 @@ const AdminApp = () => {
     return <GovernmentLoginPortal onAdminLogin={handleLogin} />;
   }
 
-  const isUsmAdmin = adminData?.ente === 'USM';
-  const showRectorado = isUsmAdmin && adminViewMode === 'rectorado';
+  const showConfigBitacora = adminViewMode === 'config_bitacora';
+  const enteLabel = adminData?.ente === 'MPPRE'
+    ? 'MPPRE (Cancillería — Apostilla de La Haya)'
+    : 'MPPEU (Taquilla GTU — Gestión de Trámites Universitarios)';
 
   return (
     <div className="app-layout" style={{ background: 'var(--color-mist-gray)', minHeight: '100vh', color: 'var(--color-ink-black)' }}>
@@ -59,15 +63,15 @@ const AdminApp = () => {
               <Shield size={18} />
             </div>
             <h1 style={{
-              fontSize: '1.25rem',
+              fontSize: '1.22rem',
               fontFamily: 'var(--font-serif)',
               fontWeight: 400,
               color: 'var(--color-ink-black)',
               margin: 0
             }}>
-              {showRectorado
-                ? 'Rectorado y Secretaría General — Universidad Santa María (Estación 1)'
-                : `Panel de Auditoría Interministerial — ${adminData?.ente || 'Gobierno'}`}
+              {showConfigBitacora
+                ? `Bitácora de Auditoría y Configuración Ministerial — ${enteLabel}`
+                : `Panel de Auditoría Ministerial — ${enteLabel}`}
             </h1>
             <span style={{
               background: 'var(--color-blush-peach)',
@@ -78,33 +82,31 @@ const AdminApp = () => {
               fontSize: '0.78rem',
               fontWeight: 600
             }}>
-              {adminData.cargo || 'Funcionario'} ({adminData.username})
+              {adminData.cargo || 'Auditor Ministerial'} ({adminData.username})
             </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-            {isUsmAdmin && (
-              <button
-                type="button"
-                onClick={() => setAdminViewMode(prev => prev === 'rectorado' ? 'ministerial' : 'rectorado')}
-                style={{
-                  background: 'var(--color-fog-white)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--color-sienna-brown)',
-                  padding: '0.45rem 0.9rem',
-                  borderRadius: 'var(--radius-pill)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem'
-                }}
-              >
-                <ArrowLeftRight size={14} />
-                {showRectorado ? 'Ver Bandeja 4 Estaciones (MPPEU/SAREN/MPPRE)' : 'Volver a Rectorado USM'}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setAdminViewMode(prev => prev === 'bandeja' ? 'config_bitacora' : 'bandeja')}
+              style={{
+                background: 'var(--color-fog-white)',
+                border: '1px solid var(--border)',
+                color: 'var(--color-sienna-brown)',
+                padding: '0.45rem 0.9rem',
+                borderRadius: 'var(--radius-pill)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              <ArrowLeftRight size={14} />
+              {showConfigBitacora ? 'Volver a Bandeja GTU / MPPRE' : 'Bitácora CSV/PDF y Configuración'}
+            </button>
             <WalletConnect />
             <button
               onClick={handleLogout}
@@ -127,8 +129,8 @@ const AdminApp = () => {
           </div>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '1.5rem', backgroundColor: 'var(--color-mist-gray)' }}>
-          {showRectorado ? (
-            <AdminDashboard adminData={adminData} onSwitchToMinisterial={() => setAdminViewMode('ministerial')} />
+          {showConfigBitacora ? (
+            <AdminDashboard adminData={adminData} onSwitchToMinisterial={() => setAdminViewMode('bandeja')} />
           ) : (
             <GovernmentPanel adminData={adminData} />
           )}

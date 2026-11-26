@@ -66,14 +66,10 @@ const GovernmentPanel = ({ adminData }) => {
 
 
 
-  // Modo ministerial de visualización: SAREN (Estación 2 PUB) | MPPEU (Estación 3 Taquilla GTU) | MPPRE (Estación 4 Cancillería) | ALL (Auditoría Integral 4 Estaciones)
+  // Modo ministerial de visualización: MPPEU (Etapa 1 Taquilla GTU) | MPPRE (Etapa 2 Cancillería Apostilla) | ALL (Auditoría General GTU + MPPRE)
 
   const initialMode = (currentAuditorEnte === 'MPPRE')
     ? 'MPPRE'
-    : (currentAuditorEnte === 'SAREN')
-    ? 'SAREN'
-    : (currentAuditorEnte === 'USM')
-    ? 'ALL'
     : 'MPPEU';
 
   const [ministerialMode, setMinisterialMode] = useState(initialMode);
@@ -131,7 +127,7 @@ const GovernmentPanel = ({ adminData }) => {
 
   const [showAdminModal, setShowAdminModal] = useState(false);
 
-  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', cargo: 'Inspector Gubernamental', ente: 'SAREN', pin_institucional: '' });
+  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', cargo: 'Auditor de Cotejo GTU', ente: 'MPPEU', pin_institucional: '' });
 
   const [adminMsg, setAdminMsg] = useState('');
 
@@ -976,7 +972,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
         setAdminMsg('Funcionario auditor creado exitosamente.');
 
-        setNewAdmin({ username: '', password: '', cargo: 'Inspector Gubernamental', ente: 'SAREN', pin_institucional: '' });
+        setNewAdmin({ username: '', password: '', cargo: 'Auditor de Cotejo GTU', ente: 'MPPEU', pin_institucional: '' });
 
         setTimeout(() => { setShowAdminModal(false); setAdminMsg(''); }, 2000);
 
@@ -1092,7 +1088,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
       
 
-      {/* ─── SELECTOR DE ROL MINISTERIAL (ARQUITECTURA DE TESIS) ─── */}
+      {/* ─── SELECTOR DE ROL MINISTERIAL (GTU-MPPEU Y CANCILLERÍA-MPPRE) ─── */}
 
       <div style={{
 
@@ -1115,30 +1111,6 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
         flexWrap: 'wrap'
 
       }}>
-
-        <button
-          onClick={() => setMinisterialMode('SAREN')}
-          style={{
-            flex: 1,
-            minWidth: '200px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.55rem',
-            padding: '0.75rem 1.1rem',
-            borderRadius: 'var(--radius-pill)',
-            border: 'none',
-            background: ministerialMode === 'SAREN' ? 'var(--color-ink-black)' : 'transparent',
-            color: ministerialMode === 'SAREN' ? '#ffffff' : 'var(--color-slate-gray)',
-            fontWeight: 500,
-            fontSize: '0.84rem',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Award size={16} />
-          <span>Estación 2: SAREN (Conciliación PUB)</span>
-        </button>
 
         <button
 
@@ -1182,7 +1154,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
           <Building2 size={16} />
 
-          <span>Etapa 2: Taquilla MPPEU (Cotejo GTU)</span>
+          <span>Etapa 1: Taquilla GTU — MPPEU (Cotejo Universitario)</span>
 
           <span style={{
 
@@ -1250,7 +1222,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
           <Globe size={16} />
 
-          <span>Etapa 3: Cancillería MPPRE (Apostilla 100% Digital)</span>
+          <span>Etapa 2: Cancillería MPPRE (Apostilla 100% Digital)</span>
 
           <span style={{
 
@@ -2340,11 +2312,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                       <option value="MPPEU">MPPEU (Taquilla GTU)</option>
 
-                      <option value="MPPRE">MPPRE (Cancillería)</option>
-
-                      <option value="SAREN">SAREN (Registro)</option>
-
-                      <option value="USM">USM (Universidad)</option>
+                      <option value="MPPRE">MPPRE (Cancillería — Apostilla)</option>
 
                     </select>
 
