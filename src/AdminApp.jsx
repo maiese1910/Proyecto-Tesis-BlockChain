@@ -66,7 +66,7 @@ const AdminLogin = ({ onLogin }) => {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', minHeight: '100dvh', width: '100vw', padding: '1.5rem',
+      minHeight: '100dvh', width: '100vw', padding: '1.5rem',
       background: 'var(--color-mist-gray)',
       color: 'var(--color-ink-black)',
       overflow: 'auto',
@@ -243,7 +243,7 @@ const AdminApp = () => {
   return (
     <div className="app-layout" style={{ background: 'var(--color-mist-gray)', minHeight: '100vh', color: 'var(--color-ink-black)' }}>
       <ToastNotification />
-      <div style={{ width: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '100vw', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <div className="admin-header" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', padding: '0.9rem 2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
             <div style={{

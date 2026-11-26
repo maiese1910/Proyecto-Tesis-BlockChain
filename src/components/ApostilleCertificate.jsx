@@ -72,10 +72,12 @@ const ApostilleCertificate = ({ record, onClose }) => {
         }}
       >
         {/* Modal Toolbar */}
-        <div style={{
+        <div className="apostille-toolbar" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.6rem',
           padding: '0.9rem 1.4rem',
           background: 'var(--color-fog-white)',
           borderBottom: '1px solid var(--border)',
@@ -130,9 +132,10 @@ const ApostilleCertificate = ({ record, onClose }) => {
         </div>
 
         {/* Printable Apostille Sheet */}
-        <div style={{ overflowY: 'auto', padding: '1.75rem' }}>
+        <div className="apostille-scroll-wrap" style={{ overflowY: 'auto', overflowX: 'auto', padding: '1.25rem' }}>
           <div
             ref={printRef}
+            className="apostille-sheet"
             style={{
               border: '4px double #1e293b',
               padding: '2rem 2.25rem',

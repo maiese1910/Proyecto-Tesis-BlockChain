@@ -1,14 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, Sun, Navigation, Info, ShieldAlert, ChevronRight, Download } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MapPin, Clock, Sun, Navigation, Info, ShieldAlert, ChevronRight, Download, Building2, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2pdf from 'html2pdf.js';
 import { dynamicDataAPI } from '../services/api';
+import { ESTADOS_VENEZUELA } from '../data/venezuelaLocations';
 
-const SurvivalGuide = () => {
+const SEDES_PRINCIPALES = [
+  {
+    ente: 'USM',
+    estado: 'Miranda / Caracas',
+    nombre: 'Rectorado y Secretaría General USM — Campus La Florencia (Módulo 4)',
+    direccion: 'Km. 4 Carretera Petare-Santa Lucía, Edificio Administrativo, Módulo 4, Caracas.',
+    horario: 'Lunes a Viernes 8:30 AM - 3:30 PM',
+    recaudos: 'Título original / recibo de arancel USM / copia de cédula / sobre manila tamaño oficio.',
+    tiempoEntrega: '3 a 5 días hábiles'
+  },
+  {
+    ente: 'MPPEU',
+    estado: 'Distrito Capital',
+    nombre: 'Sede Principal MPPEU (GTU) — Chorro a Coliseo',
+    direccion: 'Av. Universidad, Esq. El Chorro a Coliseo, Torre Ministerial, Caracas.',
+    horario: 'Lunes a Viernes 8:00 AM - 1:00 PM (Previa Cita GTU)',
+    recaudos: '2 copias de planilla GTU, cédula laminada, título pergamino original sin dobleces, vestimenta formal.',
+    tiempoEntrega: 'Mismo día a 72 horas'
+  },
+  {
+    ente: 'SAREN',
+    estado: 'Distrito Capital',
+    nombre: 'Registro Principal del Distrito Capital (SAREN)',
+    direccion: 'Av. Urdaneta, Esq. de Ibarras a Pelota, Edif. Karam, Caracas.',
+    horario: 'Lunes a Viernes 8:00 AM - 2:00 PM (Cita Web SAREN)',
+    recaudos: 'Planilla PUB liquidada, timbres fiscales regionales (0.5 UT / 10 UT), título legalizado GTU y copias.',
+    tiempoEntrega: '5 a 8 días hábiles'
+  },
+  {
+    ente: 'MPPRE',
+    estado: 'Distrito Capital',
+    nombre: 'Cancillería de la República (MPPRE) — Casa Amarilla / Oficina de Legalizaciones',
+    direccion: 'Esquina de Principal frente a la Plaza Bolívar, Edificio Casa Amarilla, Caracas.',
+    horario: 'Lunes a Viernes 8:00 AM - 1:30 PM (Terminal de Cédula / Cita Electrónica)',
+    recaudos: '2 copias de cita electrónica, documentos previamente certificados por GTU/SAREN, sobre manila.',
+    tiempoEntrega: '24 a 72 horas (Apostilla Electrónica)'
+  }
+];
+
+const SurvivalGuide = ({ user = null, onNavigate = null }) => {
   const [tramite, setTramite] = useState('');
   const [turno, setTurno] = useState('');
   const [showGuide, setShowGuide] = useState(false);
   const [guiasDB, setGuiasDB] = useState(null);
+  const [dirSearch, setDirSearch] = useState('');
+  const [dirEnte, setDirEnte] = useState('TODOS');
+
+  const directoryItems = useMemo(() => {
+    const regional = ESTADOS_VENEZUELA.flatMap(e =>
+      (e.taquillas || []).map(t => ({
+        ente: 'MPPEU',
+        estado: e.estado,
+        nombre: t.nombre,
+        direccion: t.direccion,
+        horario: t.horario,
+        recaudos: 'Pergamino original, planilla GTU impresa, cédula laminada y sobre manila.',
+        tiempoEntrega: '24 a 72 horas'
+      }))
+    );
+    const all = [...SEDES_PRINCIPALES, ...regional];
+    const q = dirSearch.trim().toLowerCase();
+    return all.filter(item => {
+      if (dirEnte !== 'TODOS' && item.ente !== dirEnte) return false;
+      if (!q) return true;
+      return (
+        item.nombre.toLowerCase().includes(q) ||
+        item.estado.toLowerCase().includes(q) ||
+        item.direccion.toLowerCase().includes(q) ||
+        item.ente.toLowerCase().includes(q)
+      );
+    });
+  }, [dirSearch, dirEnte]);
+
+  const activeStageInfo = React.useMemo(() => {
+    try {
+      const records = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
+      const userCed = (user?.cedula || '').replace(/\D/g, '');
+      const own = records.find(r => !userCed || (r.cedula || '').replace(/\D/g, '') === userCed || (r.accountCedula || '').replace(/\D/g, '') === userCed);
+      if (!own) return { stage: 1, label: 'Etapa 1: Digitalización OCR y Registro USM', hint: 'Sube tu diploma en el Escáner OCR para iniciar el expediente.' };
+      const st = String(own.status || '').toUpperCase();
+      if (own.mppreVerified || st.includes('APOSTILL')) return { stage: 4, label: 'Etapa 4 Completada: Apostilla Electrónica MPPRE', hint: `Tu expediente (${own.solicitudCode || 'USM'}) ya cuenta con Apostilla de La Haya.` };
+      if (own.mppeuVerified || st.includes('CERTIFICAD') || st.includes('VERIFICAD')) return { stage: 3, label: 'Etapa 3: Protocolización SAREN / Solicitud de Apostilla', hint: `GTU aprobado para ${own.solicitudCode || 'tu título'}. Continúa con PUB SAREN o Apostilla.` };
+      return { stage: 2, label: 'Etapa 2: Legalización GTU (MPPEU)', hint: `Expediente ${own.solicitudCode || ''} en espera de cotejo en ${own.sede_taquilla || own.sedeTaquilla || 'taquilla asignada'}.` };
+    } catch (_) {
+      return null;
+    }
+  }, [user]);
 
   // Cargar guías dinámicas desde el servidor
   useEffect(() => {
@@ -166,6 +249,30 @@ const SurvivalGuide = () => {
         <p>Tu hoja de ruta para sobrevivir a los entes del Estado (SAREN, GTU, MPPRE). Selecciona el trámite gubernamental para calcular tiempos y requisitos.</p>
       </div>
 
+      {activeStageInfo && (
+        <div className="glass-panel" style={{ marginBottom: '1.5rem', padding: '1.1rem 1.35rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderLeft: '4px solid var(--color-sienna-brown)' }}>
+          <div>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-sienna-brown)', letterSpacing: '0.04em' }}>
+              Progreso de tu Expediente Actual
+            </span>
+            <p style={{ margin: '0.2rem 0 0.15rem 0', fontWeight: 600, color: 'var(--color-ink-black)', fontSize: '0.96rem' }}>
+              {activeStageInfo.label}
+            </p>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              {activeStageInfo.hint}
+            </p>
+          </div>
+          {onNavigate && (
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button type="button" className="btn-ghost" onClick={() => onNavigate('ocr')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem' }}>Escáner OCR</button>
+              <button type="button" className="btn-ghost" onClick={() => onNavigate('prevalidation')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem' }}>Pre-Validación</button>
+              <button type="button" className="btn-ghost" onClick={() => onNavigate('pub')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem' }}>Planilla PUB</button>
+              <button type="button" className="send-btn" onClick={() => onNavigate('forms')} style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem' }}>Planillas Oficiales</button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="glass-panel" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', alignItems: 'end' }}>
           <div>
@@ -264,6 +371,94 @@ const SurvivalGuide = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ─── INNOVACIÓN DE TESIS (Módulo 8): Directorio Interactivo de Sedes y Taquillas ─── */}
+      <div className="glass-panel" style={{ marginTop: '1.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.85rem', marginBottom: '1rem' }}>
+          <div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-sienna-brown)', backgroundColor: 'var(--color-blush-peach)', padding: '0.2rem 0.65rem', borderRadius: 'var(--radius-pill)', marginBottom: '0.35rem' }}>
+              <Building2 size={12} /> Directorio Oficial Nacional
+            </span>
+            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.28rem', fontWeight: 400, margin: 0, color: 'var(--color-ink-black)' }}>
+              Directorio Interactivo de Sedes y Taquillas (Caracas / Miranda / Nacional)
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+              Consulta direcciones exactas, horarios, recaudos físicos (sobre manila / vestimenta) y tiempos reales de entrega en los 4 entes.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+            {['TODOS', 'USM', 'MPPEU', 'SAREN', 'MPPRE'].map(ente => (
+              <button
+                key={ente}
+                type="button"
+                onClick={() => setDirEnte(ente)}
+                style={{
+                  padding: '0.38rem 0.75rem',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: dirEnte === ente ? '1px solid var(--color-ink-black)' : '1px solid var(--border)',
+                  background: dirEnte === ente ? 'var(--color-ink-black)' : '#ffffff',
+                  color: dirEnte === ente ? '#ffffff' : 'var(--text-secondary)'
+                }}
+              >
+                {ente}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', padding: '0.5rem 0.85rem', marginBottom: '1rem' }}>
+          <Search size={16} color="var(--color-slate-gray)" />
+          <input
+            type="text"
+            placeholder="Buscar por estado (ej. Caracas, Miranda, Carabobo, Zulia), sede o dirección..."
+            value={dirSearch}
+            onChange={(e) => setDirSearch(e.target.value)}
+            style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.86rem', color: 'var(--color-ink-black)' }}
+          />
+          <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {directoryItems.length} sedes
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto', maxHeight: '380px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '640px' }}>
+            <thead>
+              <tr style={{ background: 'var(--color-fog-white)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                <th style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: 'var(--color-ink-black)' }}>Ente / Estado</th>
+                <th style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: 'var(--color-ink-black)' }}>Sede y Dirección</th>
+                <th style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: 'var(--color-ink-black)' }}>Horario y Recaudos</th>
+                <th style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: 'var(--color-ink-black)', whiteSpace: 'nowrap' }}>Entrega Est.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {directoryItems.slice(0, 20).map((sede, idx) => (
+                <tr key={`${sede.nombre}-${idx}`} style={{ borderBottom: '1px solid var(--border)', background: idx % 2 === 0 ? '#ffffff' : 'rgba(248, 250, 252, 0.55)' }}>
+                  <td style={{ padding: '0.7rem 0.85rem', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: 'inline-block', padding: '0.15rem 0.55rem', borderRadius: 'var(--radius-pill)', background: 'var(--color-blush-peach)', color: 'var(--color-sienna-brown)', fontWeight: 700, fontSize: '0.72rem', marginBottom: '0.25rem' }}>
+                      {sede.ente}
+                    </span>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{sede.estado}</div>
+                  </td>
+                  <td style={{ padding: '0.7rem 0.85rem', verticalAlign: 'top' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '0.2rem' }}>{sede.nombre}</div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{sede.direccion}</div>
+                  </td>
+                  <td style={{ padding: '0.7rem 0.85rem', verticalAlign: 'top' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--color-sienna-brown)', fontSize: '0.76rem', marginBottom: '0.2rem' }}>{sede.horario}</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{sede.recaudos}</div>
+                  </td>
+                  <td style={{ padding: '0.7rem 0.85rem', verticalAlign: 'top', fontWeight: 600, color: 'var(--color-ink-black)', whiteSpace: 'nowrap' }}>
+                    {sede.tiempoEntrega}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

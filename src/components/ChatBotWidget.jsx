@@ -25,6 +25,35 @@ const AUDIT_QUESTIONS = [
   '<strong>Requisito 5 de 5:</strong> ¿Ya seleccionaste el <strong>País de Destino (Convenio de La Haya)</strong> para tu solicitud electrónica ante el MPPRE?'
 ];
 
+const escapeText = (str) => String(str || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const sanitizeBotHtml = (html) => {
+  // Permite únicamente etiquetas de formato institucional sin atributos (strong, em, code, br)
+  const placeholders = [];
+  const protectedHtml = String(html || '').replace(/<(\/?(?:strong|em|code)|br\s*\/?)>/gi, (match) => {
+    const token = `__SAFE_TAG_${placeholders.length}__`;
+    const normalized = match.toLowerCase().startsWith('<br') ? '<br/>' : match.toLowerCase();
+    placeholders.push(normalized);
+    return token;
+  });
+
+  let safe = escapeText(protectedHtml)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br/>');
+
+  placeholders.forEach((tag, idx) => {
+    safe = safe.replace(`__SAFE_TAG_${idx}__`, tag);
+  });
+  return safe;
+};
+
 const ChatBotWidget = ({ user, onNavigate }) => {
   const storageKey = `usm_chat_history_${(user?.cedula || 'guest').replace(/\D/g, '') || 'guest'}`;
 
@@ -120,10 +149,13 @@ const ChatBotWidget = ({ user, onNavigate }) => {
 
   useEffect(() => {
     if (messages.length === 0) {
+      const safeName = escapeText(user?.nombre || 'Graduando USM');
+      const safeCedula = escapeText(user?.cedula || 'USM');
+      const safeCarrera = escapeText(user?.carrera || 'Ingeniería');
       const welcomeMsg = {
         sender: 'bot',
-        text: `👋 ¡Hola, <strong>${user?.nombre || 'Graduando USM'}</strong>! Soy tu <strong>Asistente Institucional con Inteligencia Artificial</strong>.<br/><br/>
-Estoy conectado en tiempo real a tu expediente (Cédula <strong>${user?.cedula || 'USM'}</strong> — <strong>${user?.carrera || 'Ingeniería'}</strong>). Puedo ayudarte a:<br/>
+        text: `👋 ¡Hola, <strong>${safeName}</strong>! Soy tu <strong>Asistente Institucional con Inteligencia Artificial</strong>.<br/><br/>
+Estoy conectado en tiempo real a tu expediente (Cédula <strong>${safeCedula}</strong> — <strong>${safeCarrera}</strong>). Puedo ayudarte a:<br/>
 • Consultar el estatus exacto de tus trámites en las 4 estaciones (USM → SAREN → MPPEU → MPPRE).<br/>
 • Ejecutar una auditoría guiada de tus documentos antes de ir a taquilla.<br/>
 • Explicarte aranceles PUB, citas GTU y verificación en Ethereum Sepolia.<br/><br/>
@@ -134,9 +166,11 @@ Estoy conectado en tiempo real a tu expediente (Cédula <strong>${user?.cedula |
   }, [user]);
 
   const buildPersonalizedTramiteReply = () => {
+    const safeUserName = escapeText(user?.nombre || 'Graduando');
+    const safeUserCedula = escapeText(user?.cedula || 'USM');
     if (userRecords.length === 0) {
       return {
-        text: `📋 <strong>Estado de tu Expediente (${user?.nombre || 'Graduando'} — ${user?.cedula || 'USM'}):</strong><br/><br/>
+        text: `📋 <strong>Estado de tu Expediente (${safeUserName} — ${safeUserCedula}):</strong><br/><br/>
 Actualmente <strong>no tienes trámites registrados</strong> en la cadena de custodia.<br/><br/>
 <strong>Recomendación para iniciar hoy mismo:</strong><br/>
 1. Escanea tu título en el <strong>Motor OCR con IA</strong> para extraer tus datos y generar tu código GTU.<br/>
@@ -159,12 +193,12 @@ Actualmente <strong>no tienes trámites registrados</strong> en la cadena de cus
 
     return {
       text: `📋 <strong>Reporte en Vivo de tu Expediente (${userRecords.length} ${userRecords.length === 1 ? 'trámite activo' : 'trámites activos'}):</strong><br/><br/>
-• <strong>Trámite Principal:</strong> ${latest.solicitudCode || 'GTU-2026-USM'} — ${latest.documentType || 'Título Universitario'}<br/>
-• <strong>Titular:</strong> ${latest.ownerName || user?.nombre} (${latest.cedula || user?.cedula})<br/>
+• <strong>Trámite Principal:</strong> ${escapeText(latest.solicitudCode || 'GTU-2026-USM')} — ${escapeText(latest.documentType || 'Título Universitario')}<br/>
+• <strong>Titular:</strong> ${escapeText(latest.ownerName || user?.nombre)} (${escapeText(latest.cedula || user?.cedula)})<br/>
 • <strong>Estatus Actual:</strong> <strong>${stageDesc}</strong><br/>
-• <strong>Hash SHA-256:</strong> <code>${(latest.hash || '').slice(0, 18)}...</code><br/>
-${(latest.sede_taquilla || latest.sedeTaquilla) ? `• <strong>Taquilla Asignada:</strong> ${latest.sede_taquilla || latest.sedeTaquilla} (${latest.estado || 'Distrito Capital'})<br/>` : ''}
-${latest.apostilleNumber ? `• <strong>N° Apostilla de La Haya:</strong> ${latest.apostilleNumber}<br/>` : ''}<br/>
+• <strong>Hash SHA-256:</strong> <code>${escapeText((latest.hash || '').slice(0, 18))}...</code><br/>
+${(latest.sede_taquilla || latest.sedeTaquilla) ? `• <strong>Taquilla Asignada:</strong> ${escapeText(latest.sede_taquilla || latest.sedeTaquilla)} (${escapeText(latest.estado || 'Distrito Capital')})<br/>` : ''}
+${latest.apostilleNumber ? `• <strong>N° Apostilla de La Haya:</strong> ${escapeText(latest.apostilleNumber)}<br/>` : ''}<br/>
 [ACTION:dashboard][ACTION:prevalidation][ACTION:blockchain]`,
       isAudit: false
     };
@@ -344,7 +378,7 @@ Cualquier universidad extranjera, consulado o empleador puede verificar tu títu
       });
 
       let rawReply = data.reply || '';
-      let formattedText = rawReply
+      let formattedText = escapeText(rawReply)
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/\n/g, '<br/>');
@@ -356,7 +390,8 @@ Cualquier universidad extranjera, consulado o empleador puede verificar tu títu
       }]);
       setStatus('En línea · IA Activa');
     } catch (_) {
-      const fallbackText = `Entendido, <strong>${user?.nombre?.split(' ')[0] || 'Graduando'}</strong>. Como <strong>Asistente Institucional de la USM</strong>, puedo mostrarte el estado en vivo de tus trámites (${userRecords.length} registrados), iniciar una auditoría interactiva de 5 pasos o guiarte en el proceso ante USM, SAREN, MPPEU y MPPRE.<br/><br/>[ACTION:dashboard][ACTION:prevalidation][ACTION:guide]`;
+      const safeFirst = escapeText(user?.nombre?.split(' ')[0] || 'Graduando');
+      const fallbackText = `Entendido, <strong>${safeFirst}</strong>. Como <strong>Asistente Institucional de la USM</strong>, puedo mostrarte el estado en vivo de tus trámites (${userRecords.length} registrados), iniciar una auditoría interactiva de 5 pasos o guiarte en el proceso ante USM, SAREN, MPPEU y MPPRE.<br/><br/>[ACTION:dashboard][ACTION:prevalidation][ACTION:guide]`;
       setMessages((prev) => [...prev, {
         text: fallbackText,
         sender: 'bot',
@@ -414,14 +449,16 @@ Cualquier universidad extranjera, consulado o empleador puede verificar tu títu
             <p style="margin:0; font-family:Arial,sans-serif; font-size:12px; color:#555;">Bitácora de Asesoría Institucional y Legalización Universitaria</p>
           </div>
           <div style="text-align:right; font-family:Arial,sans-serif; font-size:12px;">
-            <strong>${user?.nombre || 'Graduando USM'}</strong><br/>
-            ${user?.cedula || ''} · ${new Date().toLocaleDateString('es-VE')}
+            <strong>${escapeText(user?.nombre || 'Graduando USM')}</strong><br/>
+            ${escapeText(user?.cedula || '')} · ${new Date().toLocaleDateString('es-VE')}
           </div>
         </div>
         ${messages.map(m => `
-          <div class="msg ${m.sender}">
-            <strong>${m.sender === 'bot' ? 'Asistente Institucional USM:' : (user?.nombre || 'Graduando') + ':'}</strong><br/>
-            ${(m.text || '').replace(/\[ACTION:[a-z]+\]/g, '')}
+          <div class="msg ${m.sender === 'bot' ? 'bot' : 'user'}">
+            <strong>${m.sender === 'bot' ? 'Asistente Institucional USM:' : escapeText(user?.nombre || 'Graduando') + ':'}</strong><br/>
+            ${m.sender === 'bot'
+              ? sanitizeBotHtml((m.text || '').replace(/\[ACTION:[a-z]+\]/g, ''))
+              : escapeText((m.text || '').replace(/\[ACTION:[a-z]+\]/g, ''))}
           </div>
         `).join('')}
         <script>window.onload = () => { window.print(); };</script>
@@ -450,7 +487,7 @@ Cualquier universidad extranjera, consulado o empleador puede verificar tu títu
     const hasDashboardAction = text.includes('[ACTION:dashboard]');
     const hasPrevalAction = text.includes('[ACTION:prevalidation]');
 
-    const cleanHtml = text
+    const strippedText = text
       .replace(/\[ACTION:ocr\]/g, '')
       .replace(/\[ACTION:pub\]/g, '')
       .replace(/\[ACTION:blockchain\]/g, '')
@@ -458,6 +495,12 @@ Cualquier universidad extranjera, consulado o empleador puede verificar tu títu
       .replace(/\[ACTION:forms\]/g, '')
       .replace(/\[ACTION:dashboard\]/g, '')
       .replace(/\[ACTION:prevalidation\]/g, '');
+
+    if (msg.sender === 'user') {
+      return <div><span>{strippedText}</span></div>;
+    }
+
+    const cleanHtml = sanitizeBotHtml(strippedText);
 
     return (
       <div>

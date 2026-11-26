@@ -1293,8 +1293,8 @@ const PUBForm = ({ user, initialData, onVerifyHash, onNavigate }) => {
                       onChange={(e) => handleDirectFieldChange('sede_taquilla', e.target.value)}
                       style={{ width: '100%', padding: '0.5rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)', background: '#ffffff', fontSize: '0.82rem', fontWeight: 600 }}
                     >
-                      {currentEstadoObj.taquillas.map((taq) => (
-                        <option key={taq.id} value={taq.nombre}>{taq.nombre}</option>
+                      {currentEstadoObj.taquillas.map((taq, idx) => (
+                        <option key={taq.id || taq.nombre || idx} value={taq.nombre}>{taq.nombre}</option>
                       ))}
                     </select>
                     <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
@@ -1476,7 +1476,10 @@ const PUBForm = ({ user, initialData, onVerifyHash, onNavigate }) => {
                     style={msg.isError ? { borderLeft: '3px solid var(--danger)', background: 'rgba(185, 28, 28, 0.06)' } : {}}
                   >
                     <span dangerouslySetInnerHTML={{
-                      __html: msg.text
+                      __html: String(msg.text || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                         .replace(/\*(.*?)\*/g, '<em>$1</em>')
                         .replace(/`(.*?)`/g, '<code style="background:var(--color-fog-white);border:1px solid var(--border);padding:0.1rem 0.4rem;border-radius:4px;font-family:monospace;font-size:0.8rem;word-break:break-all">$1</code>')

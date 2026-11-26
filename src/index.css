@@ -1050,6 +1050,45 @@ select.chat-input option {
   .timeline {
     padding-left: 1.2rem;
   }
+
+  /* Módulo 11: Ajuste fino de modales anchos y certificados en pantallas < 480px */
+  .cert-modal-overlay {
+    padding: 0.4rem !important;
+    align-items: flex-start !important;
+  }
+
+  .cert-modal-content {
+    padding: 0.85rem !important;
+    max-height: 96dvh !important;
+    border-radius: 12px !important;
+  }
+
+  .apostille-toolbar {
+    padding: 0.75rem 0.9rem !important;
+  }
+
+  .apostille-scroll-wrap {
+    padding: 0.65rem !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .apostille-sheet {
+    padding: 1rem !important;
+    font-size: 0.82rem !important;
+  }
+
+  .apostille-sheet div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .official-form-preview {
+    font-size: 0.82rem !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .official-form-preview table {
+    font-size: 8pt !important;
+  }
 }
 
 /* ==========================================================================

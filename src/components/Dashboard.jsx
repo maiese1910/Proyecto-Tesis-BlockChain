@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TrackingTimeline from './TrackingTimeline';
-import { statsAPI, blockchainAPI, WS_URL } from '../services/api';
+import { statsAPI, blockchainAPI } from '../services/api';
 
 // Componente que anima un número cuando cambia
 const AnimatedNumber = ({ value, suffix = '' }) => {
@@ -215,8 +215,6 @@ const Dashboard = ({ user, onNavigate, onVerifyHash }) => {
     })()
   ).current;
   const logContainerRef = useRef(null);
-  const wsRef = useRef(null);
-  const reconnectTimerRef = useRef(null);
   const pollingRef = useRef(null);
 
   const fetchStats = useCallback(async () => {
@@ -228,61 +226,13 @@ const Dashboard = ({ user, onNavigate, onVerifyHash }) => {
     } catch (_) {}
   }, [sessionId]);
 
-  const connectWebSocket = useCallback(() => {
-    if (typeof window === 'undefined' || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
-      return;
-    }
-
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
-
-    try {
-      const ws = new WebSocket(`${WS_URL}/ws/stats`);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setStats(prev => ({ ...prev, ...data }));
-        } catch (_) {}
-      };
-
-      ws.onclose = () => {
-        wsRef.current = null;
-        if (!pollingRef.current) {
-          pollingRef.current = setInterval(fetchStats, 4000);
-        }
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    } catch (_) {
-      if (!pollingRef.current) {
-        pollingRef.current = setInterval(fetchStats, 4000);
-      }
-    }
-  }, [fetchStats]);
-
   useEffect(() => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
 
     fetchStats();
-    connectWebSocket();
-    pollingRef.current = setInterval(fetchStats, 4000);
+    pollingRef.current = setInterval(fetchStats, 8000);
     refreshLocalDocs();
 
     let channel;
@@ -313,18 +263,11 @@ const Dashboard = ({ user, onNavigate, onVerifyHash }) => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('usm_records_updated', handleCustomUpdate);
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-      }
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
       }
     };
-  }, [fetchStats, connectWebSocket, refreshLocalDocs]);
+  }, [fetchStats, refreshLocalDocs]);
 
   const displayDocsCount = localDocs.length;
   const displayBlockchainCount = localDocs.filter(r =>

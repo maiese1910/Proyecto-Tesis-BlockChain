@@ -3,7 +3,7 @@ import { Html5QrcodeScanner } from 'html5-qrcode';
 import { ShieldCheck, XCircle, Loader2 } from 'lucide-react';
 import { blockchainAPI } from '../services/api';
 
-const QRScanner = () => {
+const QRScanner = ({ embedded = false, onHashDetected = null }) => {
   const [scanResult, setScanResult] = useState(null);
   const [verificationData, setVerificationData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,15 @@ const QRScanner = () => {
     scanner.render(success, onScanError);
 
     function success(result) {
-      scanner.clear();
+      scanner.clear().catch(() => {});
+      let cleanHash = result;
+      if (result && result.includes('hash=')) {
+        cleanHash = result.split('hash=')[1].split('&')[0];
+      }
+      if (onHashDetected) {
+        onHashDetected(cleanHash.trim());
+        return;
+      }
       setScanResult(result);
       verifyDocument(result);
     }

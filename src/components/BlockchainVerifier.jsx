@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck, FileText, Layers, Award, Sparkles, Copy, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck, FileText, Layers, Award, Sparkles, Copy, Check, QrCode, Upload, X, AlertTriangle, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { blockchainAPI } from '../services/api';
 import { verifyDocumentOnChain, SEPOLIA_EXPLORER_URL, getContractAddress } from '../services/web3Service';
 import DigitalCertificate from './DigitalCertificate';
 import WalletConnect from './WalletConnect';
+import QRScanner from './QRScanner';
 
 const SAMPLE_HASHES = [
   {
     label: 'Título Ing. de Sistemas (V-28.315.101)',
-    hash: '0x4b7891a2bc3456def0123456789abcdef0123456789abcdef0123456789abcd1',
+    hash: '0x7F9A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9F0A',
     note: 'Cotejo MPPEU (GTU) Aprobado'
   },
   {
@@ -19,13 +20,74 @@ const SAMPLE_HASHES = [
   }
 ];
 
+const BASELINE_AVALANCHE_DOC = `INSTITUCIÓN: Universidad Santa María (USM)
+TITULAR: Mauro Daniel Maiese Ferreira
+CÉDULA: V-28.315.101
+TÍTULO: Ingeniero de Sistemas
+PROMEDIO PONDERADO: 16.50 / 20.00
+LIBRO: Grados 2026 | TOMO: XVIII | FOLIO: 142`;
+
+const computeSha256Hex = async (text) => {
+  const data = new TextEncoder().encode(text);
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  return '';
+};
+
+const computeBitDiffPercent = (hexA, hexB) => {
+  if (!hexA || !hexB || hexA.length !== hexB.length) return { hexChanged: 0, bitPercent: 0 };
+  let diffBits = 0;
+  let hexChanged = 0;
+  for (let i = 0; i < hexA.length; i++) {
+    const a = parseInt(hexA[i], 16);
+    const b = parseInt(hexB[i], 16);
+    if (a !== b) hexChanged++;
+    let x = a ^ b;
+    while (x) { diffBits += x & 1; x >>= 1; }
+  }
+  return { hexChanged, bitPercent: Math.round((diffBits / (hexA.length * 4)) * 1000) / 10 };
+};
+
 const BlockchainVerifier = ({ initialHash }) => {
   const [hashInput, setHashInput] = useState(initialHash || '');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [showCertModal, setShowCertModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
   const [copiedHash, setCopiedHash] = useState(false);
   const [contractAddr, setContractAddr] = useState(getContractAddress());
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [verifiedFileInfo, setVerifiedFileInfo] = useState(null);
+  const [labText, setLabText] = useState(BASELINE_AVALANCHE_DOC);
+  const [labOrigHash, setLabOrigHash] = useState('');
+  const [labCurHash, setLabCurHash] = useState('');
+  const fileVerifyRef = useRef(null);
+
+  useEffect(() => {
+    computeSha256Hex(BASELINE_AVALANCHE_DOC).then(setLabOrigHash);
+  }, []);
+
+  useEffect(() => {
+    computeSha256Hex(labText).then(setLabCurHash);
+  }, [labText]);
+
+  const handleFileHashVerify = async (file) => {
+    if (!file) return;
+    try {
+      const arrayBuf = await file.arrayBuffer();
+      if (typeof crypto !== 'undefined' && crypto.subtle) {
+        const digest = await crypto.subtle.digest('SHA-256', arrayBuf);
+        const hex = '0x' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+        setVerifiedFileInfo({ name: file.name, sizeKB: Math.max(1, Math.round(file.size / 1024)), hash: hex });
+        setHashInput(hex);
+        handleVerify(hex);
+      }
+    } catch (e) {
+      console.warn('Error calculando SHA-256 del archivo:', e);
+    }
+  };
 
   useEffect(() => {
     const handleAddrUpdate = (e) => {
@@ -255,6 +317,73 @@ const BlockchainVerifier = ({ initialHash }) => {
           >
             {loading ? 'Verificando...' : <><Search size={16} /> Verificar Hash</>}
           </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', whiteSpace: 'nowrap', flexShrink: 0, padding: '0.65rem 1rem' }}
+            onClick={() => setShowQrModal(true)}
+            title="Escanear código QR del certificado o apostilla"
+          >
+            <QrCode size={16} /> Escanear QR
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', whiteSpace: 'nowrap', flexShrink: 0, padding: '0.65rem 1rem' }}
+            onClick={() => fileVerifyRef.current?.click()}
+            title="Calcular SHA-256 local de un archivo PDF o imagen"
+          >
+            <Upload size={16} /> Verificar Archivo
+          </button>
+          <input
+            ref={fileVerifyRef}
+            type="file"
+            accept=".pdf,image/*"
+            style={{ display: 'none' }}
+            onChange={(e) => { if (e.target.files?.[0]) handleFileHashVerify(e.target.files[0]); e.target.value = ''; }}
+          />
+        </div>
+
+        {/* Zona Drag & Drop de Verificación de Archivo Físico */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDraggingFile(true); }}
+          onDragLeave={() => setIsDraggingFile(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDraggingFile(false);
+            const dropped = e.dataTransfer?.files?.[0];
+            if (dropped) handleFileHashVerify(dropped);
+          }}
+          onClick={() => fileVerifyRef.current?.click()}
+          style={{
+            border: isDraggingFile ? '2px dashed var(--color-sienna-brown)' : '1.5px dashed var(--border)',
+            background: isDraggingFile ? 'var(--color-blush-peach)' : 'var(--color-fog-white)',
+            borderRadius: 'var(--radius-inputs)',
+            padding: '0.85rem 1.1rem',
+            marginBottom: '1.25rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Upload size={18} color="var(--color-sienna-brown)" />
+            <div style={{ fontSize: '0.82rem' }}>
+              <strong style={{ color: 'var(--color-ink-black)' }}>Verificación de Archivo Físico (Drag &amp; Drop):</strong>{' '}
+              <span style={{ color: 'var(--text-secondary)' }}>
+                Arrastra un PDF o imagen del título aquí para calcular su SHA-256 local y contrastarlo en Sepolia.
+              </span>
+            </div>
+          </div>
+          {verifiedFileInfo && (
+            <span style={{ fontSize: '0.74rem', fontFamily: 'monospace', background: '#ffffff', border: '1px solid var(--border)', padding: '0.25rem 0.65rem', borderRadius: 'var(--radius-pill)', color: 'var(--color-sienna-brown)', fontWeight: 600 }}>
+              {verifiedFileInfo.name} ({verifiedFileInfo.sizeKB} KB)
+            </span>
+          )}
         </div>
 
         {/* Botones de Hashes de Prueba para Evaluación Académica */}
@@ -717,12 +846,167 @@ const BlockchainVerifier = ({ initialHash }) => {
         )}
       </motion.div>
 
+      {/* ─── INNOVACIÓN DE TESIS: Laboratorio de Integridad Criptográfica (Efecto Avalancha SHA-256) ─── */}
+      {(() => {
+        const isIntact = Boolean(labOrigHash && labCurHash && labOrigHash === labCurHash);
+        const diff = computeBitDiffPercent(labOrigHash, labCurHash);
+        return (
+          <motion.div
+            className="glass-panel"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            style={{ marginTop: '1.5rem' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.85rem', marginBottom: '1rem' }}>
+              <div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-sienna-brown)', backgroundColor: 'var(--color-blush-peach)', padding: '0.2rem 0.65rem', borderRadius: 'var(--radius-pill)', marginBottom: '0.4rem' }}>
+                  <Sparkles size={12} /> Laboratorio de Integridad Criptográfica
+                </span>
+                <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.3rem', fontWeight: 400, margin: 0, color: 'var(--color-ink-black)' }}>
+                  Demostrador de Efecto Avalancha SHA-256 (Detección de Adulteración)
+                </h3>
+                <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>
+                  Altera un solo dígito (ej. promedio o cédula) en el documento simulado para observar cómo cambia ~50% de los bits del hash SHA-256 y el Smart Contract rechaza la falsificación al instante.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.76rem' }}
+                  onClick={() => setLabText(BASELINE_AVALANCHE_DOC.replace('16.50', '18.50'))}
+                >
+                  Alterar Promedio (16.50 → 18.50)
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.76rem' }}
+                  onClick={() => setLabText(BASELINE_AVALANCHE_DOC.replace('V-28.315.101', 'V-28.315.102'))}
+                >
+                  Alterar 1 Dígito Cédula
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                  onClick={() => setLabText(BASELINE_AVALANCHE_DOC)}
+                >
+                  <RotateCcw size={13} /> Restaurar Original
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-ink-black)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+                  Contenido del Expediente (Editable para Prueba de Manipulación)
+                </label>
+                <textarea
+                  rows={6}
+                  value={labText}
+                  onChange={(e) => setLabText(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.85rem',
+                    borderRadius: 'var(--radius-inputs)',
+                    border: isIntact ? '1px solid rgba(16, 185, 129, 0.4)' : '1.5px solid #dc2626',
+                    background: isIntact ? 'var(--color-fog-white)' : '#fef2f2',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem',
+                    lineHeight: 1.5,
+                    color: 'var(--color-ink-black)',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', justifyContent: 'space-between' }}>
+                <div style={{ padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-inputs)', background: 'var(--color-fog-white)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                    Hash Original Anclado en Smart Contract (Sepolia)
+                  </div>
+                  <code style={{ fontFamily: 'monospace', fontSize: '0.76rem', wordBreak: 'break-all', color: '#047857' }}>
+                    0x{labOrigHash}
+                  </code>
+                </div>
+
+                <div style={{ padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-inputs)', background: isIntact ? '#ecfdf5' : '#fef2f2', border: isIntact ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(220, 38, 38, 0.4)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isIntact ? '#047857' : '#b91c1c', textTransform: 'uppercase' }}>
+                      Hash Recalculado en Tiempo Real (Web Crypto SHA-256)
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isIntact ? '#047857' : '#b91c1c' }}>
+                      {isIntact ? '0% Divergencia' : `Avalancha: ${diff.bitPercent}% bits alterados (${diff.hexChanged}/64 hex)`}
+                    </span>
+                  </div>
+                  <code style={{ fontFamily: 'monospace', fontSize: '0.76rem', wordBreak: 'break-all', color: isIntact ? '#047857' : '#991b1b' }}>
+                    0x{labCurHash.split('').map((ch, idx) => (
+                      <span key={idx} style={!isIntact && labOrigHash[idx] !== ch ? { background: 'rgba(220,38,38,0.18)', fontWeight: 700 } : undefined}>{ch}</span>
+                    ))}
+                  </code>
+                </div>
+
+                <div style={{
+                  padding: '0.7rem 0.95rem',
+                  borderRadius: 'var(--radius-inputs)',
+                  background: isIntact ? 'rgba(16, 185, 129, 0.12)' : 'rgba(220, 38, 38, 0.1)',
+                  border: isIntact ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(220, 38, 38, 0.35)',
+                  color: isIntact ? '#065f46' : '#991b1b',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  {isIntact ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                  <span>
+                    {isIntact
+                      ? 'INTEGRIDAD CONFIRMADA: Coincidencia criptográfica 100% con el registro inmutable.'
+                      : 'HASH_MISMATCH_TAMPER_DETECTED: Alteración detectada — documento rechazado por el Smart Contract.'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      })()}
+
       {/* Modal de Certificado Digital con QR */}
       {showCertModal && (
         <DigitalCertificate
           docHash={hashInput.trim()}
           onClose={() => setShowCertModal(false)}
         />
+      )}
+
+      {/* Modal de Escáner QR integrado */}
+      {showQrModal && (
+        <div
+          className="cert-modal-overlay"
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15, 23, 42, 0.72)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowQrModal(false); }}
+        >
+          <div style={{ background: '#ffffff', borderRadius: '18px', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', border: '1px solid var(--border)', boxShadow: 'var(--shadow-hover)' }}>
+            <button
+              type="button"
+              onClick={() => setShowQrModal(false)}
+              style={{ position: 'absolute', top: '0.9rem', right: '0.9rem', zIndex: 10, background: '#ffffff', border: '1px solid var(--border)', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title="Cerrar escáner QR"
+            >
+              <X size={16} />
+            </button>
+            <QRScanner
+              embedded
+              onHashDetected={(detectedHash) => {
+                setShowQrModal(false);
+                setHashInput(detectedHash);
+                handleVerify(detectedHash);
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

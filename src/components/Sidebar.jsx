@@ -114,8 +114,11 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout, onUpdateUser }) => {
         {menuItems.map((item) => (
           <div
             key={item.id}
+            role="button"
+            tabIndex={0}
             className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
             onClick={() => setActiveTab(item.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab(item.id); } }}
           >
             {item.icon}
             <span>{item.label}</span>

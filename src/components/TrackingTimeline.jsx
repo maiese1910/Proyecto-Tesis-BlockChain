@@ -354,12 +354,13 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
     if (!latestRecord) return;
     const win = window.open('', '_blank', 'width=850,height=750');
     if (!win) return;
+    const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const html = `
       <!DOCTYPE html>
       <html lang="es">
       <head>
         <meta charset="UTF-8" />
-        <title>Hoja de Ruta de Trámite — ${latestRecord.solicitudCode || 'USM'}</title>
+        <title>Hoja de Ruta de Trámite — ${esc(latestRecord.solicitudCode || 'USM')}</title>
         <style>
           body { font-family: 'Georgia', serif; color: #121212; padding: 36px; max-width: 760px; margin: 0 auto; }
           .header { border-bottom: 2px solid #121212; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
@@ -381,21 +382,21 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
             <p class="subtitle">Hoja de Ruta y Trazabilidad Criptográfica de Trámite Universitario</p>
           </div>
           <div style="text-align:right; font-family:Arial,sans-serif; font-size:12px;">
-            <strong>Código: ${latestRecord.solicitudCode || 'GTU-2026-USM'}</strong><br/>
+            <strong>Código: ${esc(latestRecord.solicitudCode || 'GTU-2026-USM')}</strong><br/>
             Fecha: ${new Date().toLocaleDateString('es-VE')}
           </div>
         </div>
         <div class="box">
-          <div class="row"><span><strong>Titular:</strong> ${latestRecord.ownerName || user?.nombre || 'Graduando USM'}</span><span><strong>Cédula:</strong> ${latestRecord.cedula || user?.cedula || 'N/A'}</span></div>
-          <div class="row"><span><strong>Documento:</strong> ${latestRecord.documentType || 'Título Universitario'}</span><span><strong>Estatus Actual:</strong> ${latestRecord.status || 'EN PROCESO'}</span></div>
-          ${(latestRecord.sede_taquilla || latestRecord.sedeTaquilla) ? `<div class="row"><span><strong>Taquilla Asignada:</strong> ${latestRecord.sede_taquilla || latestRecord.sedeTaquilla}</span><span><strong>Ubicación:</strong> ${latestRecord.estado || 'Distrito Capital'}</span></div>` : ''}
-          <div class="hash"><strong>Hash SHA-256 Canónico:</strong> ${latestRecord.hash || 'N/A'}<br/><strong>Tx Ethereum Sepolia:</strong> ${latestRecord.txHash || 'Pendiente de Anclaje'}</div>
+          <div class="row"><span><strong>Titular:</strong> ${esc(latestRecord.ownerName || user?.nombre || 'Graduando USM')}</span><span><strong>Cédula:</strong> ${esc(latestRecord.cedula || user?.cedula || 'N/A')}</span></div>
+          <div class="row"><span><strong>Documento:</strong> ${esc(latestRecord.documentType || 'Título Universitario')}</span><span><strong>Estatus Actual:</strong> ${esc(latestRecord.status || 'EN PROCESO')}</span></div>
+          ${(latestRecord.sede_taquilla || latestRecord.sedeTaquilla) ? `<div class="row"><span><strong>Taquilla Asignada:</strong> ${esc(latestRecord.sede_taquilla || latestRecord.sedeTaquilla)}</span><span><strong>Ubicación:</strong> ${esc(latestRecord.estado || 'Distrito Capital')}</span></div>` : ''}
+          <div class="hash"><strong>Hash SHA-256 Canónico:</strong> ${esc(latestRecord.hash || 'N/A')}<br/><strong>Tx Ethereum Sepolia:</strong> ${esc(latestRecord.txHash || 'Pendiente de Anclaje')}</div>
         </div>
         <h3 style="font-family:Arial,sans-serif; font-size:14px; text-transform:uppercase; letter-spacing:0.05em;">Estaciones de Validación Interinstitucional</h3>
         ${steps.map((s) => `
           <div class="step">
-            <h4>${s.title} — [${s.status === 'completed' ? 'COMPLETADO ✓' : s.status === 'current' ? 'EN CURSO ⏳' : 'PENDIENTE'}]</h4>
-            <p>${s.desc}</p>
+            <h4>${esc(s.title)} — [${s.status === 'completed' ? 'COMPLETADO ✓' : s.status === 'current' ? 'EN CURSO ⏳' : 'PENDIENTE'}]</h4>
+            <p>${esc(s.desc)}</p>
           </div>
         `).join('')}
         <div class="footer">

@@ -331,6 +331,7 @@ const PreValidation = ({ user, onNavigate, onVerifyHash }) => {
     const scorePct = Math.round((completedCount / checklist.length) * 100);
     const win = window.open('', '_blank', 'width=850,height=750');
     if (!win) return;
+    const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const html = `
       <!DOCTYPE html>
       <html lang="es">
@@ -357,16 +358,16 @@ const PreValidation = ({ user, onNavigate, onVerifyHash }) => {
           </div>
         </div>
         <div class="box">
-          <div><strong>Graduando:</strong> ${activeRecord?.ownerName || user?.nombre || 'Graduando USM'} (${activeRecord?.cedula || user?.cedula || 'N/A'})</div>
-          <div><strong>Expediente Vinculado:</strong> ${activeRecord?.solicitudCode || fileName || 'Auditoría Preliminar'} — ${activeRecord?.documentType || user?.carrera || 'Título Universitario'}</div>
-          ${activeRecord?.hash ? `<div style="margin-top:6px; font-family:monospace; font-size:11px;"><strong>Hash SHA-256:</strong> ${activeRecord.hash}</div>` : ''}
+          <div><strong>Graduando:</strong> ${esc(activeRecord?.ownerName || user?.nombre || 'Graduando USM')} (${esc(activeRecord?.cedula || user?.cedula || 'N/A')})</div>
+          <div><strong>Expediente Vinculado:</strong> ${esc(activeRecord?.solicitudCode || fileName || 'Auditoría Preliminar')} — ${esc(activeRecord?.documentType || user?.carrera || 'Título Universitario')}</div>
+          ${activeRecord?.hash ? `<div style="margin-top:6px; font-family:monospace; font-size:11px;"><strong>Hash SHA-256:</strong> ${esc(activeRecord.hash)}</div>` : ''}
         </div>
         <h3 style="font-family:Arial,sans-serif; font-size:14px; text-transform:uppercase;">Resultado del Checklist Oficial (USM / SAREN / MPPEU / MPPRE)</h3>
         ${checklist.map(it => `
           <div class="item">
             <div>
-              <strong>${it.label}</strong><br/>
-              <span style="color:#555; font-size:12px;">${it.detailText || ''}</span>
+              <strong>${esc(it.label)}</strong><br/>
+              <span style="color:#555; font-size:12px;">${esc(it.detailText || '')}</span>
             </div>
             <span class="badge">${it.status === 'success' ? '✓ CUMPLIDO' : 'PENDIENTE'}</span>
           </div>

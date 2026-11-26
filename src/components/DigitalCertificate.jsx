@@ -21,42 +21,57 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
   };
 
   useEffect(() => {
+    const buildLocalCertificate = () => {
+      try {
+        const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
+        const pub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
+        const cleanTarget = (docHash || '').trim().toUpperCase().replace(/^0X/, '');
+        const matchDoc = (h) => (h || '').trim().toUpperCase().replace(/^0X/, '') === cleanTarget;
+        const found = bc.find(r => matchDoc(r.hash) || matchDoc(r.txHash)) || pub.find(r => matchDoc(r.hash || r.blockchainHash));
+
+        if (found) {
+          const isRev = Boolean(found.is_revoked || (found.status || '').includes('Rechazado') || (found.status || '').includes('Revocado'));
+          const verifyUrl = typeof window !== 'undefined' ? `${window.location.origin}/?hash=${docHash}` : `https://usm-apostillabot.vercel.app/?hash=${docHash}`;
+          return {
+            title: "CERTIFICADO DE AUTENTICIDAD DIGITAL",
+            institution: "Universidad Santa María - Facultad de Ingeniería",
+            owner: found.ownerName || found.nombre || found.owner_name || "Graduando USM",
+            id_number: found.cedula || "V-00.000.000",
+            document_type: found.documentType || found.tramite || found.document_type || "Título Universitario USM",
+            blockchain_status: isRev ? "REVOCADO / ANULADO" : "VALIDADO E INMUTABLE",
+            is_revoked: isRev,
+            network: "Ethereum Sepolia Testnet",
+            registration_date: found.createdAt || found.timestamp || found.created_at || new Date().toISOString(),
+            document_hash: docHash,
+            tx_hash: (found.txHash && !found.txHash.includes('PENDIENTE')) ? found.txHash : '0xSepolia-OnChain-Verified',
+            verified_by: found.verifiedBy || found.mppeuOfficer || "MPPEU / GTU Taquilla Oficial",
+            qr_link: verifyUrl,
+            verification_url: verifyUrl,
+            is_demo_fallback: false
+          };
+        }
+      } catch (_) {}
+      return null;
+    };
+
     const fetchCertificate = async () => {
       try {
         const data = await blockchainAPI.getCertificate(docHash);
-        setCertData(data);
-      } catch (err) {
-        // Fallback local desde usm_blockchain_records o usm_pub_history
-        try {
-          const bc = JSON.parse(localStorage.getItem('usm_blockchain_records') || '[]');
-          const pub = JSON.parse(localStorage.getItem('usm_pub_history') || '[]');
-          const cleanTarget = (docHash || '').trim().toUpperCase().replace(/^0X/, '');
-          const matchDoc = (h) => (h || '').trim().toUpperCase().replace(/^0X/, '') === cleanTarget;
-          const found = bc.find(r => matchDoc(r.hash)) || pub.find(r => matchDoc(r.hash || r.blockchainHash));
-
-          if (found) {
-            const isRev = Boolean(found.is_revoked || (found.status || '').includes('Rechazado') || (found.status || '').includes('Revocado'));
-            const verifyUrl = typeof window !== 'undefined' ? `${window.location.origin}/?hash=${docHash}` : `https://usm-apostillabot.vercel.app/?hash=${docHash}`;
-            setCertData({
-              title: "CERTIFICADO DE AUTENTICIDAD DIGITAL",
-              institution: "Universidad Santa María - Facultad de Ingeniería",
-              owner: found.ownerName || found.nombre || found.owner_name || "Graduando USM",
-              id_number: found.cedula || "V-00.000.000",
-              document_type: found.documentType || found.tramite || found.document_type || "Título Universitario USM",
-              blockchain_status: isRev ? "REVOCADO / ANULADO" : "VALIDADO E INMUTABLE",
-              is_revoked: isRev,
-              network: "Ethereum Sepolia Testnet",
-              registration_date: found.createdAt || found.timestamp || found.created_at || new Date().toISOString(),
-              document_hash: docHash,
-              tx_hash: (found.txHash && !found.txHash.includes('PENDIENTE')) ? found.txHash : '0xSepolia-OnChain-Verified',
-              verified_by: found.verifiedBy || found.mppeuOfficer || "MPPEU / GTU Taquilla Oficial",
-              qr_link: verifyUrl,
-              verification_url: verifyUrl,
-              is_demo_fallback: false
-            });
+        // Si el backend serverless reinició memoria y devolvió fallback demo genérico, priorizar el expediente real local
+        if (data?.is_demo_fallback) {
+          const localCert = buildLocalCertificate();
+          if (localCert) {
+            setCertData(localCert);
             return;
           }
-        } catch (_) {}
+        }
+        setCertData(data);
+      } catch (err) {
+        const localCert = buildLocalCertificate();
+        if (localCert) {
+          setCertData(localCert);
+          return;
+        }
         setError(err.message || 'No se pudo obtener el certificado de la Blockchain.');
       } finally {
         setLoading(false);

@@ -413,7 +413,7 @@ function App() {
 
           <ToastNotification />
 
-          <div style={{ width: '100%', maxWidth: '100vw', height: '100vh', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ width: '100%', maxWidth: '100vw', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             <div className="admin-header" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', padding: '0.9rem 2rem' }}>
 
@@ -570,7 +570,7 @@ function App() {
 
       case 'survival':
 
-        return <SurvivalGuide />;
+        return <SurvivalGuide user={user} onNavigate={setActiveTab} />;
 
       case 'pub':
 

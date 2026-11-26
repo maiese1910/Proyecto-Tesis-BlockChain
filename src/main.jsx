@@ -9,10 +9,11 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { Analytics } from '@vercel/analytics/react'
 
 const renderApp = () => {
-  if (window.location.pathname === '/admin') {
+  const cleanPath = window.location.pathname.replace(/\/+$/, '').toLowerCase();
+  if (cleanPath === '/admin') {
     return <AdminApp />
   }
-  if (window.location.pathname === '/scanner') {
+  if (cleanPath === '/scanner') {
     return <QRScanner />
   }
   return <App />
