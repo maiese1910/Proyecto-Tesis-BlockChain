@@ -108,7 +108,16 @@ const AdminApp = () => {
               <ArrowLeftRight size={14} />
               {showConfigBitacora ? 'Volver a Bandeja GTU / MPPRE' : 'Bitácora CSV/PDF y Configuración'}
             </button>
-            <NotificationBell role="admin" ente={adminData?.ente || 'MPPEU'} />
+            <NotificationBell
+              role="admin"
+              ente={adminData?.ente || 'MPPEU'}
+              adminData={adminData}
+              onAdminEmailUpdated={(newEmail) => {
+                const updated = { ...adminData, email: newEmail };
+                setAdminData(updated);
+                try { localStorage.setItem('admin_data', JSON.stringify(updated)); } catch (_) {}
+              }}
+            />
             <WalletConnect />
             <button
               onClick={handleLogout}

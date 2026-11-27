@@ -61,6 +61,7 @@ const GovernmentLoginPortal = ({ onAdminLogin }) => {
           username: res.username || username.trim(),
           ente: res.ente || entesConfig[selectedEnte].name.split(' ')[0],
           cargo: res.cargo || entesConfig[selectedEnte].role,
+          email: res.email || '',
           token: res.token || res.access_token,
         };
         localStorage.setItem('admin_auth', 'true');

@@ -1602,8 +1602,91 @@ def _find_student_email_for_record(record: dict) -> str:
             return match["email"].strip().lower()
     return ""
 
+ADMINS_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_admins_cache.json")
+
+def _load_admins_cache():
+    global _admins_memory
+    try:
+        if os.path.exists(ADMINS_CACHE_FILE):
+            with open(ADMINS_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    known = {(a.get("username") or "").lower() for a in _admins_memory}
+                    for item in data:
+                        u = (item.get("username") or "").lower()
+                        if u and u not in known:
+                            _admins_memory.append(item)
+                            known.add(u)
+                        elif u:
+                            for idx, ex in enumerate(_admins_memory):
+                                if (ex.get("username") or "").lower() == u and item.get("email"):
+                                    _admins_memory[idx]["email"] = item["email"]
+    except Exception:
+        pass
+
+def _save_admins_cache():
+    try:
+        with open(ADMINS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(_admins_memory, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+_load_admins_cache()
+
+def _get_admin_emails_for_ente(target_ente: str) -> list:
+    """Resuelve dinámicamente todos los correos vinculados a los auditores del ente (MPPEU / MPPRE)."""
+    _load_admins_cache()
+    ente_norm = (target_ente or "").strip().upper()
+    emails = []
+
+    def _add(raw_val: str):
+        for part in str(raw_val or "").replace(";", ",").split(","):
+            em = part.strip().lower()
+            if em and "@" in em and em not in emails:
+                emails.append(em)
+
+    # 1. Correos vinculados en la tabla `admins` de Supabase para ese ente
+    if supabase:
+        try:
+            res = supabase.table("admins").select("username,ente,email").eq("ente", ente_norm).execute()
+            for row in (res.data or []):
+                _add(row.get("email"))
+        except Exception:
+            pass
+
+    # 2. Correos vinculados en _admins_memory / cache local para ese ente
+    for a in _admins_memory:
+        if (a.get("ente") or "").strip().upper() == ente_norm:
+            _add(a.get("email"))
+
+    # 3. Respaldo opcional por variables de entorno (soporta varios correos separados por coma)
+    if ente_norm == "MPPEU":
+        _add(os.getenv("GTU_ADMIN_EMAIL") or "")
+        _add(os.getenv("MPPEU_ADMIN_EMAIL") or "")
+    elif ente_norm == "MPPRE":
+        _add(os.getenv("MPPRE_ADMIN_EMAIL") or "")
+
+    return emails
+
+def _find_admin_email(username: str) -> str:
+    _load_admins_cache()
+    uname = (username or "").strip().lower()
+    if not uname:
+        return ""
+    for a in _admins_memory:
+        if (a.get("username") or "").strip().lower() == uname and a.get("email"):
+            return a["email"].strip().lower()
+    if supabase:
+        try:
+            res = supabase.table("admins").select("email").eq("username", username).execute()
+            if res.data and res.data[0].get("email"):
+                return str(res.data[0]["email"]).strip().lower()
+        except Exception:
+            pass
+    return ""
+
 def dispatch_document_notification(event_type: str, record: dict, extra: dict = None):
-    """Registra notificación in-app y envía correo transaccional (si SMTP/Resend está activo) al Graduando y al Auditor GTU/MPPRE correspondiente."""
+    """Registra notificación in-app y envía correo transaccional (si SMTP/Resend está activo) al Graduando y a todos los Auditores GTU/MPPRE vinculados."""
     try:
         _load_notifications_cache()
         info = dict(record or {})
@@ -1619,8 +1702,8 @@ def dispatch_document_notification(event_type: str, record: dict, extra: dict = 
         reason = info.get("reason") or info.get("rejection_reason") or info.get("rejectionReason") or ""
         student_email = _find_student_email_for_record(info)
 
-        gtu_email = (os.getenv("GTU_ADMIN_EMAIL") or os.getenv("MPPEU_ADMIN_EMAIL") or "").strip()
-        mppre_email = (os.getenv("MPPRE_ADMIN_EMAIL") or "").strip()
+        gtu_emails = _get_admin_emails_for_ente("MPPEU")
+        mppre_emails = _get_admin_emails_for_ente("MPPRE")
         frontend_url = (os.getenv("FRONTEND_URL") or "").strip()
 
         def _push_inapp(target_role: str, target_id: str, title: str, message: str, severity: str = "info"):
@@ -1639,15 +1722,15 @@ def dispatch_document_notification(event_type: str, record: dict, extra: dict = 
             })
             del _notifications_memory[120:]
 
-        # 1. Notificación al Graduando
+        # 1. Notificación al Graduando y a todos los Auditores del ente correspondiente
         if event_type == "SOLICITUD_CREADA":
             _push_inapp("student", re.sub(r"\D", "", cedula), "Solicitud GTU Registrada", f"Tu expediente {code} entró en cola de auditoría GTU (MPPEU).", "info")
             _push_inapp("admin", "MPPEU", "Nuevo Expediente en Taquilla GTU", f"{owner} ({cedula}) registró el expediente {code} para Cotejo GTU.", "warning")
             if HAS_EMAIL_SERVICE and EmailNotificationService:
                 if student_email:
                     EmailNotificationService.send_document_event_email(student_email, "student", "SOLICITUD_CREADA", info, frontend_url)
-                if gtu_email:
-                    EmailNotificationService.send_document_event_email(gtu_email, "gtu_admin", "SOLICITUD_CREADA", info, frontend_url)
+                for g_em in gtu_emails:
+                    EmailNotificationService.send_document_event_email(g_em, "gtu_admin", "SOLICITUD_CREADA", info, frontend_url)
 
         elif event_type == "CERTIFICADO_MPPEU":
             _push_inapp("student", re.sub(r"\D", "", cedula), "Certificación GTU Aprobada ✓", f"Tu título ({code}) fue certificado por GTU (MPPEU). Ya puedes solicitar la Apostilla MPPRE.", "success")
@@ -1660,8 +1743,8 @@ def dispatch_document_notification(event_type: str, record: dict, extra: dict = 
             _push_inapp("student", re.sub(r"\D", "", cedula), "Apostilla Solicitada ante MPPRE", f"Tu solicitud {code} para {country} fue enviada a Cancillería (MPPRE).", "info")
             _push_inapp("admin", "MPPRE", "Nueva Solicitud de Apostilla", f"{owner} ({cedula}) solicitó Apostilla de La Haya ({country}) para {code}.", "warning")
             if HAS_EMAIL_SERVICE and EmailNotificationService:
-                if mppre_email:
-                    EmailNotificationService.send_document_event_email(mppre_email, "mppre_admin", "PENDIENTE_APOSTILLA_MPPRE", info, frontend_url)
+                for m_em in mppre_emails:
+                    EmailNotificationService.send_document_event_email(m_em, "mppre_admin", "PENDIENTE_APOSTILLA_MPPRE", info, frontend_url)
 
         elif event_type == "APOSTILLADO_MPPRE":
             _push_inapp("student", re.sub(r"\D", "", cedula), "Apostilla de La Haya Emitida 🌍", f"Cancillería (MPPRE) emitió tu Apostilla N° {apostille_no or code}. ¡Ya puedes descargarla!", "success")
@@ -1842,10 +1925,12 @@ def admin_login():
             ente = "USM"
             role = "ADMIN_USM"
 
+        linked_email = _find_admin_email(username)
         token = create_jwt_token({
             "username": username,
             "cargo": cargo,
             "ente": ente,
+            "email": linked_email,
             "role": role
         })
         return jsonify({
@@ -1854,24 +1939,29 @@ def admin_login():
             "username": username,
             "cargo": cargo,
             "ente": ente,
+            "email": linked_email,
             "role": role
         }), 200
 
     # Verificar en administradores creados en memoria (_admins_memory)
+    _load_admins_cache()
     mem_admin = next((a for a in _admins_memory if (a.get("username") or "").lower() == username.lower()), None)
     if mem_admin and verify_password(password, mem_admin.get("password", "")):
+        linked_email = (mem_admin.get("email") or "").strip().lower()
         token = create_jwt_token({
             "username": mem_admin["username"],
-            "cargo": mem_admin.get("cargo", "Administrador"),
-            "ente": mem_admin.get("ente", "Gubernamental"),
+            "cargo": mem_admin.get("cargo", "Auditor Ministerial"),
+            "ente": mem_admin.get("ente", "MPPEU"),
+            "email": linked_email,
             "role": mem_admin.get("role", "AUDITOR_GUBERNAMENTAL")
         })
         return jsonify({
             "success": True,
             "token": token,
             "username": mem_admin["username"],
-            "cargo": mem_admin.get("cargo", "Administrador"),
-            "ente": mem_admin.get("ente", "Gubernamental"),
+            "cargo": mem_admin.get("cargo", "Auditor Ministerial"),
+            "ente": mem_admin.get("ente", "MPPEU"),
+            "email": linked_email,
             "role": mem_admin.get("role", "AUDITOR_GUBERNAMENTAL")
         }), 200
 
@@ -1883,36 +1973,76 @@ def admin_login():
         if len(res.data) > 0:
             user = res.data[0]
             if verify_password(password, user["password"]):
+                linked_email = (user.get("email") or "").strip().lower()
                 token = create_jwt_token({
                     "username": username,
-                    "cargo": user.get("cargo", "Administrador"),
-                    "ente": user.get("ente", "Gubernamental"),
+                    "cargo": user.get("cargo", "Auditor Ministerial"),
+                    "ente": user.get("ente", "MPPEU"),
+                    "email": linked_email,
                     "role": "AUDITOR_GUBERNAMENTAL"
                 })
                 return jsonify({
                     "success": True,
                     "token": token,
                     "username": username,
-                    "cargo": user.get("cargo", "Administrador"),
-                    "ente": user.get("ente", "Gubernamental")
+                    "cargo": user.get("cargo", "Auditor Ministerial"),
+                    "ente": user.get("ente", "MPPEU"),
+                    "email": linked_email
                 }), 200
         return jsonify({"detail": "Credenciales inválidas"}), 401
     except Exception as e:
         return jsonify({"detail": str(e)}), 500
 
 
-@app.route("/admin/users", methods=["POST"])
-@app.route("/api/admin/users", methods=["POST"])
+@app.route("/admin/users", methods=["GET", "POST"])
+@app.route("/api/admin/users", methods=["GET", "POST"])
 def create_admin():
     admin_payload = get_current_admin()
-    if not admin_payload:
+    if not admin_payload or admin_payload.get("role") == "estudiante":
         return jsonify({"detail": "Token de autorización requerido o inválido"}), 401
+
+    _load_admins_cache()
+    if request.method == "GET":
+        auditors = []
+        seen = set()
+        if supabase:
+            try:
+                res = supabase.table("admins").select("username,cargo,ente,email").execute()
+                for row in (res.data or []):
+                    u = (row.get("username") or "").lower()
+                    if u and u not in seen:
+                        seen.add(u)
+                        auditors.append({
+                            "username": row.get("username"),
+                            "cargo": row.get("cargo") or "Auditor Ministerial",
+                            "ente": row.get("ente") or "MPPEU",
+                            "email": row.get("email") or "",
+                        })
+            except Exception:
+                pass
+        for a in _admins_memory:
+            u = (a.get("username") or "").lower()
+            if u and u not in seen:
+                seen.add(u)
+                auditors.append({
+                    "username": a.get("username"),
+                    "cargo": a.get("cargo") or "Auditor Ministerial",
+                    "ente": a.get("ente") or "MPPEU",
+                    "email": a.get("email") or "",
+                })
+        return jsonify({
+            "success": True,
+            "admins": auditors,
+            "gtuEmails": _get_admin_emails_for_ente("MPPEU"),
+            "mppreEmails": _get_admin_emails_for_ente("MPPRE"),
+        }), 200
 
     data = request.get_json() or {}
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
     cargo = data.get("cargo", "").strip()
-    ente = data.get("ente", "").strip()
+    ente = (data.get("ente") or "MPPEU").strip().upper()
+    email = (data.get("email") or "").strip().lower()
     pin_institucional = data.get("pin_institucional", "")
 
     pin_ingresado = (pin_institucional or "").strip().upper()
@@ -1929,8 +2059,9 @@ def create_admin():
     admin_record = {
         "username": username,
         "password": hashed_pwd,
-        "cargo": cargo or "Auditor Gubernamental",
-        "ente": ente or "SAREN",
+        "cargo": cargo or "Auditor Ministerial",
+        "ente": ente or "MPPEU",
+        "email": email,
         "pin_institucional": pin_ingresado,
         "role": "AUDITOR_GUBERNAMENTAL"
     }
@@ -1940,27 +2071,98 @@ def create_admin():
             exist = supabase.table("admins").select("username").eq("username", username).execute()
             if len(exist.data) > 0:
                 return jsonify({"detail": "El usuario ya existe"}), 400
-            supabase.table("admins").insert({
-                "username": username,
-                "password": hashed_pwd,
-                "cargo": cargo,
-                "ente": ente
-            }).execute()
+            try:
+                supabase.table("admins").insert({
+                    "username": username,
+                    "password": hashed_pwd,
+                    "cargo": cargo,
+                    "ente": ente,
+                    "email": email
+                }).execute()
+            except Exception:
+                supabase.table("admins").insert({
+                    "username": username,
+                    "password": hashed_pwd,
+                    "cargo": cargo,
+                    "ente": ente
+                }).execute()
         except Exception as e:
             logger.warning(f"Guardando admin en memoria por indisponibilidad de Supabase: {e}")
 
     _admins_memory.append(admin_record)
+    _save_admins_cache()
     token = create_jwt_token({
         "username": username,
         "cargo": cargo,
         "ente": ente,
+        "email": email,
         "role": "AUDITOR_GUBERNAMENTAL"
     })
     return jsonify({
         "success": True,
-        "message": "Administrador creado exitosamente",
+        "message": "Auditor ministerial registrado y correo vinculado exitosamente.",
         "token": token,
+        "email": email,
         "pin_institucional": pin_ingresado
+    }), 200
+
+
+@app.route("/admin/update-email", methods=["POST", "PUT"])
+@app.route("/api/admin/update-email", methods=["POST", "PUT"])
+def update_admin_email():
+    """Permite a cualquier auditor GTU (MPPEU) o Cancillería (MPPRE) vincular su correo personal/institucional para recibir alertas."""
+    admin_payload = get_current_admin()
+    if not admin_payload or admin_payload.get("role") == "estudiante":
+        return jsonify({"success": False, "error": "Token de autorización ministerial requerido."}), 401
+
+    _load_admins_cache()
+    data = request.get_json() or {}
+    new_email = (data.get("email") or "").strip().lower()
+    if not new_email or "@" not in new_email:
+        return jsonify({"success": False, "error": "Ingresa una dirección de correo electrónico válida."}), 400
+
+    username = (admin_payload.get("username") or "").strip()
+    ente = (admin_payload.get("ente") or data.get("ente") or "MPPEU").strip().upper()
+    cargo = (admin_payload.get("cargo") or "Auditor Ministerial").strip()
+
+    found_idx = next((i for i, a in enumerate(_admins_memory) if (a.get("username") or "").lower() == username.lower()), None)
+    if found_idx is not None:
+        _admins_memory[found_idx]["email"] = new_email
+        _admins_memory[found_idx]["ente"] = ente
+    else:
+        _admins_memory.append({
+            "username": username,
+            "password": "",
+            "cargo": cargo,
+            "ente": ente,
+            "email": new_email,
+            "role": admin_payload.get("role", "AUDITOR_GUBERNAMENTAL")
+        })
+    _save_admins_cache()
+
+    if supabase:
+        try:
+            exist = supabase.table("admins").select("username").eq("username", username).execute()
+            if exist.data and len(exist.data) > 0:
+                supabase.table("admins").update({"email": new_email, "ente": ente}).eq("username", username).execute()
+            else:
+                supabase.table("admins").insert({
+                    "username": username,
+                    "password": hash_password(secrets.token_urlsafe(16)),
+                    "cargo": cargo,
+                    "ente": ente,
+                    "email": new_email,
+                }).execute()
+        except Exception as e:
+            logger.debug(f"No se pudo sincronizar email de admin en Supabase: {e}")
+
+    return jsonify({
+        "success": True,
+        "username": username,
+        "ente": ente,
+        "email": new_email,
+        "linkedEnteEmails": _get_admin_emails_for_ente(ente),
+        "message": f"Correo {new_email} vinculado correctamente a tus alertas de {ente}."
     }), 200
 
 

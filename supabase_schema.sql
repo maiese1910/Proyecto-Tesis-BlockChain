@@ -17,10 +17,13 @@ CREATE TABLE IF NOT EXISTS admins (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   username TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,  -- Almacena hash bcrypt, NO texto plano
-  cargo TEXT DEFAULT 'Administrador',
-  ente TEXT DEFAULT 'USM',
+  cargo TEXT DEFAULT 'Auditor Ministerial',
+  ente TEXT DEFAULT 'MPPEU',
+  email TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Insertar administradores iniciales por defecto para los entes
 INSERT INTO admins (username, password, cargo, ente) VALUES

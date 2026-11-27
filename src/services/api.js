@@ -83,6 +83,12 @@ export const authAPI = {
   registerAdmin: (data, token) =>
     apiFetch('/admin/users', { method: 'POST', body: data, token }),
 
+  listAdmins: (token) =>
+    apiFetch('/admin/users', { method: 'GET', token }),
+
+  updateAdminEmail: (email, ente, token) =>
+    apiFetch('/api/admin/update-email', { method: 'POST', body: { email, ente }, token }),
+
   loginStudent: (email, password) =>
     apiFetch('/api/student/login', { method: 'POST', body: { email, password } }),
 

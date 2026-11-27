@@ -127,7 +127,7 @@ const GovernmentPanel = ({ adminData }) => {
 
   const [showAdminModal, setShowAdminModal] = useState(false);
 
-  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', cargo: 'Auditor de Cotejo GTU', ente: 'MPPEU', pin_institucional: '' });
+  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', email: '', cargo: 'Auditor de Cotejo GTU', ente: 'MPPEU', pin_institucional: '' });
 
   const [adminMsg, setAdminMsg] = useState('');
 
@@ -972,7 +972,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
         setAdminMsg('Funcionario auditor creado exitosamente.');
 
-        setNewAdmin({ username: '', password: '', cargo: 'Auditor de Cotejo GTU', ente: 'MPPEU', pin_institucional: '' });
+        setNewAdmin({ username: '', password: '', email: '', cargo: 'Auditor de Cotejo GTU', ente: 'MPPEU', pin_institucional: '' });
 
         setTimeout(() => { setShowAdminModal(false); setAdminMsg(''); }, 2000);
 
@@ -2253,6 +2253,34 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
                     value={newAdmin.username}
 
                     onChange={e => setNewAdmin({ ...newAdmin, username: e.target.value })}
+
+                    style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', color: 'var(--color-ink-black)', outline: 'none', fontSize: '0.88rem' }}
+
+                  />
+
+                </div>
+
+
+
+                <div>
+
+                  <label style={{ fontSize: '0.78rem', color: 'var(--color-slate-gray)', marginBottom: '0.3rem', display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+
+                    Correo Institucional (Alertas de Expedientes):
+
+                  </label>
+
+                  <input
+
+                    type="email"
+
+                    required
+
+                    placeholder="ej: auditor.gtu@mppeu.gob.ve"
+
+                    value={newAdmin.email || ''}
+
+                    onChange={e => setNewAdmin({ ...newAdmin, email: e.target.value })}
 
                     style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--color-fog-white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-inputs)', color: 'var(--color-ink-black)', outline: 'none', fontSize: '0.88rem' }}
 
