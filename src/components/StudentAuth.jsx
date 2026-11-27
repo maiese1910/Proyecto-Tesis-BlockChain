@@ -1220,7 +1220,7 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
                     />
                   </div>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                    Revisa la bandeja en <a href="http://localhost:54324" target="_blank" rel="noreferrer" style={{ color: 'var(--color-usm-blue)', textDecoration: 'underline' }}>Mailpit (localhost:54324)</a>
+                    Revisa tu bandeja de entrada (o carpeta de spam) para obtener el código de 6 dígitos.
                   </p>
                 </div>
 
@@ -1473,8 +1473,8 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     required
-                    minLength={6}
-                    placeholder="Mínimo 6 caracteres"
+                    minLength={8}
+                    placeholder="Mínimo 8 caracteres"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="chat-input"
@@ -1503,7 +1503,7 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     required
-                    minLength={6}
+                    minLength={8}
                     placeholder="Repite la contraseña"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}

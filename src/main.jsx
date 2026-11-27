@@ -10,7 +10,16 @@ import { Analytics } from '@vercel/analytics/react'
 
 const renderApp = () => {
   const cleanPath = window.location.pathname.replace(/\/+$/, '').toLowerCase();
-  if (cleanPath === '/admin') {
+  const params = new URLSearchParams(window.location.search);
+  const portalParam = (params.get('portal') || '').toLowerCase();
+
+  if (
+    cleanPath === '/admin' ||
+    cleanPath === '/gobierno' ||
+    cleanPath.startsWith('/admin/') ||
+    portalParam === 'admin' ||
+    portalParam === 'gobierno'
+  ) {
     return <AdminApp />
   }
   if (cleanPath === '/scanner') {

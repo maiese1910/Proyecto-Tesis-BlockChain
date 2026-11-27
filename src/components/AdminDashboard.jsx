@@ -1313,11 +1313,12 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
               </button>
               <button
                 type="button"
+                disabled={actionLoadingHash === inspectRecord.hash}
                 onClick={() => handleCertifyGTU(inspectRecord, inspectRegistry)}
                 className="send-btn"
                 style={{ padding: '0.55rem 1.25rem', background: '#0284c7', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
-                <Check size={15} /> Confirmar Certificación GTU (CERTIFICADO_MPPEU)
+                <Check size={15} /> {actionLoadingHash === inspectRecord.hash ? 'Certificando GTU...' : 'Confirmar Certificación GTU (CERTIFICADO_MPPEU)'}
               </button>
               {isGtuCertified(inspectRecord) && !isMppreApostilled(inspectRecord) && (
                 <button

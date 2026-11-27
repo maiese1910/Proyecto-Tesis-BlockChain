@@ -1,43 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-import { Analytics } from '@vercel/analytics/react';
-
-import { Shield } from 'lucide-react';
-
 import Sidebar from './components/Sidebar';
-
 import Dashboard from './components/Dashboard';
-
 import PreValidation from './components/PreValidation';
-
 import SurvivalGuide from './components/SurvivalGuide';
-
 import ChatBotWidget from './components/ChatBotWidget';
-
 import PUBForm from './components/PUBForm';
-
 import BlockchainVerifier from './components/BlockchainVerifier';
-
 import HistoryPanel from './components/HistoryPanel';
-
 import OCRExtractor from './components/OCRExtractor';
-
 import OfficialFormsPanel from './components/OfficialFormsPanel';
-
 import LandingPortal from './components/LandingPortal';
-
-import GovernmentPanel from './components/GovernmentPanel';
-
-import AdminDashboard from './components/AdminDashboard';
-
-import GovernmentLoginPortal from './components/GovernmentLoginPortal';
-
+import AdminApp from './AdminApp';
 import ToastNotification from './components/ToastNotification';
-
-import WalletConnect from './components/WalletConnect';
-
-import { dynamicDataAPI, statsAPI } from './services/api';
-
+import { statsAPI } from './services/api';
 import { supabase, authPasswordless } from './services/supabaseClient';
 
 
@@ -401,141 +376,9 @@ function App() {
 
 
 
-  // 1. RUTA GUBERNAMENTAL AISLADA (ACCESIBLE EXCLUSIVAMENTE POR URL /admin O /gobierno)
-
+  // 1. RUTA MINISTERIAL UNIFICADA (DELEGA SIEMPRE A AdminApp PARA /admin Y /gobierno)
   if (isGovUrl) {
-
-    if (adminUser) {
-
-      return (
-
-        <div className="app-layout" style={{ background: 'var(--color-mist-gray)', minHeight: '100vh', color: 'var(--color-ink-black)' }}>
-
-          <ToastNotification />
-
-          <div style={{ width: '100%', maxWidth: '100vw', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-            <div className="admin-header" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', padding: '0.9rem 2rem' }}>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
-
-                <div style={{
-
-                  width: 36, height: 36, borderRadius: '50%',
-
-                  backgroundColor: 'var(--color-fog-white)',
-
-                  border: '1px solid var(--border)',
-
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-
-                  color: 'var(--color-ink-black)'
-
-                }}>
-
-                  <Shield size={18} />
-
-                </div>
-
-                <h1 style={{
-
-                  fontSize: '1.25rem',
-
-                  fontFamily: 'var(--font-serif)',
-
-                  fontWeight: 400,
-
-                  color: 'var(--color-ink-black)',
-
-                  margin: 0
-
-                }}>
-
-                  Panel de Auditoría Gubernamental — {adminUser?.ente || 'Gobierno'}
-
-                </h1>
-
-                {adminUser && (
-
-                  <span style={{
-
-                    background: 'var(--color-blush-peach)',
-
-                    color: 'var(--color-sienna-brown)',
-
-                    border: '1px solid rgba(93, 42, 26, 0.15)',
-
-                    padding: '0.2rem 0.75rem',
-
-                    borderRadius: 'var(--radius-pill)',
-
-                    fontSize: '0.78rem',
-
-                    fontWeight: 500
-
-                  }}>
-
-                    {adminUser.cargo || 'Funcionario'} ({adminUser.username})
-
-                  </span>
-
-                )}
-
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <WalletConnect />
-                <button
-                  onClick={handleAdminLogout}
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid var(--border)',
-                    color: 'var(--color-ink-black)',
-                    padding: '0.45rem 1rem',
-                    borderRadius: 'var(--radius-pill)',
-                    fontSize: '0.82rem',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    boxShadow: 'var(--shadow-subtle)',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  Cerrar Sesión Auditoría
-                </button>
-              </div>
-
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, padding: '1.5rem', backgroundColor: 'var(--color-mist-gray)' }}>
-
-              {adminUser?.ente === 'USM' ? (
-
-                <AdminDashboard adminData={adminUser} />
-
-              ) : (
-
-                <GovernmentPanel adminData={adminUser} />
-
-              )}
-
-            </div>
-
-          </div>
-
-        </div>
-
-      );
-
-    }
-
-
-
-    // Si NO ha iniciado sesión y entró por URL gubernamental -> Mostrar Login Gubernamental
-
-    return <GovernmentLoginPortal onAdminLogin={(adminData) => setAdminUser(adminData)} />;
-
+    return <AdminApp />;
   }
 
 
@@ -635,8 +478,6 @@ function App() {
         {renderContent()}
 
       </div>
-
-      <Analytics />
 
     </div>
 

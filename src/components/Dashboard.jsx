@@ -291,18 +291,18 @@ const Dashboard = ({ user, onNavigate, onVerifyHash }) => {
     const docName = r.documentType || r.tramite || 'Título Universitario';
     const st = String(r.status || '').toUpperCase();
 
-    detailedLogs.push(`[${timeStr}] [ESTACIÓN 1 - USM] Expediente ${code} (${docName}) digitalizado con Hash SHA-256: ${(r.hash || '').slice(0, 14)}...`);
+    detailedLogs.push(`[${timeStr}] [ETAPA 1 - DIGITALIZACIÓN OCR] Expediente ${code} (${docName}) digitalizado con Hash SHA-256: ${(r.hash || '').slice(0, 14)}...`);
     if (r.solicitudCode || r.sarenVerified) {
-      detailedLogs.push(`[${timeStr}] [ESTACIÓN 2 - SAREN] Planilla Única Bancaria (${code}) generada y vinculada a Cédula ${r.cedula || user?.cedula}.`);
+      detailedLogs.push(`[${timeStr}] [ETAPA 2 - PUB / ARANCELES] Planilla Única Bancaria (${code}) generada y vinculada a Cédula ${r.cedula || user?.cedula}.`);
     }
     if (r.mppeuVerified || st.includes('CERTIFICADO') || st.includes('APOSTILLADO')) {
-      detailedLogs.push(`[${timeStr}] [ESTACIÓN 3 - MPPEU] Sello Electrónico GTU acreditado y transacción anclada en Sepolia (${(r.txHash || '0xSepolia').slice(0, 14)}...).`);
+      detailedLogs.push(`[${timeStr}] [ETAPA 3 - AUDITORÍA GTU (MPPEU)] Sello Electrónico GTU acreditado y transacción anclada en Sepolia (${(r.txHash || '0xSepolia').slice(0, 14)}...).`);
     }
     if (st === 'PENDIENTE_APOSTILLA_MPPRE') {
-      detailedLogs.push(`[${timeStr}] [ESTACIÓN 4 - MPPRE] Solicitud de Apostilla radicada ante Cancillería para ${r.countryDestiny || r.country_destiny || 'Exterior'}.`);
+      detailedLogs.push(`[${timeStr}] [ETAPA 4 - CANCILLERÍA (MPPRE)] Solicitud de Apostilla radicada ante Cancillería para ${r.countryDestiny || r.country_destiny || 'Exterior'}.`);
     }
     if (r.mppreVerified || st.includes('APOSTILLADO')) {
-      detailedLogs.push(`[${timeStr}] [ESTACIÓN 4 - MPPRE] Apostilla de La Haya N° ${r.apostilleNumber || 'APO-VE-2026'} emitida y sellada en Blockchain.`);
+      detailedLogs.push(`[${timeStr}] [ETAPA 4 - CANCILLERÍA (MPPRE)] Apostilla de La Haya N° ${r.apostilleNumber || 'APO-VE-2026'} emitida y sellada en Blockchain.`);
     }
   });
 

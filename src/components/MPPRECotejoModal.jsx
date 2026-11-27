@@ -179,7 +179,7 @@ const MPPRECotejoModal = ({ record, onClose, onConfirmApostille, onReject, loadi
                   borderRadius: 'var(--radius-pill)',
                   border: '1px solid rgba(16, 185, 129, 0.25)'
                 }}>
-                  Etapa 3 · Apostilla de La Haya
+                  Etapa 2 · Apostilla de La Haya (MPPRE)
                 </span>
               </div>
               <h3 style={{

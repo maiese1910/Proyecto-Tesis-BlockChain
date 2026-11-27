@@ -45,6 +45,11 @@ try {
   };
 }
 
+const IS_LOCAL_DEMO = Boolean(
+  import.meta.env.DEV ||
+  (typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname))
+);
+
 export const supabase = clientInstance;
 
 // Hash criptográfico local para respaldo offline (nunca almacenar contraseñas en texto plano en localStorage)
@@ -285,13 +290,13 @@ export const authPasswordless = {
       if (error) throw error;
       return {
         success: true,
-        message: 'Instrucciones enviadas con éxito. Consulta tu correo o la bandeja de Mailpit en http://localhost:54324.',
+        message: 'Instrucciones enviadas con éxito. Consulta tu correo electrónico (bandeja de entrada o spam).',
       };
     } catch (err) {
       console.warn('Supabase resetPassword:', err.message);
       return {
         success: true,
-        message: 'Solicitud de recuperación procesada. Revisa tu correo o el servidor local Mailpit (puerto 54324).',
+        message: 'Solicitud de recuperación procesada. Revisa tu bandeja de entrada para continuar.',
       };
     }
   },
@@ -309,7 +314,7 @@ export const authPasswordless = {
         type: 'recovery',
       });
       if (error) {
-        if (cleanCode.length === 6 && /^\d{6}$/.test(cleanCode)) {
+        if (IS_LOCAL_DEMO && cleanCode.length === 6 && /^\d{6}$/.test(cleanCode)) {
           return { success: true, user: { email: cleanEmail } };
         }
         throw error;
@@ -320,7 +325,7 @@ export const authPasswordless = {
         session: data.session,
       };
     } catch (err) {
-      if (cleanCode.length === 6 && /^\d{6}$/.test(cleanCode)) {
+      if (IS_LOCAL_DEMO && cleanCode.length === 6 && /^\d{6}$/.test(cleanCode)) {
         return { success: true, user: { email: cleanEmail } };
       }
       console.warn('Supabase verifyRecoveryCode error:', err.message);
@@ -530,15 +535,18 @@ export const authPasswordless = {
       return {
         success: true,
         data,
-        message: 'Código enviado. En entorno Docker local, los correos se capturan en Mailpit: http://localhost:54324',
+        message: 'Código de seguridad enviado. Revisa tu bandeja de entrada o carpeta de spam.',
       };
     } catch (err) {
       console.warn('Supabase signInWithOtp error:', err.message);
-      return {
-        success: true,
-        demoFallback: true,
-        message: 'Modo Local Activo: Revisa la bandeja Mailpit en http://localhost:54324 o ingresa 123456 en modo demo.',
-      };
+      if (IS_LOCAL_DEMO) {
+        return {
+          success: true,
+          demoFallback: true,
+          message: 'Entorno de desarrollo local activo: ingresa el código de prueba 123456 para continuar.',
+        };
+      }
+      throw new Error('No se pudo enviar el código OTP en este momento. Inicia sesión con tu contraseña registrada.');
     }
   },
 
@@ -557,8 +565,7 @@ export const authPasswordless = {
       });
 
       if (error) {
-        // En entorno local o demo, aceptar 123456
-        if (cleanToken === '123456') {
+        if (IS_LOCAL_DEMO && cleanToken === '123456') {
           const mockUser = {
             id: `demo-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
             email: cleanEmail,
@@ -570,7 +577,7 @@ export const authPasswordless = {
 
       return { success: true, user: data.user, session: data.session };
     } catch (err) {
-      if (cleanToken === '123456') {
+      if (IS_LOCAL_DEMO && cleanToken === '123456') {
         const mockUser = {
           id: `demo-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
           email: cleanEmail,

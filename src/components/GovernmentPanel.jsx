@@ -5223,40 +5223,33 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
               }}>
 
-                {!(activePUBRecord.status || '').includes('Verificado') && (
-
+                {!(activePUBRecord.mppreVerified || (activePUBRecord.status || '').includes('APOSTILLADO_MPPRE')) && (
                   <button
-
-                    onClick={() => { handleVerify(activePUBRecord.hash); setActivePUBRecord(null); }}
-
-                    style={{
-
-                      padding: '0.65rem 1.25rem',
-
-                      background: 'var(--color-ink-black)',
-
-                      color: '#ffffff',
-
-                      border: 'none',
-
-                      borderRadius: 'var(--radius-pill)',
-
-                      cursor: 'pointer',
-
-                      fontWeight: 500,
-
-                      fontSize: '0.84rem',
-
-                      boxShadow: 'var(--shadow-subtle)'
-
+                    onClick={() => {
+                      const rec = activePUBRecord;
+                      setActivePUBRecord(null);
+                      if (ministerialMode === 'MPPRE' || (rec.mppeuVerified || (rec.status || '').includes('CERTIFICADO_MPPEU'))) {
+                        setActiveMppreCotejoRecord(rec);
+                      } else {
+                        setActiveCotejoRecord(rec);
+                      }
                     }}
-
+                    style={{
+                      padding: '0.65rem 1.25rem',
+                      background: 'var(--color-ink-black)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: 'var(--radius-pill)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.84rem',
+                      boxShadow: 'var(--shadow-subtle)'
+                    }}
                   >
-
-                    Aprobar y Registrar en Blockchain
-
+                    {(ministerialMode === 'MPPRE' || activePUBRecord.mppeuVerified || (activePUBRecord.status || '').includes('CERTIFICADO_MPPEU'))
+                      ? 'Abrir Emisión de Apostilla (MPPRE)'
+                      : 'Abrir Mesa de Cotejo GTU (MPPEU)'}
                   </button>
-
                 )}
 
                 <button

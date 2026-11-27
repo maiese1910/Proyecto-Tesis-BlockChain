@@ -101,6 +101,193 @@ ALLOW_DEFENSE_DEMO_FALLBACK = os.getenv("ALLOW_DEFENSE_DEMO_FALLBACK", "true").l
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+class _PostgRESTResponse:
+    def __init__(self, data=None, count=None):
+        self.data = data if isinstance(data, list) else ([] if data is None else [data])
+        self.count = count
+
+
+class _PostgRESTTableQuery:
+    """Cliente PostgREST ultraligero sin dependencias externas (ideal para Vercel Serverless)."""
+    def __init__(self, base_url: str, api_key: str, table_name: str, timeout: float = 4.0):
+        self._base_url = base_url.rstrip("/")
+        self._api_key = api_key
+        self._table = table_name
+        self._timeout = timeout
+        self._method = "GET"
+        self._params = []
+        self._payload = None
+        self._prefer = []
+        self._want_count = False
+
+    @staticmethod
+    def _fmt(val):
+        if isinstance(val, bool):
+            return "true" if val else "false"
+        if val is None:
+            return "null"
+        return str(val)
+
+    def select(self, columns: str = "*", count: str = None):
+        self._method = "GET"
+        self._params.append(("select", columns))
+        if count == "exact":
+            self._want_count = True
+            self._prefer.append("count=exact")
+        return self
+
+    def insert(self, payload):
+        self._method = "POST"
+        self._payload = payload
+        self._prefer.append("return=representation")
+        return self
+
+    def upsert(self, payload, on_conflict: str = None):
+        self._method = "POST"
+        self._payload = payload
+        self._prefer.append("resolution=merge-duplicates")
+        self._prefer.append("return=representation")
+        conflict_col = on_conflict
+        if not conflict_col and isinstance(payload, dict):
+            if self._table == "records" and "hash" in payload:
+                conflict_col = "hash"
+            elif self._table == "stats" and "key" in payload:
+                conflict_col = "key"
+            elif self._table in ("profiles", "perfiles") and "cedula" in payload and "id" not in payload:
+                conflict_col = "cedula"
+        if conflict_col:
+            self._params.append(("on_conflict", conflict_col))
+        return self
+
+    def update(self, payload):
+        self._method = "PATCH"
+        self._payload = payload
+        self._prefer.append("return=representation")
+        return self
+
+    def delete(self):
+        self._method = "DELETE"
+        self._prefer.append("return=representation")
+        return self
+
+    def eq(self, col: str, val):
+        self._params.append((col, f"eq.{self._fmt(val)}"))
+        return self
+
+    def neq(self, col: str, val):
+        self._params.append((col, f"neq.{self._fmt(val)}"))
+        return self
+
+    def lt(self, col: str, val):
+        self._params.append((col, f"lt.{self._fmt(val)}"))
+        return self
+
+    def gte(self, col: str, val):
+        self._params.append((col, f"gte.{self._fmt(val)}"))
+        return self
+
+    def like(self, col: str, pattern: str):
+        self._params.append((col, f"like.{str(pattern).replace('%', '*')}"))
+        return self
+
+    def ilike(self, col: str, pattern: str):
+        self._params.append((col, f"ilike.{str(pattern).replace('%', '*')}"))
+        return self
+
+    def in_(self, col: str, values):
+        def _q(v):
+            s = self._fmt(v).replace('"', '\\"')
+            return f'"{s}"'
+        joined = ",".join(_q(v) for v in (values or []))
+        self._params.append((col, f"in.({joined})"))
+        return self
+
+    def order(self, col: str, desc: bool = False):
+        self._params.append(("order", f"{col}.{'desc' if desc else 'asc'}"))
+        return self
+
+    def limit(self, n: int):
+        self._params.append(("limit", str(int(n))))
+        return self
+
+    def execute(self):
+        from urllib.parse import urlencode
+        query_str = urlencode(self._params)
+        url = f"{self._base_url}/rest/v1/{self._table}"
+        if query_str:
+            url = f"{url}?{query_str}"
+
+        headers = {
+            "apikey": self._api_key,
+            "Authorization": f"Bearer {self._api_key}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        if self._prefer:
+            headers["Prefer"] = ",".join(dict.fromkeys(self._prefer))
+
+        body_bytes = json.dumps(self._payload, ensure_ascii=False).encode("utf-8") if self._payload is not None else None
+        req = urllib.request.Request(url, data=body_bytes, headers=headers, method=self._method)
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace").strip()
+            parsed = json.loads(raw) if raw else []
+            total_count = None
+            if self._want_count:
+                cr = resp.headers.get("Content-Range", "")
+                if "/" in cr:
+                    tail = cr.rsplit("/", 1)[-1].strip()
+                    if tail.isdigit():
+                        total_count = int(tail)
+                if total_count is None and isinstance(parsed, list):
+                    total_count = len(parsed)
+            return _PostgRESTResponse(parsed, total_count)
+
+
+class _PostgRESTStorageBucket:
+    def __init__(self, base_url: str, api_key: str, bucket: str, timeout: float = 6.0):
+        self._base_url = base_url.rstrip("/")
+        self._api_key = api_key
+        self._bucket = bucket
+        self._timeout = timeout
+
+    def upload(self, path: str, file_bytes: bytes, file_options: dict = None):
+        opts = file_options or {}
+        clean_path = str(path).lstrip("/")
+        url = f"{self._base_url}/storage/v1/object/{self._bucket}/{clean_path}"
+        headers = {
+            "apikey": self._api_key,
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": opts.get("content-type", "application/octet-stream"),
+            "x-upsert": str(opts.get("upsert", "true")).lower(),
+        }
+        req = urllib.request.Request(url, data=file_bytes, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+            return resp.read()
+
+    def get_public_url(self, path: str) -> str:
+        clean_path = str(path).lstrip("/")
+        return f"{self._base_url}/storage/v1/object/public/{self._bucket}/{clean_path}"
+
+
+class _PostgRESTStorageProxy:
+    def __init__(self, base_url: str, api_key: str):
+        self._base_url = base_url
+        self._api_key = api_key
+
+    def from_(self, bucket: str):
+        return _PostgRESTStorageBucket(self._base_url, self._api_key, bucket)
+
+
+class _PostgRESTSupabaseClient:
+    def __init__(self, base_url: str, api_key: str):
+        self._base_url = base_url.rstrip("/")
+        self._api_key = api_key
+        self.storage = _PostgRESTStorageProxy(self._base_url, self._api_key)
+
+    def table(self, table_name: str):
+        return _PostgRESTTableQuery(self._base_url, self._api_key, table_name)
+
+
 class _LazySupabaseProxy:
     def __init__(self):
         self._client = None
@@ -139,7 +326,6 @@ class _LazySupabaseProxy:
             if SUPABASE_URL and SUPABASE_KEY:
                 prev_timeout = None
                 try:
-                    create_client = self._import_supabase_create_client()
                     import socket
                     from urllib.parse import urlparse
                     host = urlparse(SUPABASE_URL).hostname
@@ -150,10 +336,16 @@ class _LazySupabaseProxy:
                             socket.gethostbyname(host)
                         finally:
                             socket.setdefaulttimeout(prev_timeout)
-                    self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
+                    try:
+                        create_client = self._import_supabase_create_client()
+                        self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
+                    except Exception:
+                        # Sin SDK pesado (ej. Vercel Serverless): usar cliente HTTP PostgREST nativo
+                        self._client = _PostgRESTSupabaseClient(SUPABASE_URL, SUPABASE_KEY)
+                        logger.info("Supabase conectado mediante cliente REST PostgREST ultraligero (sin dependencias externas).")
                     self._available = True
                 except Exception as e:
-                    logger.warning(f"Supabase inalcanzable o librería no instalada ({e}). Operando en modo híbrido local.")
+                    logger.warning(f"Supabase inalcanzable ({e}). Operando en modo híbrido local.")
                     self._client = None
                     self._available = False
         return self._client if self._available else None

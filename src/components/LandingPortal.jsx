@@ -5,7 +5,7 @@ import {
   Sparkles, BookOpen, Clock, Cpu, Layers, QrCode, ChevronDown,
   ShieldCheck, Database, Server, Award, Building2
 } from 'lucide-react';
-import { statsAPI } from '../services/api';
+import { statsAPI, authAPI } from '../services/api';
 import StudentAuth from './StudentAuth';
 
 const LandingPortal = ({ onStudentLogin }) => {
@@ -20,6 +20,7 @@ const LandingPortal = ({ onStudentLogin }) => {
     titulos_blockchain: 0,
     tiempo_ahorrado_hrs: 0
   });
+  const [blockchainOnline, setBlockchainOnline] = useState(null);
   const [localDocs, setLocalDocs] = useState([]);
   const [localUsersCount, setLocalUsersCount] = useState(1);
 
@@ -65,6 +66,9 @@ const LandingPortal = ({ onStudentLogin }) => {
         .then(res => {
           if (res?.stats) {
             setStats(prev => ({ ...prev, ...res.stats }));
+          }
+          if (typeof res?.blockchain_connected === 'boolean') {
+            setBlockchainOnline(res.blockchain_connected);
           }
         })
         .catch(() => {});
@@ -126,20 +130,29 @@ const LandingPortal = ({ onStudentLogin }) => {
     localStorage.setItem('usm_user', JSON.stringify(demoUser));
     sessionStorage.setItem('usm_user', JSON.stringify(demoUser));
     onStudentLogin(demoUser);
+    // Obtener JWT del backend en segundo plano sin bloquear el acceso inmediato
+    authAPI.loginStudent('mauromaiese7@gmail.com', 'Admin123*')
+      .then((res) => {
+        if (res?.token) {
+          sessionStorage.setItem('usm_student_token', res.token);
+          localStorage.setItem('usm_student_token', res.token);
+        }
+      })
+      .catch(() => {});
   };
 
   const faqItems = [
     {
       q: "¿Cómo garantiza la Blockchain que un título universitario no sea falsificado?",
-      a: "El sistema calcula la huella criptográfica inmutable (Hash SHA-256) a partir de los metadatos y firma digital del título. Ese hash se inscribe en la red pública Ethereum (Sepolia). Cualquier alteración de una sola letra o fecha en el documento generará un hash totalmente distinto, alertando de inmediato al auditor."
+      a: "El sistema calcula la huella criptográfica inmutable (Hash SHA-256) a partir de los metadatos y el archivo digital del título. Ese hash se ancla en la red Ethereum (Sepolia) durante la certificación GTU (MPPEU) y la apostilla MPPRE. Cualquier alteración de una sola letra o fecha genera un hash totalmente distinto, alertando de inmediato al auditor."
     },
     {
-      q: "¿Qué función cumple el módulo de Inteligencia Artificial (OCR)?",
-      a: "Combina Visión Computacional (Gemini Vision 2.5 + pre-procesamiento OpenCV + motor Tesseract WASM) para extraer automáticamente los datos del graduando (Nombre, Cédula, Universidad, Mención, Folio y Fecha) desde el expediente escaneado, eliminando errores de transcripción manual y agilizando el llenado de la Planilla PUB en 95% del tiempo."
+      q: "¿Qué función cumple el módulo de Inteligencia Artificial (OCR) sin API key?",
+      a: "Combina extracción directa de texto PDF (pypdf/zlib), motor Tesseract WASM en el navegador y reconocimiento académico NER en Flask (con aceleración opcional por Gemini Vision) para extraer automáticamente Nombre, Cédula, Universidad, Carrera, Folio y Tomo sin requerir API keys de pago, eliminando errores manuales."
     },
     {
-      q: "¿Cómo se diferencian el acceso de Graduando y el de Auditor Gubernamental?",
-      a: "El sistema aplica el principio de Segregación de Funciones (Separation of Duties - SoD). Los estudiantes solo pueden emitir planillas e inscribir documentos. Únicamente los funcionarios autorizados de USM, MPPEU, SAREN y MPPRE pueden auditar y emitir sellos de verificación institucional."
+      q: "¿Cómo se diferencian el acceso de Graduando y el de Auditor Ministerial?",
+      a: "El sistema aplica el principio de Segregación de Funciones (Separation of Duties - SoD). Los graduandos registran su título emitido por la universidad, generan su Planilla PUB y consultan el avance. Únicamente los auditores ministeriales autorizados de GTU (MPPEU) y Cancillería (MPPRE) pueden emitir certificaciones y apostillas electrónicas."
     },
     {
       q: "¿Cumple este sistema con las leyes de la República Bolivariana de Venezuela?",
@@ -211,8 +224,10 @@ const LandingPortal = ({ onStudentLogin }) => {
               Usuarios en línea: <strong style={{ color: 'var(--color-ink-black)', fontWeight: 600 }}>{displayOnlineUsers}</strong>
             </span>
             <span className="landing-meta-network" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: 'var(--color-ink-black)' }}></span>
-              Red Ethereum Sepolia: <strong style={{ color: 'var(--color-ink-black)', fontWeight: 500 }}>En línea</strong>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: blockchainOnline ? '#10b981' : 'var(--color-sienna-brown)' }}></span>
+              Red Ethereum Sepolia: <strong style={{ color: 'var(--color-ink-black)', fontWeight: 500 }}>
+                {blockchainOnline === true ? 'Nodo RPC En línea' : 'Verificación SHA-256 Híbrida'}
+              </strong>
             </span>
           </div>
         </div>
@@ -362,7 +377,7 @@ const LandingPortal = ({ onStudentLogin }) => {
               fontWeight: 400
             }}
           >
-            Sistema integral para la Universidad Santa María: pre-validación mediante Inteligencia Artificial Multimodal (OCR Híbrido), generación automatizada de Planilla PUB e inmutabilidad criptográfica en la Blockchain de Ethereum para auditoría estatal ante MPPEU, SAREN y MPPRE.
+            Sistema integral para graduandos universitarios: digitalización con OCR sin API key (imágenes y PDF), generación automatizada de Planilla PUB e inmutabilidad criptográfica en Ethereum Sepolia para auditoría ministerial ante el GTU (MPPEU) y Cancillería (MPPRE).
           </motion.p>
 
           {/* ─── ARTEFACTO FLOTANTE: PORTAL DE ACCESO (HERO CARD 24PX) ─── */}
@@ -523,7 +538,7 @@ const LandingPortal = ({ onStudentLogin }) => {
               { num: '01', title: 'Pre-validación Documental (OCR)', desc: 'Extrae automáticamente nombre, cédula, mención y folio mediante IA Multimodal y Tesseract WASM.', icon: Cpu },
               { num: '02', title: 'Planilla PUB SAREN', desc: 'Calcula aranceles fiscales oficiales y genera la planilla única bancaria lista para liquidación.', icon: FileText },
               { num: '03', title: 'Hash en Blockchain', desc: 'Genera la huella criptográfica SHA-256 registrada de forma permanente en la red Ethereum Sepolia.', icon: Layers },
-              { num: '04', title: 'Auditoría Institucional QR', desc: 'Funcionarios de USM, MPPEU, SAREN y MPPRE escanean el código QR seguro para validar la autenticidad en tiempo real.', icon: QrCode },
+              { num: '04', title: 'Auditoría Ministerial GTU / MPPRE', desc: 'Auditores del GTU (MPPEU) y Cancillería (MPPRE) certifican y apostillan on-chain, y cualquier entidad valida el código QR en tiempo real.', icon: QrCode },
             ].map((step) => (
               <motion.div
                 key={step.num}
@@ -619,7 +634,7 @@ const LandingPortal = ({ onStudentLogin }) => {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.35rem' }}>
           {[
-            { title: 'IA Vision & OCR Híbrido', badge: 'Gemini 2.5 + Tesseract WASM', desc: 'Procesamiento multimodal con pre-procesamiento OpenCV y fallback local en WebAssembly.', icon: Cpu },
+            { title: 'IA Vision & OCR sin API Key', badge: 'Tesseract WASM + PDF NER', desc: 'Extracción 100% funcional en imágenes y PDF sin API key, con aceleración opcional mediante Gemini Vision.', icon: Cpu },
             { title: 'Contrato Inteligente', badge: 'Ethereum Sepolia Testnet', desc: 'Registro de hashes SHA-256 en contrato Solidity público, inalterable y auditable mundialmente.', icon: Layers },
             { title: 'Backend Institucional', badge: 'Python Flask 3.0', desc: 'Motor de reconocimiento de entidades nombradas (NER), firma criptográfica y aranceles bancarios.', icon: Server },
             { title: 'Almacenamiento Seguro', badge: 'Supabase PostgreSQL', desc: 'Base de datos encriptada para perfiles universitarios e historial de comprobantes.', icon: Database },
@@ -730,7 +745,7 @@ const LandingPortal = ({ onStudentLogin }) => {
                     <Globe size={14} /> Interoperabilidad Estatal
                   </h4>
                   <p style={{ fontSize: '0.81rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                    Formato homologado con las normativas de la USM, MPPEU, SAREN y el MPPRE para trámite de apostilla.
+                    Formato homologado con los procedimientos del GTU (MPPEU) y la Cancillería (MPPRE) para trámite de apostilla electrónica.
                   </p>
                 </motion.div>
               </div>
@@ -764,9 +779,9 @@ const LandingPortal = ({ onStudentLogin }) => {
               boxShadow: 'var(--shadow-subtle)'
             }}>
               {[
-                { date: '25/Feb/2026', title: 'Aviso Importante: Citas SAREN', desc: 'Recuerda llevar la Planilla PUB impresa junto a los timbres fiscales al momento de consignar.' },
-                { date: '18/Feb/2026', title: 'Prevalidaciones Documentales Habilitadas', desc: 'Los estudiantes de 10mo semestre ya pueden pre-validar sus expedientes en la plataforma.' },
-                { date: '10/Feb/2026', title: 'Resolución MPPRE Legalización', desc: 'Validaciones de títulos firmados por autoridades USM habilitados para apostilla directa.' },
+                { date: 'Actualización 2026', title: 'Digitalización OCR 100% Operativa (PDF e Imágenes)', desc: 'Sube tu título universitario en imagen o PDF y extrae tus datos automáticamente sin claves externas.' },
+                { date: 'Taquilla GTU (MPPEU)', title: 'Cotejo Ministerial y Planilla PUB', desc: 'Lleva tu título original junto a la Planilla PUB liquidada y timbres fiscales a tu cita de legalización GTU.' },
+                { date: 'Cancillería (MPPRE)', title: 'Apostilla Electrónica de La Haya', desc: 'Una vez emitido el sello GTU (CERTIFICADO_MPPEU), radica tu solicitud de apostilla 100% digital ante el MPPRE.' },
               ].map((news, idx) => (
                 <div key={idx} style={{ borderBottom: idx !== 2 ? '1px solid var(--border)' : 'none', paddingBottom: idx !== 2 ? '1rem' : 0 }}>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{news.date}</span>
@@ -904,7 +919,7 @@ const LandingPortal = ({ onStudentLogin }) => {
             <span>Ethereum Sepolia Network</span>
             <span>Gemini Vision & Tesseract WASM</span>
             <span>Python Flask 3.0</span>
-            <span>React 18 & Vite</span>
+            <span>React 19 & Vite 8</span>
           </div>
         </div>
         <div style={{

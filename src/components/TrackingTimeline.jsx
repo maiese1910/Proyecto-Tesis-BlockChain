@@ -483,36 +483,36 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
 
   const steps = [
     {
-      title: 'Estación 1: Emisión y Pre-Validación Rectorado USM',
-      desc: `Expediente digitalizado (${solicitudDisplay}) con Folio ${latestRecord?.folio || '142'} / Tomo ${latestRecord?.tomo || 'XVIII'} y Hash SHA-256 preliminar.`,
+      title: 'Etapa 1: Digitalización OCR y Pre-Validación del Título',
+      desc: `Expediente digitalizado (${solicitudDisplay}) con Folio ${latestRecord?.folio || '142'} / Tomo ${latestRecord?.tomo || 'XVIII'} y Hash SHA-256 calculado.`,
       status: 'completed',
       icon: <CheckCircle size={17} />
     },
     {
-      title: 'Estación 2: Liquidación PUB y Registro Principal (SAREN)',
+      title: 'Etapa 2: Planilla Única Bancaria (PUB) y Aranceles',
       desc: isSarenDone
-        ? `Planilla Única Bancaria (${pubCodeDisplay || solicitudDisplay}) liquidada y conciliada${paymentRefDisplay ? ` · Ref. SENIAT #${paymentRefDisplay}` : ''}.`
-        : 'Pendiente de liquidación y conciliación de Planilla Única Bancaria (PUB) para protocolo estatal.',
+        ? `Planilla Única Bancaria (${pubCodeDisplay || solicitudDisplay}) liquidada y conciliada${paymentRefDisplay ? ` · Ref. Bancaria #${paymentRefDisplay}` : ''}.`
+        : 'Pendiente de liquidación y conciliación de Planilla Única Bancaria (PUB) para consignación en taquilla.',
       status: isSarenDone ? 'completed' : 'current',
       icon: isSarenDone ? <CheckCircle size={17} /> : <FileText size={17} />
     },
     {
-      title: 'Estación 3: Cotejo Ministerial GTU y Anclaje Blockchain (MPPEU)',
+      title: 'Etapa 3: Auditoría y Certificación GTU (MPPEU)',
       desc: isMppeuDone
-        ? `Certificado con sello digital GTU y firma en Ethereum Sepolia (Tx: ${latestRecord?.txHash && !String(latestRecord.txHash).includes('PENDIENTE') ? latestRecord.txHash.substring(0, 12) + '...' : 'Sepolia On-Chain'}).`
-        : 'Presenta tu título original (pergamino) en la taquilla asignada para el cotejo físico y firma criptográfica.',
+        ? `Certificado por auditor GTU (MPPEU) con firma en Ethereum Sepolia (Tx: ${latestRecord?.txHash && !String(latestRecord.txHash).includes('PENDIENTE') ? latestRecord.txHash.substring(0, 12) + '...' : 'Sepolia On-Chain'}).`
+        : 'Presenta tu título original (pergamino) en la taquilla GTU asignada para el cotejo ministerial y certificación on-chain.',
       status: isMppeuDone ? 'completed' : 'current',
       icon: isMppeuDone ? <CheckCircle size={17} /> : <Clock size={17} />
     },
     {
-      title: 'Estación 4: Apostilla Electrónica de La Haya (MPPRE)',
+      title: 'Etapa 4: Auditoría y Apostilla Electrónica de La Haya (MPPRE)',
       desc: isMppreDone
-        ? `Apostilla de La Haya N° ${apostilleDisplay} emitida y validada on-chain para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'país destino'}.`
+        ? `Apostilla de La Haya N° ${apostilleDisplay} emitida por Cancillería (MPPRE) y validada on-chain para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'país destino'}.`
         : isPendingMppre
-        ? `Solicitud radicada ante Cancillería para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'exterior'}. En revisión diplomática por el MPPRE.`
+        ? `Solicitud radicada ante Cancillería para ${latestRecord?.countryDestiny || latestRecord?.country_destiny || 'exterior'}. En revisión diplomática por el auditor MPPRE.`
         : isMppeuDone
         ? "Trámite 100% digital en Cancillería habilitado. Haz clic en 'Solicitar Apostilla MPPRE' para radicar tu expediente."
-        : 'Se habilitará automáticamente tras la certificación del MPPEU.',
+        : 'Se habilitará automáticamente tras la certificación del GTU (MPPEU).',
       status: isMppreDone ? 'completed' : (isPendingMppre || isMppeuDone) ? 'current' : 'upcoming',
       icon: isMppreDone ? <CheckCircle size={17} /> : isPendingMppre ? <Clock size={17} /> : <Globe size={17} />
     }
