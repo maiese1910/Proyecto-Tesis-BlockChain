@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck, FileText, Layers, Award, Sparkles, Copy, Check, QrCode, Upload, X, AlertTriangle, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { blockchainAPI } from '../services/api';
@@ -981,14 +982,17 @@ const BlockchainVerifier = ({ initialHash }) => {
         />
       )}
 
-      {/* Modal de Escáner QR integrado */}
-      {showQrModal && (
+      {/* Modal de Escáner QR integrado (Portaled a document.body) */}
+      {showQrModal && typeof document !== 'undefined' && createPortal(
         <div
           className="cert-modal-overlay"
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15, 23, 42, 0.72)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(15, 23, 42, 0.72)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowQrModal(false); }}
         >
-          <div style={{ background: '#ffffff', borderRadius: '18px', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', border: '1px solid var(--border)', boxShadow: 'var(--shadow-hover)' }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#ffffff', borderRadius: '18px', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', border: '1px solid var(--border)', boxShadow: 'var(--shadow-hover)' }}
+          >
             <button
               type="button"
               onClick={() => setShowQrModal(false)}
@@ -1006,7 +1010,8 @@ const BlockchainVerifier = ({ initialHash }) => {
               }}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

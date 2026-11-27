@@ -322,11 +322,10 @@ select option:checked {
   border-radius: var(--radius-cards);
   padding: 2.25rem;
   box-shadow: var(--shadow-subtle);
-  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  transition: box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
 }
 
 .glass-panel:hover {
-  transform: translateY(-3px);
   box-shadow: var(--shadow-hover);
   border-color: #cbccd2;
 }
@@ -1126,12 +1125,9 @@ select.chat-input option {
    ========================================================================== */
 .cert-modal-overlay {
   position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
   z-index: 99999 !important;
   display: flex !important;
   align-items: center !important;

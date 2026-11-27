@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, User, CreditCard, Mail, Phone, Calendar, BookOpen,
@@ -116,20 +117,23 @@ const StudentProfileModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
 
   const pwdRules = checkPasswordRules(formData.new_password);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       <div
         onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 9999,
+          zIndex: 99999,
           backgroundColor: 'rgba(18, 18, 18, 0.55)',
           backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '1rem',
+          overflowY: 'auto',
         }}
       >
         <motion.div
@@ -474,7 +478,8 @@ const StudentProfileModal = ({ isOpen, onClose, user, onProfileUpdated }) => {
           </form>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

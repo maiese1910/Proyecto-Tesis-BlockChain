@@ -2209,7 +2209,12 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
                       <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>Listo para digitalización e inferencia IA</span>
                     </div>
                   ) : (
-                    <img src={imagePreview} alt="Documento" style={{ width: "100%", maxHeight: "300px", objectFit: "contain", display: "block" }} />
+                    <img
+                      src={imagePreview}
+                      alt="Documento"
+                      onError={() => setImagePreview(null)}
+                      style={{ width: "100%", maxHeight: "300px", objectFit: "contain", display: "block" }}
+                    />
                   )}
                   <button onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageBase64(null); setResult(null); setError(null); }} style={{ position: "absolute", top: "0.5rem", right: "0.5rem", background: "var(--color-ink-black)", border: "none", color: "#fff", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
                 </div>

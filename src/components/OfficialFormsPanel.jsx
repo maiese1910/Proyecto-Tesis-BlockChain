@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, FileText, Printer, CheckCircle, Shield, ExternalLink, X, Eye, UserCheck } from "lucide-react";
 import html2pdf from "html2pdf.js";
@@ -510,22 +511,25 @@ const OfficialFormsPanel = ({ user }) => {
         }
       </div>
 
-      {/* Modal de Previsualización de Planilla Oficial */}
-      <AnimatePresence>
-        {selectedDoc && (
-          <motion.div
-            className="cert-modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-              background: "rgba(23, 25, 28, 0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
-              justifyContent: "center", zIndex: 1200, padding: "1.25rem"
-            }}
-          >
+      {/* Modal de Previsualización de Planilla Oficial (Portaled a document.body) */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {selectedDoc && (
             <motion.div
-              initial={{ scale: 0.94, y: 20 }}
+              className="cert-modal-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={(e) => { if (e.target === e.currentTarget) setSelectedDoc(null); }}
+              style={{
+                position: "fixed", inset: 0,
+                background: "rgba(23, 25, 28, 0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
+                justifyContent: "center", zIndex: 99999, padding: "1.25rem"
+              }}
+            >
+              <motion.div
+                onClick={(e) => e.stopPropagation()}
+                initial={{ scale: 0.94, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.94, y: 20 }}
               style={{
@@ -605,7 +609,9 @@ const OfficialFormsPanel = ({ user }) => {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

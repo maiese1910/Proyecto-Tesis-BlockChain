@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ClipboardList, ShieldCheck, Download, X, Copy, Check, Clock, AlertCircle, FileText, Award } from 'lucide-react';
+import { Search, ClipboardList, ShieldCheck, Download, X, Copy, Check, Clock, AlertCircle, FileText, Award, Eye } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import html2pdf from 'html2pdf.js';
 import { blockchainAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
+import DocumentPreviewModal from './DocumentPreviewModal';
 
 // Modal de previsualización de la Planilla PUB con escala responsiva
 const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
@@ -78,9 +80,16 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
     html2pdf().set(opt).from(element).save();
   };
 
-  return (
-    <div className="cert-modal-overlay" style={{ zIndex: 1100, padding: '1rem', backgroundColor: 'rgba(23, 25, 28, 0.55)', backdropFilter: 'blur(4px)' }}>
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="cert-modal-overlay"
+      style={{ zIndex: 99999, padding: '1rem', backgroundColor: 'rgba(23, 25, 28, 0.55)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
+    >
       <motion.div
+        onClick={(e) => e.stopPropagation()}
         initial={{ y: 50, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         style={{
@@ -328,7 +337,8 @@ const PUBPreviewModal = ({ record, onClose, onVerifyHash }) => {
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -341,6 +351,7 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
   const [activeCertHash, setActiveCertHash] = useState(null);
   const [activePUBRecord, setActivePUBRecord] = useState(null);
   const [activeApostilleRecord, setActiveApostilleRecord] = useState(null);
+  const [previewDocRecord, setPreviewDocRecord] = useState(null);
   const [copiedHash, setCopiedHash] = useState(null);
 
   // Normaliza cualquier formato de cédula a solo letras+números en mayúsculas
@@ -994,6 +1005,15 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
 
                 {/* Acciones */}
                 <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDocRecord(record)}
+                    className="btn-ghost"
+                    style={{ padding: '0.5rem 0.95rem', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Eye size={16} /> Ver Documento
+                  </button>
+
                   {(record.formData || (record.document_type || '').includes('PUB') || (record.document_type || '').includes('Planilla')) && (
                     <button
                       onClick={() => setActivePUBRecord(record)}
@@ -1083,6 +1103,14 @@ const HistoryPanel = ({ user, onVerifyHash }) => {
         <ApostilleCertificate
           record={activeApostilleRecord}
           onClose={() => setActiveApostilleRecord(null)}
+        />
+      )}
+
+      {/* Modal Visor del Documento Digitalizado */}
+      {previewDocRecord && (
+        <DocumentPreviewModal
+          record={previewDocRecord}
+          onClose={() => setPreviewDocRecord(null)}
         />
       )}
     </div>

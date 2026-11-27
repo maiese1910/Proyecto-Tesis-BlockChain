@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileText, CheckSquare, Map as MapIcon, Plus, Trash2, Check, X,
   ShieldCheck, Search, Eye, Download, Printer, Award,
@@ -1222,12 +1223,13 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
       )}
 
       {/* ─── MODAL INSPECCIÓN DE TÍTULO Y COTEJO MINISTERIAL (GTU / MPPRE) ─── */}
-      {inspectRecord && (
+      {inspectRecord && typeof document !== 'undefined' && createPortal(
         <div
           style={{
-            position: 'fixed', inset: 0, zIndex: 10000,
+            position: 'fixed', inset: 0, zIndex: 99999,
             backgroundColor: 'rgba(18, 18, 18, 0.72)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+            overflowY: 'auto'
           }}
           onClick={() => setInspectRecord(null)}
         >
@@ -1340,16 +1342,18 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── MODAL RECHAZO CON OBSERVACIÓN MINISTERIAL ─── */}
-      {rejectRecord && (
+      {rejectRecord && typeof document !== 'undefined' && createPortal(
         <div
           style={{
-            position: 'fixed', inset: 0, zIndex: 10000,
+            position: 'fixed', inset: 0, zIndex: 99999,
             backgroundColor: 'rgba(18, 18, 18, 0.72)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+            overflowY: 'auto'
           }}
           onClick={() => setRejectRecord(null)}
         >
@@ -1389,7 +1393,8 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

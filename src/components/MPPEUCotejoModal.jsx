@@ -82,12 +82,9 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
     <div
       style={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh',
+        inset: 0,
+        width: '100%',
+        height: '100%',
         backgroundColor: 'rgba(23, 25, 28, 0.65)',
         backdropFilter: 'blur(8px)',
         zIndex: 99999,

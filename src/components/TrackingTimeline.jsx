@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle, Clock, ShieldCheck, MapPin, Globe, FileText, X, Send,
-  AlertCircle, Building, Sparkles, Printer, ExternalLink, Layers, FolderOpen, ArrowRight
+  AlertCircle, Building, Sparkles, Printer, ExternalLink, Layers, FolderOpen, ArrowRight, Eye
 } from 'lucide-react';
 import { blockchainAPI } from '../services/api';
 import DigitalCertificate from './DigitalCertificate';
 import ApostilleCertificate from './ApostilleCertificate';
+import DocumentPreviewModal from './DocumentPreviewModal';
 import { PAISES_CONVENIO_HAYA } from '../data/venezuelaLocations';
 
 const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
@@ -15,6 +17,7 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
   const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
   const [activeCertHash, setActiveCertHash] = useState(null);
   const [activeApostilleRecord, setActiveApostilleRecord] = useState(null);
+  const [previewDocRecord, setPreviewDocRecord] = useState(null);
   const [requestingApostille, setRequestingApostille] = useState(false);
   const [isApostilleModalOpen, setIsApostilleModalOpen] = useState(false);
   const [selectedApostilleCountry, setSelectedApostilleCountry] = useState('España');
@@ -526,6 +529,9 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
       {activeApostilleRecord && (
         <ApostilleCertificate record={activeApostilleRecord} onClose={() => setActiveApostilleRecord(null)} />
       )}
+      {previewDocRecord && (
+        <DocumentPreviewModal record={previewDocRecord} onClose={() => setPreviewDocRecord(null)} />
+      )}
 
       {/* Cabecera con Selector de Trámite y Botón de Hoja de Ruta */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -673,6 +679,23 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {latestRecord && (
+              <button
+                type="button"
+                onClick={() => setPreviewDocRecord(latestRecord)}
+                className="btn-ghost"
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  fontSize: '0.78rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+              >
+                <Eye size={13} /> Ver Documento
+              </button>
+            )}
+
             {isMppeuDone && (
               <button
                 onClick={() => setActiveCertHash(latestRecord.hash)}
@@ -903,45 +926,42 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
         })}
       </div>
 
-      {/* Modal para Solicitar Apostilla ante MPPRE */}
-      <AnimatePresence>
-        {isApostilleModalOpen && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(23, 25, 28, 0.65)',
-              backdropFilter: 'blur(6px)',
-              zIndex: 99999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '1rem',
-              overflowY: 'auto'
-            }}
-            onClick={(e) => { if (e.target === e.currentTarget && !requestingApostille) setIsApostilleModalOpen(false); }}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 15 }}
+      {/* Modal para Solicitar Apostilla ante MPPRE (Portaled a document.body para evitar recorte por transform) */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isApostilleModalOpen && (
+            <div
               style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                width: '100%',
-                maxWidth: '560px',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                overflow: 'hidden',
+                position: 'fixed',
+                inset: 0,
+                backgroundColor: 'rgba(23, 25, 28, 0.65)',
+                backdropFilter: 'blur(6px)',
+                zIndex: 99999,
                 display: 'flex',
-                flexDirection: 'column'
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1rem',
+                overflowY: 'auto'
               }}
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => { if (e.target === e.currentTarget && !requestingApostille) setIsApostilleModalOpen(false); }}
             >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.94, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.94, y: 15 }}
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '16px',
+                  width: '100%',
+                  maxWidth: '560px',
+                  maxHeight: '92vh',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+                onClick={e => e.stopPropagation()}
+              >
               {/* Header */}
               <div style={{
                 padding: '1.25rem 1.5rem',
@@ -1172,7 +1192,9 @@ const TrackingTimeline = ({ user, onNavigate, onVerifyHash }) => {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

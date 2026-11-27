@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -1738,15 +1739,18 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
 
 
-      {/* ─── MODAL DE RECHAZO DE DOCUMENTO CON OBSERVACIÓN ─── */}
-
-      <AnimatePresence>
-
-        {rejectingRecord && (
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-
-            <motion.div initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '520px', width: '100%', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+      {/* ─── MODAL DE RECHAZO DE DOCUMENTO CON OBSERVACIÓN (Portaled) ─── */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {rejectingRecord && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={(e) => { if (e.target === e.currentTarget) setRejectingRecord(null); }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', overflowY: 'auto' }}
+            >
+              <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '520px', width: '100%', maxHeight: '92vh', overflowY: 'auto', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
 
@@ -2006,19 +2010,24 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
         )}
 
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
 
 
-      {/* ─── MODAL ASISTENTE IA DE AUDITORÍA Y REPORTES ─── */}
-
-      <AnimatePresence>
-
-        {showAiAssistantModal && (
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-
-            <motion.div initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '680px', width: '100%', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+      {/* ─── MODAL ASISTENTE IA DE AUDITORÍA Y REPORTES (Portaled) ─── */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showAiAssistantModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowAiAssistantModal(false); }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', overflowY: 'auto' }}
+            >
+              <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '680px', width: '100%', maxHeight: '92vh', overflowY: 'auto', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
 
@@ -2172,19 +2181,24 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
         )}
 
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
 
 
-      {/* ─── MODAL AÑADIR NUEVO AUDITOR MINISTERIAL ─── */}
-
-      <AnimatePresence>
-
-        {showAdminModal && (
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-
-            <motion.div initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '480px', width: '100%', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+      {/* ─── MODAL AÑADIR NUEVO AUDITOR MINISTERIAL (Portaled) ─── */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showAdminModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowAdminModal(false); }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(23, 25, 28, 0.45)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', overflowY: 'auto' }}
+            >
+              <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.96, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 15 }} style={{ maxWidth: '480px', width: '100%', maxHeight: '92vh', overflowY: 'auto', padding: '2rem', borderRadius: 'var(--radius-cards)', background: '#ffffff', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
 
@@ -2498,7 +2512,9 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
         )}
 
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
 
 
@@ -4977,43 +4993,28 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
 
 
-      {/* ─── MODAL PREVISUALIZADOR DEL EXPEDIENTE DIGITAL & PUB ─── */}
-
-      <AnimatePresence>
-
-        {activePUBRecord && (
-
-          <div style={{
-
-            position: 'fixed',
-
-            top: 0,
-
-            left: 0,
-
-            right: 0,
-
-            bottom: 0,
-
-            background: 'rgba(23, 25, 28, 0.45)',
-
-            backdropFilter: 'blur(8px)',
-
-            zIndex: 1200,
-
-            padding: '1.5rem',
-
-            display: 'flex',
-
-            alignItems: 'center',
-
-            justifyContent: 'center'
-
-          }}>
-
-            <motion.div
-
-              initial={{ y: 20, opacity: 0 }}
+      {/* ─── MODAL PREVISUALIZADOR DEL EXPEDIENTE DIGITAL & PUB (Portaled) ─── */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {activePUBRecord && (
+            <div
+              onClick={(e) => { if (e.target === e.currentTarget) setActivePUBRecord(null); }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(23, 25, 28, 0.45)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 99999,
+                padding: '1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflowY: 'auto'
+              }}
+            >
+              <motion.div
+                onClick={(e) => e.stopPropagation()}
+                initial={{ y: 20, opacity: 0 }}
 
               animate={{ y: 0, opacity: 1 }}
 
@@ -5318,7 +5319,9 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
         )}
 
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
 
 

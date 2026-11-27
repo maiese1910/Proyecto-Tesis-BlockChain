@@ -91,12 +91,9 @@ const DigitalCertificate = ({ docHash, onClose, onVerifyHash }) => {
       exit={{ opacity: 0 }}
       style={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh',
+        inset: 0,
+        width: '100%',
+        height: '100%',
         backgroundColor: 'rgba(15, 23, 42, 0.72)',
         backdropFilter: 'blur(8px)',
         display: 'flex',

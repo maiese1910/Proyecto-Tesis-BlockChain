@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Wallet, ShieldCheck, AlertTriangle, ExternalLink, Copy, Check,
@@ -251,23 +252,25 @@ const WalletConnect = () => {
         </div>
       )}
 
-      {/* Modal de Gestión de Billetera y Contrato Sepolia */}
-      <AnimatePresence>
-        {showModal && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(15, 23, 42, 0.65)',
-              backdropFilter: 'blur(5px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 99999,
-              padding: '1rem',
-            }}
-            onClick={() => setShowModal(false)}
-          >
+      {/* Modal de Gestión de Billetera y Contrato Sepolia (Portaled a document.body) */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showModal && (
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                backdropFilter: 'blur(5px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 99999,
+                padding: '1rem',
+                overflowY: 'auto',
+              }}
+              onClick={() => setShowModal(false)}
+            >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 14 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -501,7 +504,9 @@ const WalletConnect = () => {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 };
