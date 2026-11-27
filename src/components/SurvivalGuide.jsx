@@ -327,10 +327,18 @@ const SurvivalGuide = ({ user = null, onNavigate = null }) => {
               </h3>
               <p style={{ fontSize: '1.05rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>{currentLogic.location}</p>
 
-              <div style={{ position: 'relative', width: '100%', height: '250px', borderRadius: 'var(--radius-inputs)', overflow: 'hidden', marginBottom: '1rem', border: '1px solid var(--border)' }}>
+              <div style={{ position: 'relative', width: '100%', height: '250px', borderRadius: 'var(--radius-inputs)', overflow: 'hidden', marginBottom: '1rem', border: '1px solid var(--border)', background: 'var(--color-mist-gray)' }}>
                 <img
-                  src={currentLogic.image}
+                  src={currentLogic.image || (selectedEntity === 'mppre' ? '/images/mppre_facade.png' : '/images/saren_facade.png')}
                   alt="Fachada de la Sede"
+                  onError={(e) => {
+                    const fallbackImg = selectedEntity === 'mppre' ? '/images/mppre_facade.png' : '/images/saren_facade.png';
+                    if (!e.currentTarget.src.endsWith(fallbackImg)) {
+                      e.currentTarget.src = fallbackImg;
+                    } else {
+                      e.currentTarget.style.display = 'none';
+                    }
+                  }}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
                 <div style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(23, 25, 28, 0.85)', color: '#ffffff', padding: '0.35rem 0.85rem', borderRadius: 'var(--radius-pill)', fontSize: '0.75rem', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TrackingTimeline from './TrackingTimeline';
+import NotificationBell from './NotificationBell';
 import { statsAPI, blockchainAPI } from '../services/api';
 
 // Componente que anima un número cuando cambia
@@ -382,6 +383,7 @@ const Dashboard = ({ user, onNavigate, onVerifyHash }) => {
             }} />
             <span style={{ fontWeight: 600 }}>Expediente en vivo · {user?.cedula || 'USM'}</span>
           </div>
+          <NotificationBell role="student" cedula={user?.cedula || ''} />
         </motion.div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.55 }}>
           Plataforma Descentralizada para la Verificación de Documentos y Ejecución de Procesos Administrativos ({user?.carrera || 'Ingeniería'} — {user?.semestre || '10mo Semestre'}).

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { dynamicDataAPI, adminAPI, blockchainAPI } from '../services/api';
-import { resolveDocumentUrl } from '../services/documentStorage';
+import { resolveDocumentUrl, resolveFallbackDocumentUrl } from '../services/documentStorage';
 import DigitalCertificate from './DigitalCertificate';
 
 const statusWeight = (st) => {
@@ -1294,7 +1294,15 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
                 inspectDocUrl.startsWith('data:application/pdf') || inspectDocUrl.toLowerCase().endsWith('.pdf') ? (
                   <iframe src={inspectDocUrl} title="Título PDF" style={{ width: '100%', height: '320px', border: 'none', borderRadius: '8px' }} />
                 ) : (
-                  <img src={inspectDocUrl} alt="Pergamino Digitalizado" style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain' }} />
+                  <img
+                    src={inspectDocUrl}
+                    alt="Pergamino Digitalizado"
+                    onError={async () => {
+                      const fb = await resolveFallbackDocumentUrl(inspectRecord, inspectDocUrl);
+                      setInspectDocUrl(fb || null);
+                    }}
+                    style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain' }}
+                  />
                 )
               ) : (
                 <div style={{ padding: '1.5rem', color: 'var(--color-slate-gray)', fontSize: '0.84rem' }}>

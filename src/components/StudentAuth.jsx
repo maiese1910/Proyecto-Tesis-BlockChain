@@ -7,7 +7,7 @@ import {
   RefreshCw, ChevronLeft, HelpCircle, Phone, Calendar
 } from 'lucide-react';
 import { authPasswordless, supabase } from '../services/supabaseClient';
-import { dynamicDataAPI, profilesAPI } from '../services/api';
+import { dynamicDataAPI, profilesAPI, authAPI } from '../services/api';
 import { securityGuard } from '../services/securityGuard';
 
 const syncUserRegistration = (profile) => {
@@ -118,6 +118,7 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
   const [forgotCedulaNum, setForgotCedulaNum] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotRecoveryCode, setForgotRecoveryCode] = useState('');
+  const [challengeToken, setChallengeToken] = useState('');
 
   // Estados de Restablecimiento de Nueva Contraseña (Recovery)
   const [newPassword, setNewPassword] = useState('');
@@ -394,9 +395,30 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
         return;
       }
 
-      // 2. Coincidencia confirmada: enviar enlace y código de recuperación
-      const res = await authPasswordless.resetPassword(cleanEmail);
-      setSuccessMsg(res.message);
+      // 2. Coincidencia confirmada: despachar código real de 6 dígitos vía Backend Flask (Gmail SMTP / Resend)
+      let backendSent = false;
+      let issuedToken = '';
+      try {
+        const codeRes = await authAPI.sendVerificationCode(cleanEmail, fullCedula, 'recovery');
+        if (codeRes?.challenge_token) {
+          issuedToken = codeRes.challenge_token;
+          setChallengeToken(issuedToken);
+        }
+        if (codeRes?.email_sent) {
+          backendSent = true;
+          setSuccessMsg(codeRes.message || `Código de 6 dígitos enviado a ${cleanEmail}.`);
+        } else if (codeRes?.message) {
+          setSuccessMsg(codeRes.message);
+        }
+      } catch (_) {}
+
+      // Respaldo complementario con Supabase Auth si el backend SMTP no envió correo
+      if (!backendSent) {
+        try {
+          const supaRes = await authPasswordless.resetPassword(cleanEmail);
+          if (!issuedToken && supaRes?.message) setSuccessMsg(supaRes.message);
+        } catch (_) {}
+      }
       setForgotCooldown(securityGuard.setForgotCooldown());
       setForgotSent(true);
     } catch (err) {
@@ -428,15 +450,30 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
     setLoading(true);
 
     try {
-      // Verificar OTP de recuperación
-      await authPasswordless.verifyRecoveryCode(cleanEmail, cleanCode);
-      // Actualizar a la nueva contraseña en Backend, LocalStorage y Supabase (validando cédula)
-      const rawCed = forgotCedulaNum.replace(/\D/g, '');
-      const fullCedula = rawCed ? `${forgotCedulaTipo}-${formatCedulaInput(rawCed)}` : '';
-      const res = await authPasswordless.updatePassword(newPassword, cleanEmail, fullCedula);
-      setSuccessMsg('¡Contraseña actualizada con éxito! Ingresando a tu expediente...');
+      let profile = null;
 
-      let profile = res?.profile || await authPasswordless.findRegisteredProfile(cleanEmail);
+      // 1. Verificar mediante token stateless JWT del Backend Flask (si se emitió)
+      if (challengeToken) {
+        const verRes = await authAPI.verifyCode(cleanEmail, cleanCode, challengeToken, newPassword);
+        if (verRes?.token) {
+          sessionStorage.setItem('usm_student_token', verRes.token);
+          localStorage.setItem('usm_student_token', verRes.token);
+        }
+        profile = verRes?.profile || null;
+        // Sincronizar también respaldo local de contraseña
+        const rawCed = forgotCedulaNum.replace(/\D/g, '');
+        const fullCedula = rawCed ? `${forgotCedulaTipo}-${formatCedulaInput(rawCed)}` : '';
+        await authPasswordless.updatePassword(newPassword, cleanEmail, fullCedula).catch(() => {});
+      } else {
+        // 2. Flujo clásico vía Supabase Auth OTP
+        await authPasswordless.verifyRecoveryCode(cleanEmail, cleanCode);
+        const rawCed = forgotCedulaNum.replace(/\D/g, '');
+        const fullCedula = rawCed ? `${forgotCedulaTipo}-${formatCedulaInput(rawCed)}` : '';
+        const res = await authPasswordless.updatePassword(newPassword, cleanEmail, fullCedula);
+        profile = res?.profile || await authPasswordless.findRegisteredProfile(cleanEmail);
+      }
+
+      setSuccessMsg('¡Contraseña actualizada con éxito! Ingresando a tu expediente...');
       if (!profile) {
         const { data: { user } } = await supabase.auth.getUser();
         profile = user ? await authPasswordless.getProfile(user.id, cleanEmail) : null;
@@ -536,9 +573,31 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
         return;
       }
 
-      // 2. Coincidencia confirmada: enviar código OTP seguro
-      const res = await authPasswordless.sendEmailOtp(cleanEmail, turnstileToken);
-      setSuccessMsg(res.message);
+      // 2. Coincidencia confirmada: enviar código OTP real vía Backend Flask (Gmail SMTP / Resend)
+      let backendSent = false;
+      let issuedToken = '';
+      try {
+        const codeRes = await authAPI.sendVerificationCode(cleanEmail, fullCedula, 'otp');
+        if (codeRes?.challenge_token) {
+          issuedToken = codeRes.challenge_token;
+          setChallengeToken(issuedToken);
+        }
+        if (codeRes?.email_sent) {
+          backendSent = true;
+          setSuccessMsg(codeRes.message || `Código OTP enviado a ${cleanEmail}.`);
+        } else if (codeRes?.message) {
+          setSuccessMsg(codeRes.message);
+        }
+      } catch (_) {}
+
+      if (!backendSent) {
+        try {
+          const res = await authPasswordless.sendEmailOtp(cleanEmail, turnstileToken);
+          if (!issuedToken && res?.message) setSuccessMsg(res.message);
+        } catch (otpErr) {
+          if (!issuedToken) throw otpErr;
+        }
+      }
       setOtpCooldown(securityGuard.setOtpCooldown());
       setView('otp_code');
     } catch (err) {
@@ -559,6 +618,21 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
     setLoading(true);
 
     try {
+      // 1. Verificar mediante Backend Flask stateless JWT si se emitió challengeToken
+      if (challengeToken) {
+        const verRes = await authAPI.verifyCode(otpEmail.trim().toLowerCase(), otpCode.trim(), challengeToken);
+        if (verRes?.success && verRes?.profile) {
+          if (verRes.token) {
+            sessionStorage.setItem('usm_student_token', verRes.token);
+            localStorage.setItem('usm_student_token', verRes.token);
+          }
+          localStorage.setItem('usm_user', JSON.stringify(verRes.profile));
+          sessionStorage.setItem('usm_user', JSON.stringify(verRes.profile));
+          onLogin(verRes.profile);
+          return;
+        }
+      }
+
       const res = await authPasswordless.verifyEmailOtp(otpEmail, otpCode);
       if (res.success && res.user) {
         setOtpUser(res.user);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isMetaMaskInstalled } from '../services/web3Service';
-import { resolveDocumentUrl } from '../services/documentStorage';
+import { resolveDocumentUrl, resolveFallbackDocumentUrl } from '../services/documentStorage';
 import { PAISES_CONVENIO_HAYA } from '../data/venezuelaLocations';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
@@ -306,6 +306,10 @@ const MPPRECotejoModal = ({ record, onClose, onConfirmApostille, onReject, loadi
                   <img
                     src={docImage}
                     alt="Diploma Académico"
+                    onError={async () => {
+                      const fallback = await resolveFallbackDocumentUrl(record, docImage);
+                      setDocImage(fallback || null);
+                    }}
                     style={{
                       maxWidth: '100%',
                       maxHeight: '100%',

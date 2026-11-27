@@ -394,9 +394,16 @@ export async function uploadDocumentToStorage(optimizedDoc, metadata = {}) {
 
       if (res.ok) {
         const json = await res.json();
-        if (json.url) {
+        const isEphemeralInProd = import.meta.env.PROD && (json.ephemeral || (json.url && json.url.includes('/api/documents/file/')));
+        if (json.supabaseUrl) {
+          uploadedUrl = json.supabaseUrl;
+          storageType = 'supabase';
+        } else if (json.inlineDataUrl) {
+          uploadedUrl = json.inlineDataUrl;
+          storageType = 'inline';
+        } else if (json.url && !isEphemeralInProd) {
           uploadedUrl = json.url;
-          storageType = json.supabaseUrl ? 'supabase' : 'backend';
+          storageType = 'backend';
         }
       }
     } catch (backendErr) {
@@ -404,7 +411,8 @@ export async function uploadDocumentToStorage(optimizedDoc, metadata = {}) {
     }
   }
 
-  // 4. Si todo lo remoto falló, usamos el dataUrl local de alta calidad
+  // 4. Si todo lo remoto falló (o en Vercel sin bucket Supabase), usamos el dataUrl optimizado inline
+  // Garantiza que la imagen NUNCA se rompa con 404 entre instancias serverless
   const finalUrl = uploadedUrl || optimizedDoc.dataUrl;
 
   return {
@@ -418,17 +426,10 @@ export async function uploadDocumentToStorage(optimizedDoc, metadata = {}) {
   };
 }
 
-// ─── Recuperador Inteligente de Documento para Auditoría ──────────────────────
-export async function resolveDocumentUrl(record) {
+// ─── Búsqueda de Respaldo Local / Supabase (Ignorando URLs rotas) ────────────
+export async function resolveFallbackDocumentUrl(record, failedUrl = null) {
   if (!record) return null;
 
-  // 1. Si el registro ya trae documentUrl o fileUrl HTTP/HTTPS o DataURL (PDF o Imagen)
-  const directUrl = record.documentUrl || record.document_url || record.fileUrl || record.pergaminoUrl || record.docUrl;
-  if (directUrl && (directUrl.startsWith('http://') || directUrl.startsWith('https://') || directUrl.startsWith('data:'))) {
-    return directUrl;
-  }
-
-  // 2. Buscar en localStorage y IndexedDB Vault por hash y código de trámite
   const targetHash = (record.hash || '').trim().toUpperCase();
   const solCode = (record.solicitudCode || '').trim().toUpperCase();
   const keysToTry = [targetHash, solCode].filter(Boolean);
@@ -436,16 +437,15 @@ export async function resolveDocumentUrl(record) {
   for (const k of keysToTry) {
     try {
       const lsUrl = localStorage.getItem(`usm_doc_image_${k}`);
-      if (lsUrl) return lsUrl;
+      if (lsUrl && lsUrl !== failedUrl) return lsUrl;
     } catch (_) {}
 
     try {
       const idbUrl = await getFromIndexedDB(k);
-      if (idbUrl) return idbUrl;
+      if (idbUrl && idbUrl !== failedUrl) return idbUrl;
     } catch (_) {}
   }
 
-  // 3. Consultar dinámicamente en Supabase Storage (Bucket público 'documentos')
   if (supabase && supabase.storage) {
     try {
       const cleanHash = targetHash ? targetHash.replace(/[^A-Z0-9]/gi, '_').slice(0, 16) : '';
@@ -455,20 +455,53 @@ export async function resolveDocumentUrl(record) {
       });
 
       if (files && files.length > 0) {
-        const matchingFile = files.find(f => 
+        const matchingFile = files.find(f =>
           (cleanHash && f.name.includes(cleanHash)) ||
           (cleanSol && f.name.includes(cleanSol))
         );
         if (matchingFile) {
           const { data: pubData } = supabase.storage.from('documentos').getPublicUrl(`titulos/${matchingFile.name}`);
-          if (pubData?.publicUrl) return pubData.publicUrl;
+          if (pubData?.publicUrl && pubData.publicUrl !== failedUrl) return pubData.publicUrl;
         }
       }
     } catch (e) {
-      console.info('Aviso resolviendo documento en Supabase Storage:', e);
+      console.info('Aviso resolviendo respaldo en Supabase Storage:', e);
     }
   }
 
-  return directUrl || null;
+  return null;
+}
+
+// ─── Recuperador Inteligente de Documento para Auditoría ──────────────────────
+export async function resolveDocumentUrl(record) {
+  if (!record) return null;
+
+  const directUrl = record.documentUrl || record.document_url || record.fileUrl || record.pergaminoUrl || record.docUrl;
+
+  // 1. DataURL inline siempre es válida y sin latencia de red
+  if (directUrl && directUrl.startsWith('data:')) {
+    return directUrl;
+  }
+
+  // 2. Si es una URL efímera de /api/documents/file/ (puede devolver 404 en Vercel), priorizar bóveda local
+  const isEphemeralBackend = Boolean(directUrl && directUrl.includes('/api/documents/file/'));
+  if (isEphemeralBackend) {
+    const localOrSupa = await resolveFallbackDocumentUrl(record, directUrl);
+    if (localOrSupa) return localOrSupa;
+    try {
+      const probe = await fetch(directUrl, { method: 'HEAD' });
+      if (probe.ok) return directUrl;
+    } catch (_) {}
+    return null;
+  }
+
+  // 3. URL remota permanente (Supabase Storage / HTTPS)
+  if (directUrl && (directUrl.startsWith('http://') || directUrl.startsWith('https://'))) {
+    return directUrl;
+  }
+
+  // 4. Respaldo en localStorage, IndexedDB Vault y Supabase Storage
+  const fallback = await resolveFallbackDocumentUrl(record);
+  return fallback || null;
 }
 

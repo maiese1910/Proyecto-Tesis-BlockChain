@@ -81,6 +81,14 @@ except Exception as e_ocr:
     USMOcrService = None
     AcademicDegreeNER = None
     HAS_USM_OCR = False
+
+try:
+    from email_service import EmailNotificationService
+    HAS_EMAIL_SERVICE = True
+except Exception as e_mail:
+    logger.warning(f"No se pudo importar email_service: {e_mail}")
+    EmailNotificationService = None
+    HAS_EMAIL_SERVICE = False
 HAS_WEB3 = True
 HAS_SUPABASE = True
 
@@ -594,10 +602,11 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return password == stored_hash
 
 
-def create_jwt_token(payload: dict, expires_hours: int = 24) -> str:
+def create_jwt_token(payload: dict, expires_hours: int = 24, expires_minutes: Optional[int] = None) -> str:
     """Crea un JWT token firmado."""
     if HAS_JWT:
-        payload["exp"] = datetime.datetime.utcnow() + datetime.timedelta(hours=expires_hours)
+        delta = datetime.timedelta(minutes=expires_minutes) if expires_minutes is not None else datetime.timedelta(hours=expires_hours)
+        payload["exp"] = datetime.datetime.utcnow() + delta
         payload["iat"] = datetime.datetime.utcnow()
         return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
     raise RuntimeError("PyJWT no está disponible en el servidor.")
@@ -1433,6 +1442,294 @@ def reset_student_password():
     }), 200
 
 
+# ─── Códigos Reales de 6 Dígitos por Correo (OTP / Recuperación Stateless JWT) ──
+@app.route("/student/send-code", methods=["POST"])
+@app.route("/api/student/send-code", methods=["POST"])
+def send_student_verification_code():
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    cedula = (data.get("cedula") or "").strip()
+    purpose = (data.get("purpose") or "recovery").strip().lower()
+    if purpose not in ("recovery", "otp"):
+        purpose = "recovery"
+
+    ced_digits = re.sub(r"\D", "", cedula)
+    if not email or not ced_digits:
+        return jsonify({"success": False, "error": "Correo electrónico y cédula de identidad son requeridos."}), 400
+
+    student = next((s for s in _students_auth_memory if (s.get("email") or "").lower() == email), None)
+    if not student:
+        return jsonify({
+            "success": False,
+            "status": "not_found",
+            "error": "El usuario no se encuentra registrado en el sistema. Debes crear tu cuenta primero."
+        }), 404
+
+    stored_ced_digits = re.sub(r"\D", "", student.get("cedula") or "")
+    if stored_ced_digits and stored_ced_digits != ced_digits:
+        return jsonify({
+            "success": False,
+            "status": "mismatch",
+            "error": "Los datos no coinciden. La Cédula de Identidad no corresponde al correo ingresado."
+        }), 403
+
+    code = f"{secrets.randbelow(900000) + 100000:06d}"
+    code_hash = hashlib.sha256(f"{email}::{code}::{JWT_SECRET}".encode("utf-8")).hexdigest()
+    challenge_token = create_jwt_token({
+        "type": "email_code_challenge",
+        "email": email,
+        "cedula": student.get("cedula") or cedula,
+        "purpose": purpose,
+        "code_hash": code_hash,
+    }, expires_minutes=10)
+
+    email_res = {"sent": False, "provider": "none", "error": "Servicio de correo no disponible"}
+    if HAS_EMAIL_SERVICE and EmailNotificationService is not None:
+        email_res = EmailNotificationService.send_verification_code(
+            email, student.get("nombre") or "Graduando", code, purpose=purpose
+        )
+
+    is_dev_or_test = bool(os.getenv("TESTING_ENV") or not os.environ.get("VERCEL"))
+    if email_res.get("sent"):
+        return jsonify({
+            "success": True,
+            "email_sent": True,
+            "provider": email_res.get("provider"),
+            "challenge_token": challenge_token,
+            "message": f"Código de 6 dígitos enviado a {email}. Revisa tu bandeja de entrada o carpeta de spam.",
+        }), 200
+
+    # Si el servidor en Vercel aún no tiene SMTP_USER/SMTP_PASSWORD o RESEND_API_KEY configurados
+    resp_payload = {
+        "success": True,
+        "email_sent": False,
+        "provider": email_res.get("provider", "none"),
+        "challenge_token": challenge_token,
+        "error_detail": email_res.get("error"),
+        "message": (
+            "Tu identidad (Cédula + Correo) fue verificada correctamente, pero el servidor aún no tiene "
+            "configurado SMTP_USER/SMTP_PASSWORD (Gmail) o RESEND_API_KEY en Vercel para despachar el correo."
+        ),
+    }
+    if is_dev_or_test:
+        resp_payload["dev_code"] = code
+    return jsonify(resp_payload), 200
+
+
+@app.route("/student/verify-code", methods=["POST"])
+@app.route("/api/student/verify-code", methods=["POST"])
+def verify_student_verification_code():
+    import hmac
+    _load_students_cache()
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    code = re.sub(r"\D", "", str(data.get("code") or ""))
+    challenge_token = (data.get("challenge_token") or "").strip()
+    new_password = (data.get("new_password") or "").strip()
+
+    if not email or len(code) != 6 or not challenge_token:
+        return jsonify({"success": False, "error": "Correo, código de 6 dígitos y token de reto son obligatorios."}), 400
+
+    payload = verify_jwt_token(challenge_token)
+    if not payload or payload.get("type") != "email_code_challenge" or (payload.get("email") or "").lower() != email:
+        return jsonify({"success": False, "error": "El código de verificación ha expirado o es inválido. Solicita uno nuevo."}), 401
+
+    expected_hash = payload.get("code_hash") or ""
+    candidate_hash = hashlib.sha256(f"{email}::{code}::{JWT_SECRET}".encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(expected_hash, candidate_hash):
+        return jsonify({"success": False, "error": "Código de 6 dígitos incorrecto. Verifícalo e intenta nuevamente."}), 401
+
+    student = next((s for s in _students_auth_memory if (s.get("email") or "").lower() == email), None)
+    if not student:
+        return jsonify({"success": False, "error": "Cuenta de graduando no encontrada."}), 404
+
+    if payload.get("purpose") == "recovery":
+        if not new_password or len(new_password) < 8:
+            return jsonify({"success": False, "error": "Debes ingresar una nueva contraseña de al menos 8 caracteres."}), 400
+        student["password_hash"] = _hash_student_password(new_password)
+        student["updated_at"] = datetime.datetime.now().isoformat()
+        _save_students_cache()
+
+    session_token = create_jwt_token({
+        "sub": student["id"],
+        "email": student["email"],
+        "role": "estudiante",
+        "cedula": student.get("cedula")
+    })
+    safe_profile = {k: v for k, v in student.items() if k != "password_hash"}
+    return jsonify({
+        "success": True,
+        "token": session_token,
+        "profile": safe_profile,
+        "message": "Contraseña restablecida e inicio de sesión exitoso." if payload.get("purpose") == "recovery" else "Código OTP verificado con éxito."
+    }), 200
+
+
+# ─── Centro de Notificaciones (Correo Real + Bandeja In-App Graduando & GTU/MPPRE) ──
+NOTIFICATIONS_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_notifications_cache.json")
+_notifications_memory = []
+
+def _load_notifications_cache():
+    global _notifications_memory
+    try:
+        if os.path.exists(NOTIFICATIONS_CACHE_FILE):
+            with open(NOTIFICATIONS_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    _notifications_memory = data[:120]
+    except Exception:
+        pass
+
+def _save_notifications_cache():
+    try:
+        with open(NOTIFICATIONS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(_notifications_memory[:120], f, ensure_ascii=False)
+    except Exception:
+        pass
+
+_load_notifications_cache()
+
+def _find_student_email_for_record(record: dict) -> str:
+    direct = (record.get("account_email") or record.get("accountEmail") or "").strip().lower()
+    if direct and "@" in direct:
+        return direct
+    ced_digits = re.sub(r"\D", "", str(record.get("cedula") or record.get("account_cedula") or ""))
+    if ced_digits:
+        _load_students_cache()
+        match = next((s for s in _students_auth_memory if re.sub(r"\D", "", s.get("cedula") or "") == ced_digits), None)
+        if match and match.get("email"):
+            return match["email"].strip().lower()
+    return ""
+
+def dispatch_document_notification(event_type: str, record: dict, extra: dict = None):
+    """Registra notificación in-app y envía correo transaccional (si SMTP/Resend está activo) al Graduando y al Auditor GTU/MPPRE correspondiente."""
+    try:
+        _load_notifications_cache()
+        info = dict(record or {})
+        if extra:
+            info.update(extra)
+
+        now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+        owner = info.get("owner_name") or info.get("ownerName") or "Graduando"
+        cedula = info.get("cedula") or ""
+        code = info.get("solicitud_code") or info.get("solicitudCode") or "GTU-2026"
+        doc_hash = info.get("hash") or ""
+        apostille_no = info.get("apostille_number") or info.get("apostilleNumber") or ""
+        reason = info.get("reason") or info.get("rejection_reason") or info.get("rejectionReason") or ""
+        student_email = _find_student_email_for_record(info)
+
+        gtu_email = (os.getenv("GTU_ADMIN_EMAIL") or os.getenv("MPPEU_ADMIN_EMAIL") or "").strip()
+        mppre_email = (os.getenv("MPPRE_ADMIN_EMAIL") or "").strip()
+        frontend_url = (os.getenv("FRONTEND_URL") or "").strip()
+
+        def _push_inapp(target_role: str, target_id: str, title: str, message: str, severity: str = "info"):
+            _notifications_memory.insert(0, {
+                "id": f"ntf_{secrets.token_hex(5)}",
+                "targetRole": target_role,
+                "targetId": target_id,
+                "eventType": event_type,
+                "title": title,
+                "message": message,
+                "solicitudCode": code,
+                "hash": doc_hash,
+                "severity": severity,
+                "read": False,
+                "createdAt": now_iso,
+            })
+            del _notifications_memory[120:]
+
+        # 1. Notificación al Graduando
+        if event_type == "SOLICITUD_CREADA":
+            _push_inapp("student", re.sub(r"\D", "", cedula), "Solicitud GTU Registrada", f"Tu expediente {code} entró en cola de auditoría GTU (MPPEU).", "info")
+            _push_inapp("admin", "MPPEU", "Nuevo Expediente en Taquilla GTU", f"{owner} ({cedula}) registró el expediente {code} para Cotejo GTU.", "warning")
+            if HAS_EMAIL_SERVICE and EmailNotificationService:
+                if student_email:
+                    EmailNotificationService.send_document_event_email(student_email, "student", "SOLICITUD_CREADA", info, frontend_url)
+                if gtu_email:
+                    EmailNotificationService.send_document_event_email(gtu_email, "gtu_admin", "SOLICITUD_CREADA", info, frontend_url)
+
+        elif event_type == "CERTIFICADO_MPPEU":
+            _push_inapp("student", re.sub(r"\D", "", cedula), "Certificación GTU Aprobada ✓", f"Tu título ({code}) fue certificado por GTU (MPPEU). Ya puedes solicitar la Apostilla MPPRE.", "success")
+            _push_inapp("admin", "MPPEU", "Certificación GTU Completada", f"Se certificó on-chain el expediente {code} de {owner}.", "success")
+            if HAS_EMAIL_SERVICE and EmailNotificationService and student_email:
+                EmailNotificationService.send_document_event_email(student_email, "student", "CERTIFICADO_MPPEU", info, frontend_url)
+
+        elif event_type == "PENDIENTE_APOSTILLA_MPPRE":
+            country = info.get("country_destiny") or info.get("countryDestiny") or "Exterior"
+            _push_inapp("student", re.sub(r"\D", "", cedula), "Apostilla Solicitada ante MPPRE", f"Tu solicitud {code} para {country} fue enviada a Cancillería (MPPRE).", "info")
+            _push_inapp("admin", "MPPRE", "Nueva Solicitud de Apostilla", f"{owner} ({cedula}) solicitó Apostilla de La Haya ({country}) para {code}.", "warning")
+            if HAS_EMAIL_SERVICE and EmailNotificationService:
+                if mppre_email:
+                    EmailNotificationService.send_document_event_email(mppre_email, "mppre_admin", "PENDIENTE_APOSTILLA_MPPRE", info, frontend_url)
+
+        elif event_type == "APOSTILLADO_MPPRE":
+            _push_inapp("student", re.sub(r"\D", "", cedula), "Apostilla de La Haya Emitida 🌍", f"Cancillería (MPPRE) emitió tu Apostilla N° {apostille_no or code}. ¡Ya puedes descargarla!", "success")
+            _push_inapp("admin", "MPPRE", "Apostilla Emitida", f"Apostilla {apostille_no or code} emitida para {owner}.", "success")
+            if HAS_EMAIL_SERVICE and EmailNotificationService and student_email:
+                EmailNotificationService.send_document_event_email(student_email, "student", "APOSTILLADO_MPPRE", info, frontend_url)
+
+        elif event_type == "RECHAZADO":
+            _push_inapp("student", re.sub(r"\D", "", cedula), "Observación Ministerial ⚠️", f"Tu trámite {code} fue observado: {reason or 'Revisa los recaudos.'}", "danger")
+            if HAS_EMAIL_SERVICE and EmailNotificationService and student_email:
+                EmailNotificationService.send_document_event_email(student_email, "student", "RECHAZADO", info, frontend_url)
+
+        _save_notifications_cache()
+    except Exception as ne:
+        logger.debug(f"Aviso en notificación de documento: {ne}")
+
+
+@app.route("/notifications", methods=["GET"])
+@app.route("/api/notifications", methods=["GET"])
+def get_notifications():
+    _load_notifications_cache()
+    role = (request.args.get("role") or "student").strip().lower()
+    cedula = re.sub(r"\D", "", request.args.get("cedula") or "")
+    ente = (request.args.get("ente") or "").strip().upper()
+
+    if role == "admin":
+        items = [
+            n for n in _notifications_memory
+            if n.get("targetRole") == "admin" and (not ente or ente == "ALL" or n.get("targetId") == ente)
+        ]
+    else:
+        items = [
+            n for n in _notifications_memory
+            if n.get("targetRole") == "student" and (not cedula or n.get("targetId") == cedula)
+        ]
+
+    email_status = EmailNotificationService.get_provider_status() if (HAS_EMAIL_SERVICE and EmailNotificationService) else {"configured": False, "provider": "none"}
+    return jsonify({
+        "success": True,
+        "notifications": items[:30],
+        "unreadCount": sum(1 for n in items[:30] if not n.get("read")),
+        "emailConfigured": email_status.get("configured", False),
+        "emailProvider": email_status.get("provider", "none"),
+    }), 200
+
+
+@app.route("/notifications/read", methods=["POST"])
+@app.route("/api/notifications/read", methods=["POST"])
+def mark_notifications_read():
+    _load_notifications_cache()
+    data = request.get_json() or {}
+    notif_id = data.get("id")
+    role = (data.get("role") or "").strip().lower()
+    cedula = re.sub(r"\D", "", data.get("cedula") or "")
+    ente = (data.get("ente") or "").strip().upper()
+
+    for n in _notifications_memory:
+        if notif_id and n.get("id") == notif_id:
+            n["read"] = True
+        elif not notif_id:
+            if role == "admin" and n.get("targetRole") == "admin" and (not ente or n.get("targetId") == ente):
+                n["read"] = True
+            elif role == "student" and n.get("targetRole") == "student" and (not cedula or n.get("targetId") == cedula):
+                n["read"] = True
+    _save_notifications_cache()
+    return jsonify({"success": True}), 200
+
+
 @app.route("/student/update-profile", methods=["POST", "PUT"])
 @app.route("/api/student/update-profile", methods=["POST", "PUT"])
 def update_student_profile():
@@ -1940,6 +2237,7 @@ def register_blockchain_document():
                 logger.warning(f"No se pudo guardar en Supabase: {e2}")
 
     increment_stat("docs_prevalidados", 1, log_entry=f"SOLICITUD: Trámite {solicitud_code} emitido para {owner_name}.")
+    dispatch_document_notification("SOLICITUD_CREADA", new_rec)
     return jsonify({
         "success": True,
         "message": "Solicitud de trámite GTU generada exitosamente.",
@@ -2021,14 +2319,39 @@ def upload_document():
 
         base_url = request.host_url.rstrip("/")
         local_url = f"{base_url}/api/documents/file/{filename}"
-        final_url = supabase_url_res or local_url
+        is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+
+        # Si Supabase Storage no está disponible, generar versión inline comprimida (<150 KB)
+        # para evitar imágenes rotas 404 por /tmp efímero entre instancias serverless de Vercel.
+        inline_data_url = None
+        if not supabase_url_res:
+            try:
+                if ext != "pdf":
+                    from PIL import Image
+                    img = Image.open(io.BytesIO(file_bytes))
+                    if img.mode not in ("RGB", "L"):
+                        img = img.convert("RGB")
+                    img.thumbnail((1200, 1200))
+                    buf = io.BytesIO()
+                    img.save(buf, format="JPEG", quality=74, optimize=True)
+                    inline_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                    inline_data_url = f"data:image/jpeg;base64,{inline_b64}"
+                elif len(file_bytes) <= 450_000:
+                    inline_b64 = base64.b64encode(file_bytes).decode("ascii")
+                    inline_data_url = f"data:application/pdf;base64,{inline_b64}"
+            except Exception as ie:
+                logger.debug(f"No se pudo generar inlineDataUrl de respaldo: {ie}")
+
+        final_url = supabase_url_res or (inline_data_url if is_serverless else local_url) or inline_data_url or local_url
 
         return jsonify({
             "success": True,
             "filename": filename,
             "url": final_url,
             "supabaseUrl": supabase_url_res,
+            "inlineDataUrl": inline_data_url,
             "localUrl": local_url,
+            "ephemeral": bool(is_serverless and not supabase_url_res and not inline_data_url),
             "sizeBytes": len(file_bytes)
         }), 200
     except Exception as e:
@@ -2258,6 +2581,8 @@ def mppeu_certify_record(doc_hash: str):
             logger.warning(f"Error actualizando certificación MPPEU en Supabase: {e}")
 
     increment_stat("titulos_blockchain", 1, log_entry=f"MPPEU GTU: Documento {doc_hash[:10]}... certificado y sellado on-chain por {auditor_name}.")
+    rec_for_notif = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), {"hash": doc_hash})
+    dispatch_document_notification("CERTIFICADO_MPPEU", rec_for_notif, {"txHash": tx_hash})
     return jsonify({
         "success": True,
         "message": "Título cotejado y certificado exitosamente por MPPEU en Blockchain.",
@@ -2313,6 +2638,8 @@ def request_apostille_endpoint(doc_hash: str):
             logger.warning(f"Error actualizando solicitud de apostilla en Supabase: {e}")
 
     increment_stat("docs_prevalidados", 0, log_entry=f"SOLICITUD APOSTILLA: Graduando solicitó Apostilla MPPRE para país {country_destiny} (Doc {doc_hash[:10]}...).")
+    rec_for_notif = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), {"hash": doc_hash, "country_destiny": country_destiny})
+    dispatch_document_notification("PENDIENTE_APOSTILLA_MPPRE", rec_for_notif, {"country_destiny": country_destiny})
     return jsonify({
         "success": True,
         "message": "Solicitud de Apostilla de La Haya enviada a Cancillería (MPPRE). En espera de revisión consular.",
@@ -2380,6 +2707,8 @@ def mppre_apostille_record(doc_hash: str):
             logger.warning(f"Error actualizando apostilla MPPRE en Supabase: {e}")
 
     increment_stat("titulos_blockchain", 0, log_entry=f"MPPRE APOSTILLA: Documento {doc_hash[:10]}... apostillado legalmente con código {apostille_num} por {auditor_name}.")
+    rec_for_notif = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), {"hash": doc_hash, "apostille_number": apostille_num})
+    dispatch_document_notification("APOSTILLADO_MPPRE", rec_for_notif, {"apostille_number": apostille_num, "country_destiny": country_destiny})
     return jsonify({
         "success": True,
         "message": "Apostilla Electrónica de La Haya emitida y sellada digitalmente.",
@@ -2530,6 +2859,8 @@ def reject_record_status(doc_hash: str):
             logger.warning(f"Error actualizando rechazo en Supabase: {e}")
 
     increment_stat("titulos_blockchain", 0, log_entry=f"RECHAZO: Documento {doc_hash[:10]}... rechazado por {auditor_info}: {reason}.")
+    rec_for_notif = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), {"hash": doc_hash, "rejection_reason": reason})
+    dispatch_document_notification("RECHAZADO", rec_for_notif, {"reason": reason})
     return jsonify({"success": True, "message": "Documento rechazado con observación oficial.", "status": status_str, "rejectionReason": reason}), 200
 
 

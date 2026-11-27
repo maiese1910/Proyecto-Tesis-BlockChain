@@ -551,6 +551,7 @@ const PreValidation = ({ user, onNavigate, onVerifyHash }) => {
                   <img
                     src={filePreview}
                     alt="Vista previa de auditoría"
+                    onError={() => setFilePreview(null)}
                     style={{ maxHeight: '150px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border)' }}
                   />
                 ) : (

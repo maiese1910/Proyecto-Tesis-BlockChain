@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isMetaMaskInstalled } from '../services/web3Service';
-import { resolveDocumentUrl } from '../services/documentStorage';
+import { resolveDocumentUrl, resolveFallbackDocumentUrl } from '../services/documentStorage';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import {
@@ -326,6 +326,10 @@ const MPPEUCotejoModal = ({ record, onClose, onConfirmCertify, onReject, loading
                   <img
                     src={docImage}
                     alt={`Pergamino Digital - ${record.ownerName}`}
+                    onError={async () => {
+                      const fallback = await resolveFallbackDocumentUrl(record, docImage);
+                      setDocImage(fallback || null);
+                    }}
                     style={{
                       maxWidth: '100%',
                       maxHeight: '460px',

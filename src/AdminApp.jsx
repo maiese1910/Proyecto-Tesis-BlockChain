@@ -5,6 +5,7 @@ import AdminDashboard from './components/AdminDashboard';
 import GovernmentLoginPortal from './components/GovernmentLoginPortal';
 import ToastNotification from './components/ToastNotification';
 import WalletConnect from './components/WalletConnect';
+import NotificationBell from './components/NotificationBell';
 
 const AdminApp = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -107,6 +108,7 @@ const AdminApp = () => {
               <ArrowLeftRight size={14} />
               {showConfigBitacora ? 'Volver a Bandeja GTU / MPPRE' : 'Bitácora CSV/PDF y Configuración'}
             </button>
+            <NotificationBell role="admin" ente={adminData?.ente || 'MPPEU'} />
             <WalletConnect />
             <button
               onClick={handleLogout}

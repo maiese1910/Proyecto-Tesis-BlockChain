@@ -98,8 +98,30 @@ export const authAPI = {
   resetStudentPassword: (email, newPassword, cedula = '') =>
     apiFetch('/api/student/reset-password', { method: 'POST', body: { email, new_password: newPassword, cedula } }),
 
+  sendVerificationCode: (email, cedula, purpose = 'recovery') =>
+    apiFetch('/api/student/send-code', { method: 'POST', body: { email, cedula, purpose } }),
+
+  verifyCode: (email, code, challengeToken, newPassword = '') =>
+    apiFetch('/api/student/verify-code', {
+      method: 'POST',
+      body: { email, code, challenge_token: challengeToken, new_password: newPassword || undefined }
+    }),
+
   updateStudentProfile: (data) =>
     apiFetch('/api/student/update-profile', { method: 'POST', body: data }),
+};
+
+// ─── Notificaciones (Graduando & Auditores GTU / MPPRE) ─────────────────────
+export const notificationsAPI = {
+  getNotifications: ({ role = 'student', cedula = '', ente = '' } = {}) => {
+    const params = new URLSearchParams();
+    params.set('role', role);
+    if (cedula) params.set('cedula', cedula);
+    if (ente) params.set('ente', ente);
+    return apiFetch(`/api/notifications?${params.toString()}`);
+  },
+  markRead: (payload = {}) =>
+    apiFetch('/api/notifications/read', { method: 'POST', body: payload }),
 };
 
 // ─── Perfiles ───────────────────────────────────────────────────────────────
