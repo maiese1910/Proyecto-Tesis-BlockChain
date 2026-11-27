@@ -550,7 +550,7 @@ const PUBForm = ({ user, initialData, onVerifyHash, onNavigate }) => {
         sede_horario: finalFormData.sede_horario,
         sedeHorario: finalFormData.sede_horario,
         status: preservedStatus,
-        txHash: existingBc.txHash || `0x${calculatedPubHash.replace(/^0x/i, '').slice(0, 40)}`,
+        txHash: existingBc.txHash || 'PENDIENTE_ANCLAJE_ONCHAIN',
         createdAt: existingBc.createdAt || nowIso,
         timestamp: existingBc.timestamp || nowIso,
         formData: finalFormData

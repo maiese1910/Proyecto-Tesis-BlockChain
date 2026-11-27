@@ -179,6 +179,12 @@ export const blockchainAPI = {
 
   setContractAddress: (contractAddress) =>
     apiFetch('/blockchain/contract-address', { method: 'POST', body: { contractAddress } }),
+
+  getBlockchainStatus: () =>
+    apiFetch('/api/blockchain/status'),
+
+  verifyTransaction: (txHash) =>
+    apiFetch(`/api/blockchain/tx/${txHash}`),
 };
 
 // ─── Documents & Storage ───────────────────────────────────────────────────

@@ -3,7 +3,16 @@ import { createPortal } from 'react-dom';
 import { Search, CheckCircle, XCircle, ExternalLink, ShieldCheck, FileText, Layers, Award, Sparkles, Copy, Check, QrCode, Upload, X, AlertTriangle, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { blockchainAPI } from '../services/api';
-import { verifyDocumentOnChain, SEPOLIA_EXPLORER_URL, getContractAddress } from '../services/web3Service';
+import {
+  verifyDocumentOnChain,
+  verifyTransactionOnSepolia,
+  getContractStatusOnSepolia,
+  isPlausibleTxHash,
+  isPlaceholderAddress,
+  setContractAddress,
+  SEPOLIA_EXPLORER_URL,
+  getContractAddress
+} from '../services/web3Service';
 import DigitalCertificate from './DigitalCertificate';
 import WalletConnect from './WalletConnect';
 import QRScanner from './QRScanner';
@@ -90,12 +99,62 @@ const BlockchainVerifier = ({ initialHash }) => {
     }
   };
 
+  const [contractStatus, setContractStatus] = useState({ checked: false, deployed: false, blockNumber: null, totalDocumentsCount: 0, issues: [] });
+
   useEffect(() => {
+    let active = true;
+    const refreshChainStatus = async (addrOverride = null) => {
+      try {
+        let effectiveAddr = addrOverride || getContractAddress();
+        if (!addrOverride) {
+          try {
+            const backendDiag = await blockchainAPI.getBlockchainStatus();
+            if (backendDiag && backendDiag.contractAddress && !isPlaceholderAddress(backendDiag.contractAddress)) {
+              const synced = setContractAddress(backendDiag.contractAddress);
+              if (synced) {
+                effectiveAddr = synced;
+                if (active) setContractAddr(synced);
+              }
+            }
+            if (active && backendDiag) {
+              setContractStatus({
+                checked: true,
+                deployed: Boolean(backendDiag.contractDeployed),
+                blockNumber: backendDiag.blockNumber || null,
+                totalDocumentsCount: backendDiag.totalDocumentsCount || 0,
+                relayerAddress: backendDiag.relayerAddress || null,
+                relayerBalanceEth: backendDiag.relayerBalanceEth,
+                issues: backendDiag.issues || [],
+              });
+              return;
+            }
+          } catch (_) {}
+        }
+        const liveStatus = await getContractStatusOnSepolia(effectiveAddr);
+        if (active) {
+          setContractStatus({
+            checked: true,
+            deployed: Boolean(liveStatus.deployed),
+            blockNumber: liveStatus.blockNumber || null,
+            totalDocumentsCount: liveStatus.totalDocumentsCount || 0,
+            issues: liveStatus.deployed ? [] : ['Sin contrato USMDocumentRegistry desplegado en esta dirección en Sepolia.'],
+          });
+        }
+      } catch (_) {}
+    };
+
+    refreshChainStatus();
     const handleAddrUpdate = (e) => {
-      if (e.detail) setContractAddr(e.detail);
+      if (e.detail) {
+        setContractAddr(e.detail);
+        refreshChainStatus(e.detail);
+      }
     };
     window.addEventListener('usm_contract_address_updated', handleAddrUpdate);
-    return () => window.removeEventListener('usm_contract_address_updated', handleAddrUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener('usm_contract_address_updated', handleAddrUpdate);
+    };
   }, []);
 
   const handleVerify = async (hashToVerify = hashInput) => {
@@ -119,7 +178,7 @@ const BlockchainVerifier = ({ initialHash }) => {
           timestamp: onChainData.timestamp || Math.floor(Date.now() / 1000),
           isRevoked: onChainData.isRevoked,
           contractAddress: onChainData.contractAddress,
-          txHash: onChainData.contractAddress,
+          txHash: null,
           status: onChainData.isRevoked ? 'REVOCADO / ANULADO' : 'CERTIFICADO ON-CHAIN (SEPOLIA)'
         };
       }
@@ -132,12 +191,12 @@ const BlockchainVerifier = ({ initialHash }) => {
       try {
         const backendRes = await Promise.race([
           blockchainAPI.verify(cleanInput),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500))
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000))
         ]);
         if (backendRes && backendRes.exists) {
           data = {
             ...backendRes,
-            isOnChainSmartContract: false
+            isOnChainSmartContract: Boolean(backendRes.isOnChainSmartContract)
           };
         }
       } catch (backendErr) {
@@ -173,6 +232,7 @@ const BlockchainVerifier = ({ initialHash }) => {
         const localMatch = findRecord(bcRecords) || findRecord(localHistory);
 
         if (localMatch) {
+          const candidateTx = localMatch.txHash || localMatch.tx_hash || null;
           data = {
             exists: true,
             isOnChainSmartContract: false,
@@ -180,7 +240,7 @@ const BlockchainVerifier = ({ initialHash }) => {
             cedula: localMatch.cedula || localMatch.formData?.cedula || 'V-00000000',
             documentType: localMatch.documentType || localMatch.document_type || localMatch.formData?.tramite || 'Título de Grado USM',
             timestamp: localMatch.timestamp || Math.floor(new Date(localMatch.created_at || Date.now()).getTime() / 1000),
-            txHash: localMatch.txHash || localMatch.tx_hash || `0x${normInput}`,
+            txHash: isPlausibleTxHash(candidateTx, cleanInput) ? candidateTx : 'PENDIENTE_ANCLAJE_ONCHAIN',
             status: localMatch.status || 'CERTIFICADO_MPPEU',
             isRevoked: Boolean(localMatch.isRevoked || (localMatch.status || '').includes('Rechazado') || (localMatch.status || '').includes('Revocado')),
             rejectionReason: localMatch.rejectionReason,
@@ -191,6 +251,24 @@ const BlockchainVerifier = ({ initialHash }) => {
         }
       } catch (e) {
         console.warn("Local storage fallback check error:", e);
+      }
+    }
+
+    // 4. Verificación en vivo de la Transacción Sepolia si el txHash tiene formato real
+    if (data && data.exists) {
+      if (isPlausibleTxHash(data.txHash, cleanInput)) {
+        try {
+          const txCheck = await verifyTransactionOnSepolia(data.txHash, cleanInput);
+          data.txVerification = txCheck;
+          if (txCheck && txCheck.exists) {
+            data.isOnChainSmartContract = true;
+          }
+        } catch (_) {
+          data.txVerification = { exists: false, confirmed: false };
+        }
+      } else {
+        data.txHash = 'PENDIENTE_ANCLAJE_ONCHAIN';
+        data.txVerification = { exists: false, confirmed: false, reason: 'Documento certificado en registro ministerial, pendiente de transacción on-chain en Ethereum Sepolia.' };
       }
     }
 
@@ -251,20 +329,40 @@ const BlockchainVerifier = ({ initialHash }) => {
             width: 8,
             height: 8,
             borderRadius: '50%',
-            backgroundColor: '#10b981',
-            boxShadow: '0 0 8px rgba(16, 185, 129, 0.6)'
+            backgroundColor: contractStatus.deployed ? '#10b981' : '#f59e0b',
+            boxShadow: contractStatus.deployed ? '0 0 8px rgba(16, 185, 129, 0.6)' : '0 0 8px rgba(245, 158, 11, 0.6)'
           }} />
           <span style={{ fontWeight: 600, color: 'var(--color-ink-black)' }}>Ethereum Sepolia Testnet</span>
+          {contractStatus.blockNumber && (
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+              (Bloque #{contractStatus.blockNumber.toLocaleString()})
+            </span>
+          )}
           <span style={{ color: 'var(--color-slate-gray)' }}>·</span>
           <span style={{ color: 'var(--color-slate-gray)' }}>Smart Contract:</span>
           <code style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--color-sienna-brown)' }}>
-            {contractAddr ? `${contractAddr.slice(0, 8)}...${contractAddr.slice(-6)}` : '0x1234...890'}
+            {contractAddr && !isPlaceholderAddress(contractAddr) ? `${contractAddr.slice(0, 8)}...${contractAddr.slice(-6)}` : 'Sin desplegar'}
           </code>
+          {contractStatus.checked && (
+            <span style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '0.15rem 0.55rem',
+              borderRadius: '999px',
+              background: contractStatus.deployed ? '#ecfdf5' : '#fffbeb',
+              color: contractStatus.deployed ? '#047857' : '#b45309',
+              border: `1px solid ${contractStatus.deployed ? '#a7f3d0' : '#fde68a'}`
+            }}>
+              {contractStatus.deployed
+                ? `Desplegado ✓ (${contractStatus.totalDocumentsCount} anclados)`
+                : 'Pendiente de despliegue en Sepolia'}
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
           <WalletConnect />
-          {contractAddr && contractAddr.startsWith('0x') && contractAddr.length === 42 && (
+          {contractStatus.deployed && contractAddr && !isPlaceholderAddress(contractAddr) && (
             <a
               href={`${SEPOLIA_EXPLORER_URL}/address/${contractAddr}#readContract`}
               target="_blank"
@@ -278,7 +376,7 @@ const BlockchainVerifier = ({ initialHash }) => {
                 textDecoration: 'none'
               }}
             >
-              Explorar Código en Etherscan <ExternalLink size={13} />
+              Ver Contrato en Sepolia Etherscan <ExternalLink size={13} />
             </a>
           )}
         </div>
@@ -554,7 +652,10 @@ const BlockchainVerifier = ({ initialHash }) => {
                     );
                   }
 
-                  const hasRealTx = result.txHash && result.txHash.startsWith('0x') && result.txHash.length === 66;
+                  const hasVerifiedSepoliaTx = Boolean(
+                    isPlausibleTxHash(result.txHash, hashInput.trim()) &&
+                    result.txVerification?.exists
+                  );
 
                   return (
                     <motion.div
@@ -761,11 +862,33 @@ const BlockchainVerifier = ({ initialHash }) => {
                               color: 'var(--color-sienna-brown)',
                               wordBreak: 'break-all'
                             }}>
-                              {result.txHash || '0xRegistradoOnChain'}
+                              {hasVerifiedSepoliaTx
+                                ? result.txHash
+                                : 'Pendiente de anclaje on-chain en Ethereum Sepolia (certificado en registro ministerial)'}
                             </code>
-                            {hasRealTx && (
+                            {hasVerifiedSepoliaTx ? (
                               <a
                                 href={`${SEPOLIA_EXPLORER_URL}/tx/${result.txHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: '#047857',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  fontSize: '0.84rem',
+                                  whiteSpace: 'nowrap',
+                                  fontWeight: 700,
+                                  textDecoration: 'underline'
+                                }}
+                              >
+                                {result.txVerification?.blockNumber
+                                  ? `Verificado en Bloque #${result.txVerification.blockNumber} · Sepolia Etherscan`
+                                  : 'Ver Transacción Real en Sepolia Etherscan'} <ExternalLink size={13} />
+                              </a>
+                            ) : contractStatus.deployed && contractAddr && !isPlaceholderAddress(contractAddr) ? (
+                              <a
+                                href={`${SEPOLIA_EXPLORER_URL}/address/${contractAddr}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
@@ -773,14 +896,18 @@ const BlockchainVerifier = ({ initialHash }) => {
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '0.35rem',
-                                  fontSize: '0.84rem',
+                                  fontSize: '0.8rem',
                                   whiteSpace: 'nowrap',
                                   fontWeight: 600,
                                   textDecoration: 'underline'
                                 }}
                               >
-                                Ver Transacción en Etherscan <ExternalLink size={13} />
+                                Ver Smart Contract en Sepolia <ExternalLink size={13} />
                               </a>
+                            ) : (
+                              <span style={{ fontSize: '0.76rem', color: '#92400e', fontWeight: 600 }}>
+                                Sin transacción on-chain aún
+                              </span>
                             )}
                           </div>
                         </div>

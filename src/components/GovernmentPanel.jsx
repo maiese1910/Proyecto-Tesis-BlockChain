@@ -13,7 +13,7 @@ import ApostilleCertificate from './ApostilleCertificate';
 
 import MPPEUCotejoModal from './MPPEUCotejoModal';
 import MPPRECotejoModal from './MPPRECotejoModal';
-import { registerDocumentOnChain, connectWallet } from '../services/web3Service';
+import { registerDocumentOnChain, connectWallet, isPlausibleTxHash, SEPOLIA_EXPLORER_URL } from '../services/web3Service';
 
 import html2pdf from 'html2pdf.js';
 
@@ -471,6 +471,7 @@ const GovernmentPanel = ({ adminData }) => {
   const handleMppeuCertify = async (record, methodOptions = {}) => {
     setCotejoLoading(true);
     let clientTxHash = null;
+    let metamaskWarning = '';
 
     if (methodOptions.useMetaMask && typeof window !== 'undefined' && window.ethereum) {
       try {
@@ -486,7 +487,8 @@ const GovernmentPanel = ({ adminData }) => {
           clientTxHash = onChainRes.txHash;
         }
       } catch (errOnChain) {
-        console.warn("Firma MetaMask omitida o cancelada por usuario, procediendo con firma ministerial:", errOnChain);
+        metamaskWarning = errOnChain?.shortMessage || errOnChain?.message || 'Firma MetaMask omitida.';
+        console.warn("Firma MetaMask no completada, intentando firma custodial del servidor:", errOnChain);
       }
     }
 
@@ -499,18 +501,26 @@ const GovernmentPanel = ({ adminData }) => {
       });
 
       if (res.success) {
+        const finalTx = isPlausibleTxHash(clientTxHash, record.hash)
+          ? clientTxHash
+          : (isPlausibleTxHash(res.txHash, record.hash) ? res.txHash : (isPlausibleTxHash(record.txHash, record.hash) ? record.txHash : 'PENDIENTE_ANCLAJE_ONCHAIN'));
+
         const updated = {
           ...record,
           status: 'CERTIFICADO_MPPEU',
           mppeuVerified: true,
           mppeuOfficer: currentAuditorName,
-          txHash: clientTxHash || res.txHash || record.txHash
+          txHash: finalTx
         };
 
         setRecords(prev => prev.map(r => r.hash === record.hash ? updated : r));
         updateLocalRecord(updated);
         setActiveCotejoRecord(null);
         setActiveCertHash(record.hash);
+
+        if (res.onChainAnchored === false && (res.onChainReason || metamaskWarning)) {
+          alert(`Certificación GTU guardada en registro ministerial.\n\n⚠️ Pendiente de anclaje on-chain en Ethereum Sepolia:\n${metamaskWarning || res.onChainReason}`);
+        }
       }
     } catch (err) {
       console.error("Error certificando en MPPEU:", err);
@@ -526,25 +536,49 @@ const GovernmentPanel = ({ adminData }) => {
 
   const handleConfirmMppreApostille = async (record, options = {}) => {
     setApostilleLoading(record.hash);
+    let clientTxHash = null;
+    const countryDest = options.countryDestiny || record.countryDestiny || record.country_destiny || 'España';
+    const notes = options.notes || '';
+
+    if (options.signingMode === 'metamask' && typeof window !== 'undefined' && window.ethereum && !isPlausibleTxHash(record.txHash, record.hash)) {
+      try {
+        const conn = await connectWallet();
+        const onChainRes = await registerDocumentOnChain(
+          record.hash,
+          record.ownerName || record.owner_name || 'Graduando USM',
+          record.cedula || 'V-00.000.000',
+          `Apostilla La Haya (${countryDest}) — ${record.documentType || record.document_type || 'Título USM'}`,
+          conn.signer
+        );
+        if (onChainRes?.txHash) clientTxHash = onChainRes.txHash;
+      } catch (errOnChain) {
+        console.warn('Firma MetaMask MPPRE omitida, procediendo con relayer ministerial:', errOnChain);
+      }
+    }
+
     try {
-      const countryDest = options.countryDestiny || record.countryDestiny || record.country_destiny || 'España';
-      const notes = options.notes || '';
       const res = await blockchainAPI.mppreApostilleRecord(record.hash, {
         country_destiny: countryDest,
         notes: notes,
         signing_mode: options.signingMode || 'custodial',
         auditor_username: currentAuditorName,
         auditor_cargo: currentAuditorCargo,
-        auditor_ente: 'MPPRE'
+        auditor_ente: 'MPPRE',
+        txHash: clientTxHash
       });
 
       if (res && (res.success || res.apostilleNumber)) {
+        const finalTx = isPlausibleTxHash(clientTxHash, record.hash)
+          ? clientTxHash
+          : (isPlausibleTxHash(res.txHash, record.hash) ? res.txHash : (isPlausibleTxHash(record.txHash, record.hash) ? record.txHash : 'PENDIENTE_ANCLAJE_ONCHAIN'));
+
         const updatedRecord = {
           ...record,
           status: 'APOSTILLADO_MPPRE',
           mppreVerified: true,
           countryDestiny: countryDest,
           country_destiny: countryDest,
+          txHash: finalTx,
           apostilleNumber: res.apostilleNumber || `APOSTILLA-${new Date().getFullYear()}-MPPRE-${Math.floor(1000 + Math.random() * 9000)}`,
           apostilleTimestamp: new Date().toISOString(),
           apostilleAuditor: currentAuditorName
@@ -3484,37 +3518,28 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                           </div>
 
-                          <a
-
-                            href={`https://sepolia.etherscan.io/tx/${record.txHash || ''}`}
-
-                            target="_blank"
-
-                            rel="noopener noreferrer"
-
-                            style={{
-
-                              fontSize: '0.74rem',
-
-                              color: 'var(--color-ink-black)',
-
-                              textDecoration: 'none',
-
-                              display: 'inline-flex',
-
-                              alignItems: 'center',
-
-                              gap: '0.25rem',
-
-                              fontWeight: 500
-
-                            }}
-
-                          >
-
-                            Sepolia Explorer <ExternalLink size={11} />
-
-                          </a>
+                          {isPlausibleTxHash(record.txHash, record.hash) ? (
+                            <a
+                              href={`${SEPOLIA_EXPLORER_URL}/tx/${record.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                fontSize: '0.74rem',
+                                color: '#047857',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                fontWeight: 600
+                              }}
+                            >
+                              Sepolia Explorer <ExternalLink size={11} />
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--color-slate-gray)', fontStyle: 'italic' }}>
+                              Pendiente Tx On-Chain
+                            </span>
+                          )}
 
                         </div>
 
@@ -4443,37 +4468,28 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
                     </div>
 
-                    <a
-
-                      href={`https://sepolia.etherscan.io/tx/${record.txHash || ''}`}
-
-                      target="_blank"
-
-                      rel="noopener noreferrer"
-
-                      style={{
-
-                        color: 'var(--color-ink-black)',
-
-                        textDecoration: 'none',
-
-                        fontSize: '0.72rem',
-
-                        display: 'inline-flex',
-
-                        alignItems: 'center',
-
-                        gap: '0.25rem',
-
-                        fontWeight: 500
-
-                      }}
-
-                    >
-
-                      Ver en Sepolia Explorer <ExternalLink size={10} />
-
-                    </a>
+                    {isPlausibleTxHash(record.txHash, record.hash) ? (
+                      <a
+                        href={`${SEPOLIA_EXPLORER_URL}/tx/${record.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: '#047857',
+                          textDecoration: 'none',
+                          fontSize: '0.72rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          fontWeight: 600
+                        }}
+                      >
+                        Ver en Sepolia Explorer <ExternalLink size={10} />
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '0.7rem', color: 'var(--color-slate-gray)', fontStyle: 'italic' }}>
+                        Pendiente Tx On-Chain
+                      </span>
+                    )}
 
                   </div>
 

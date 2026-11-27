@@ -89,6 +89,24 @@ except Exception as e_mail:
     logger.warning(f"No se pudo importar email_service: {e_mail}")
     EmailNotificationService = None
     HAS_EMAIL_SERVICE = False
+
+try:
+    from sepolia_client import (
+        SepoliaClient,
+        to_checksum_address as sepolia_checksum_address,
+        is_plausible_tx_hash,
+        private_key_to_address as sepolia_pk_to_address,
+        KNOWN_FAKE_TX_HASHES,
+    )
+    HAS_SEPOLIA_CLIENT = True
+except Exception as e_sep:
+    logger.warning(f"No se pudo importar sepolia_client: {e_sep}")
+    SepoliaClient = None
+    sepolia_checksum_address = lambda a: a
+    is_plausible_tx_hash = lambda t, d=None: bool(t and str(t).startswith("0x") and len(str(t)) == 66)
+    sepolia_pk_to_address = None
+    KNOWN_FAKE_TX_HASHES = set()
+    HAS_SEPOLIA_CLIENT = False
 HAS_WEB3 = True
 HAS_SUPABASE = True
 
@@ -96,6 +114,7 @@ HAS_SUPABASE = True
 WEB3_PROVIDER_URL = os.getenv("WEB3_PROVIDER_URL")
 CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
 WALLET_PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
+sepolia_client = SepoliaClient(WEB3_PROVIDER_URL) if (HAS_SEPOLIA_CLIENT and SepoliaClient) else None
 JWT_SECRET = os.getenv("JWT_SECRET", "fallback-dev-secret-change-in-production")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
@@ -515,23 +534,28 @@ w3 = _LazyWeb3Proxy()
 CONTRACT_CACHE_FILE = os.path.join(tempfile.gettempdir(), "usm_contract_address.txt")
 
 def get_current_contract_address() -> str:
+    raw = None
     if os.path.exists(CONTRACT_CACHE_FILE):
         try:
             with open(CONTRACT_CACHE_FILE, "r", encoding="utf-8") as f:
                 addr = f.read().strip()
                 if addr.startswith("0x") and len(addr) == 42:
-                    return addr
+                    raw = addr
         except Exception:
             pass
-    return CONTRACT_ADDRESS or os.getenv("CONTRACT_ADDRESS") or "0x1234567890123456789012345678901234567890"
+    if not raw:
+        raw = CONTRACT_ADDRESS or os.getenv("CONTRACT_ADDRESS") or "0x1234567890123456789012345678901234567890"
+    norm = sepolia_checksum_address(raw) if HAS_SEPOLIA_CLIENT else raw
+    return norm or raw
 
 def set_current_contract_address(addr: str):
     if addr and addr.startswith("0x") and len(addr) == 42:
         global CONTRACT_ADDRESS
-        CONTRACT_ADDRESS = addr.strip()
+        norm = sepolia_checksum_address(addr.strip()) if HAS_SEPOLIA_CLIENT else addr.strip()
+        CONTRACT_ADDRESS = norm or addr.strip()
         try:
             with open(CONTRACT_CACHE_FILE, "w", encoding="utf-8") as f:
-                f.write(addr.strip())
+                f.write(CONTRACT_ADDRESS)
         except Exception:
             pass
 
@@ -546,37 +570,38 @@ def get_contract():
         return None
 
 
+def _sanitize_tx_hash(tx_hash, doc_hash=None) -> str:
+    """Devuelve el tx_hash si es real/plausible; elimina hashes demo falsos o placeholders."""
+    if not tx_hash:
+        return "PENDIENTE_ANCLAJE_ONCHAIN"
+    clean = str(tx_hash).strip()
+    if clean.lower() in KNOWN_FAKE_TX_HASHES:
+        return "PENDIENTE_ANCLAJE_ONCHAIN"
+    if is_plausible_tx_hash(clean, doc_hash):
+        return clean
+    return "PENDIENTE_ANCLAJE_ONCHAIN"
+
+
+def send_register_transaction_detailed(doc_hash, owner, cedula, doc_type) -> dict:
+    """
+    Firma (EIP-1559) y transmite una transacción REAL a Ethereum Sepolia Testnet
+    usando el cliente pure-Python sin dependencias pesadas (compatible con Vercel Serverless).
+    """
+    if sepolia_client is not None:
+        return sepolia_client.send_register_document(
+            get_current_contract_address(),
+            WALLET_PRIVATE_KEY or "",
+            doc_hash,
+            owner,
+            cedula,
+            doc_type,
+        )
+    return {"sent": False, "txHash": None, "reason": "Cliente RPC Sepolia no disponible."}
+
+
 def send_register_transaction(doc_hash, owner, cedula, doc_type):
-    """
-    Firma y envía una transacción para registrar un documento institucional.
-    Llave de la Autoridad Gubernamental (WALLET_PRIVATE_KEY) en Sepolia Testnet.
-    """
-    if not w3 or not WALLET_PRIVATE_KEY:
-        return None
-
-    try:
-        account = w3.eth.account.from_key(WALLET_PRIVATE_KEY)
-        contract = get_contract()
-        if not contract:
-            return None
-
-        nonce = w3.eth.get_transaction_count(account.address)
-
-        txn = contract.functions.registerDocument(
-            doc_hash, owner, cedula, doc_type
-        ).build_transaction({
-            'chainId': 11155111,  # Sepolia
-            'gas': 300000,
-            'gasPrice': w3.eth.gas_price,
-            'nonce': nonce,
-        })
-
-        signed_txn = w3.eth.account.sign_transaction(txn, private_key=WALLET_PRIVATE_KEY)
-        tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-        return w3.to_hex(tx_hash)
-    except Exception as e:
-        logger.warning(f"Error en send_register_transaction: {e}")
-        return None
+    res = send_register_transaction_detailed(doc_hash, owner, cedula, doc_type)
+    return res.get("txHash") if res.get("sent") else None
 
 # ─── Helpers de Seguridad y Criptografía ─────────────────────────────────────
 def hash_password(password: str) -> str:
@@ -656,7 +681,7 @@ CANONICAL_DEMO_RECORDS = [
         "owner_name": "MAURO DANIEL MAIESE FERREIRA",
         "cedula": "V-28.315.101",
         "document_type": "Título de Ingeniero de Sistemas — USM",
-        "tx_hash": "0x4b7891a2bc3456def0123456789abcdef0123456789abcdef0123456789abcd1",
+        "tx_hash": "PENDIENTE_ANCLAJE_ONCHAIN",
         "status": "CERTIFICADO_MPPEU",
         "created_at": "2026-10-24T14:32:00Z",
         "verified_by": "mppeu_agente",
@@ -675,7 +700,7 @@ CANONICAL_DEMO_RECORDS = [
         "owner_name": "VALENTINA SOFÍA RODRÍGUEZ SILVA",
         "cedula": "V-27.890.432",
         "document_type": "Título de Ingeniera Civil — USM",
-        "tx_hash": "0x9876543210abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "tx_hash": "PENDIENTE_ANCLAJE_ONCHAIN",
         "status": "APOSTILLADO_MPPRE",
         "created_at": "2026-10-20T09:12:00Z",
         "verified_by": "mppre_agente",
@@ -1186,13 +1211,15 @@ def api_stats():
 
     stats = get_stats()
     stats["usuarios_en_linea"] = active_users
-    blockchain_connected = True if w3 else False
+    blockchain_connected = bool(sepolia_client is not None)
 
     wallet_address = None
-    if w3 and WALLET_PRIVATE_KEY and WALLET_PRIVATE_KEY != "0x1234567890123456789012345678901234567890123456789012345678901234":
+    if WALLET_PRIVATE_KEY and WALLET_PRIVATE_KEY != "0x1234567890123456789012345678901234567890123456789012345678901234":
         try:
-            account = w3.eth.account.from_key(WALLET_PRIVATE_KEY)
-            wallet_address = account.address
+            if sepolia_pk_to_address:
+                wallet_address = sepolia_pk_to_address(WALLET_PRIVATE_KEY)
+            elif w3:
+                wallet_address = w3.eth.account.from_key(WALLET_PRIVATE_KEY).address
         except Exception:
             pass
 
@@ -1200,6 +1227,7 @@ def api_stats():
         "status": "online",
         "stats": stats,
         "blockchain_connected": blockchain_connected,
+        "contract_address": get_current_contract_address(),
         "wallet_address": wallet_address,
     }), 200
 
@@ -2242,35 +2270,38 @@ def verify_blockchain_document(doc_hash: str):
         clean_hash.upper(), clean_hash.lower()
     ]))
 
-    contract = get_contract()
-    if contract:
+    # 1. Verificación REAL On-Chain vía Ethereum Sepolia RPC (zero-dependency)
+    contract_addr = get_current_contract_address()
+    if sepolia_client is not None and contract_addr and contract_addr != "0x1234567890123456789012345678901234567890":
         for h in hash_variations:
             try:
-                result = contract.functions.verifyDocument(h).call()
-                if len(result) == 6:
-                    exists, is_revoked, owner_name, cedula, doc_type, timestamp = result
-                else:
-                    exists, owner_name, cedula, doc_type, timestamp = result
-                    is_revoked = False
-
-                if exists:
-                    tx_hash = "N/A"
+                on_chain = sepolia_client.verify_document(contract_addr, h)
+                if on_chain and on_chain.get("exists"):
+                    tx_hash = None
                     if supabase:
                         try:
                             res = supabase.table("records").select("tx_hash").in_("hash", hash_variations).execute()
                             if res.data and len(res.data) > 0:
-                                tx_hash = res.data[0].get("tx_hash", "N/A")
+                                cand = res.data[0].get("tx_hash")
+                                if is_plausible_tx_hash(cand, raw_hash):
+                                    tx_hash = cand
                         except Exception:
                             pass
+                    if not tx_hash:
+                        mem_rec = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_hash.lower()), None)
+                        if mem_rec and is_plausible_tx_hash(mem_rec.get("tx_hash"), raw_hash):
+                            tx_hash = mem_rec.get("tx_hash")
                     return jsonify({
                         "exists": True,
-                        "isRevoked": is_revoked,
-                        "status": "REVOCADO / ANULADO" if is_revoked else "VALIDADO E INMUTABLE",
-                        "ownerName": owner_name,
-                        "cedula": cedula,
-                        "documentType": doc_type,
-                        "timestamp": int(timestamp),
-                        "txHash": tx_hash
+                        "isOnChainSmartContract": True,
+                        "isRevoked": bool(on_chain.get("isRevoked")),
+                        "status": "REVOCADO / ANULADO" if on_chain.get("isRevoked") else "VALIDADO E INMUTABLE (SEPOLIA ON-CHAIN)",
+                        "ownerName": on_chain.get("ownerName"),
+                        "cedula": on_chain.get("cedula"),
+                        "documentType": on_chain.get("documentType"),
+                        "timestamp": int(on_chain.get("timestamp") or 0),
+                        "contractAddress": contract_addr,
+                        "txHash": tx_hash or "PENDIENTE_ANCLAJE_ONCHAIN"
                     }), 200
             except Exception:
                 pass
@@ -2287,8 +2318,10 @@ def verify_blockchain_document(doc_hash: str):
                     timestamp = int(datetime.datetime.now().timestamp())
 
                 is_rev = record.get("is_revoked", False) or "Rechazado" in str(record.get("status", "")) or "Revocado" in str(record.get("status", ""))
+                safe_tx = _sanitize_tx_hash(record.get("tx_hash"), raw_hash)
                 return jsonify({
                     "exists": True,
+                    "isOnChainSmartContract": False,
                     "isRevoked": is_rev,
                     "status": record.get("status", "VALIDADO E INMUTABLE"),
                     "rejectionReason": record.get("rejection_reason"),
@@ -2297,7 +2330,8 @@ def verify_blockchain_document(doc_hash: str):
                     "cedula": record.get("cedula", "N/A"),
                     "documentType": record.get("document_type", "Documento PUB"),
                     "timestamp": timestamp,
-                    "txHash": record.get("tx_hash", "N/A"),
+                    "contractAddress": contract_addr,
+                    "txHash": safe_tx,
                     "solicitudCode": record.get("solicitud_code"),
                     "mppeuVerified": record.get("mppeu_verified", False),
                     "mppreVerified": record.get("mppre_verified", False),
@@ -2310,7 +2344,7 @@ def verify_blockchain_document(doc_hash: str):
         if (
             r.get("hash") in hash_variations
             or _normalize_hex(r.get("hash")) == clean_hash.lower()
-            or _normalize_hex(r.get("tx_hash")) == clean_hash.lower()
+            or (is_plausible_tx_hash(r.get("tx_hash")) and _normalize_hex(r.get("tx_hash")) == clean_hash.lower())
         ):
             try:
                 dt = datetime.datetime.fromisoformat(r.get("created_at").replace('Z', '+00:00'))
@@ -2318,8 +2352,10 @@ def verify_blockchain_document(doc_hash: str):
             except Exception:
                 ts = int(datetime.datetime.now().timestamp())
             is_rev = r.get("is_revoked", False) or "Rechazado" in str(r.get("status", "")) or "Revocado" in str(r.get("status", ""))
+            safe_tx = _sanitize_tx_hash(r.get("tx_hash"), raw_hash)
             return jsonify({
                 "exists": True,
+                "isOnChainSmartContract": False,
                 "isRevoked": is_rev,
                 "status": r.get("status", "VALIDADO E INMUTABLE"),
                 "rejectionReason": r.get("rejection_reason"),
@@ -2328,7 +2364,8 @@ def verify_blockchain_document(doc_hash: str):
                 "cedula": r.get("cedula", "N/A"),
                 "documentType": r.get("document_type", "Documento PUB"),
                 "timestamp": ts,
-                "txHash": r.get("tx_hash", "N/A"),
+                "contractAddress": contract_addr,
+                "txHash": safe_tx,
                 "solicitudCode": r.get("solicitud_code"),
                 "mppeuVerified": r.get("mppeu_verified", False),
                 "mppreVerified": r.get("mppre_verified", False),
@@ -2694,6 +2731,34 @@ def get_records_by_cedula(cedula: str):
     return jsonify({"success": True, "records": final_matches}), 200
 
 
+@app.route("/blockchain/status", methods=["GET"])
+@app.route("/api/blockchain/status", methods=["GET"])
+def blockchain_status_diagnostics():
+    """Diagnóstico en vivo de la red Ethereum Sepolia, contrato USMDocumentRegistry y wallet custodial."""
+    if sepolia_client is None:
+        return jsonify({
+            "network": "Ethereum Sepolia Testnet",
+            "chainId": 11155111,
+            "rpcConnected": False,
+            "contractAddress": get_current_contract_address(),
+            "contractDeployed": False,
+            "readyForCustodialAnchoring": False,
+            "issues": ["Cliente RPC Sepolia no inicializado."],
+        }), 200
+    diag = sepolia_client.get_full_diagnostics(get_current_contract_address(), WALLET_PRIVATE_KEY)
+    return jsonify(diag), 200
+
+
+@app.route("/blockchain/tx/<tx_hash>", methods=["GET"])
+@app.route("/api/blockchain/tx/<tx_hash>", methods=["GET"])
+def verify_blockchain_tx(tx_hash: str):
+    """Verifica en vivo contra Ethereum Sepolia si una transacción existe y está confirmada."""
+    if sepolia_client is None:
+        return jsonify({"exists": False, "confirmed": False, "reason": "Cliente RPC Sepolia no disponible."}), 200
+    status = sepolia_client.get_transaction_status(tx_hash)
+    return jsonify(status), 200
+
+
 @app.route("/blockchain/contract-address", methods=["GET", "POST"])
 @app.route("/api/blockchain/contract-address", methods=["GET", "POST"])
 def manage_contract_address():
@@ -2706,7 +2771,7 @@ def manage_contract_address():
         if not new_addr or not new_addr.startswith("0x") or len(new_addr) != 42:
             return jsonify({"success": False, "error": "Dirección de contrato inválida (debe iniciar con 0x y tener 42 caracteres)."}), 400
         set_current_contract_address(new_addr)
-        return jsonify({"success": True, "contractAddress": new_addr, "message": "Contrato actualizado exitosamente."}), 200
+        return jsonify({"success": True, "contractAddress": get_current_contract_address(), "message": "Contrato actualizado exitosamente."}), 200
     return jsonify({"contractAddress": get_current_contract_address()}), 200
 
 
@@ -2722,23 +2787,33 @@ def mppeu_certify_record(doc_hash: str):
     auditor_cargo = data.get("auditor_cargo", "Analista Revisor de Taquilla GTU")
     client_tx_hash = data.get("txHash") or data.get("tx_hash")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    tx_hash = client_tx_hash if (client_tx_hash and str(client_tx_hash).startswith("0x")) else f"0x{secrets.token_hex(32)}"
     clean_h = _normalize_hex(doc_hash)
 
-    try:
-        rec = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), None)
-        if rec:
-            real_tx = send_register_transaction(
-                doc_hash,
-                rec.get("owner_name", "Graduando USM"),
-                rec.get("cedula", "V-28.315.101"),
-                rec.get("document_type", "Título Universitario USM")
-            )
-            if real_tx:
-                tx_hash = real_tx
-    except Exception:
-        pass
+    rec = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), None)
+    existing_real_tx = _sanitize_tx_hash(rec.get("tx_hash") if rec else None, doc_hash)
+    tx_hash = existing_real_tx
+    on_chain_anchored = is_plausible_tx_hash(existing_real_tx, doc_hash)
+    on_chain_reason = None
+
+    if is_plausible_tx_hash(client_tx_hash, doc_hash):
+        tx_hash = str(client_tx_hash).strip()
+        on_chain_anchored = True
+    elif not on_chain_anchored:
+        try:
+            owner_val = (rec.get("owner_name") if rec else None) or data.get("owner_name") or "Graduando USM"
+            ced_val = (rec.get("cedula") if rec else None) or data.get("cedula") or "V-28.315.101"
+            type_val = (rec.get("document_type") if rec else None) or data.get("document_type") or "Título Universitario USM"
+            tx_res = send_register_transaction_detailed(doc_hash, owner_val, ced_val, type_val)
+            if tx_res.get("sent") and tx_res.get("txHash"):
+                tx_hash = tx_res["txHash"]
+                on_chain_anchored = True
+            elif tx_res.get("alreadyRegistered"):
+                on_chain_anchored = True
+                on_chain_reason = tx_res.get("reason")
+            else:
+                on_chain_reason = tx_res.get("reason")
+        except Exception as e_tx:
+            on_chain_reason = str(e_tx)
 
     found = False
     for r in _records_memory:
@@ -2782,14 +2857,22 @@ def mppeu_certify_record(doc_hash: str):
         except Exception as e:
             logger.warning(f"Error actualizando certificación MPPEU en Supabase: {e}")
 
-    increment_stat("titulos_blockchain", 1, log_entry=f"MPPEU GTU: Documento {doc_hash[:10]}... certificado y sellado on-chain por {auditor_name}.")
+    increment_stat("titulos_blockchain", 1, log_entry=f"MPPEU GTU: Documento {doc_hash[:10]}... certificado por {auditor_name}{' (anclado en Sepolia)' if on_chain_anchored else ' (pendiente anclaje Sepolia)'}.")
     rec_for_notif = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), {"hash": doc_hash})
     dispatch_document_notification("CERTIFICADO_MPPEU", rec_for_notif, {"txHash": tx_hash})
     return jsonify({
         "success": True,
-        "message": "Título cotejado y certificado exitosamente por MPPEU en Blockchain.",
+        "message": (
+            "Título cotejado, certificado por MPPEU y anclado realmente en Ethereum Sepolia."
+            if on_chain_anchored
+            else "Título certificado por MPPEU en registro ministerial (pendiente de anclaje on-chain en Sepolia)."
+        ),
         "status": "CERTIFICADO_MPPEU",
         "txHash": tx_hash,
+        "onChainAnchored": on_chain_anchored,
+        "onChainReason": on_chain_reason,
+        "explorerUrl": f"https://sepolia.etherscan.io/tx/{tx_hash}" if is_plausible_tx_hash(tx_hash, doc_hash) else None,
+        "contractAddress": get_current_contract_address(),
         "verifiedBy": auditor_name
     }), 200
 
@@ -2860,9 +2943,34 @@ def mppre_apostille_record(doc_hash: str):
     auditor_name = data.get("auditor_username", "mppre_agente")
     country_destiny = data.get("countryDestiny") or data.get("country_destiny") or "España"
     notes = data.get("notes") or "Apostilla Electrónica de La Haya Conforme"
+    client_tx_hash = data.get("txHash") or data.get("tx_hash")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     apostille_num = f"APO-VE-2026-{secrets.token_hex(3).upper()}"
     clean_h = _normalize_hex(doc_hash)
+
+    existing_rec = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), None)
+    tx_hash = _sanitize_tx_hash(existing_rec.get("tx_hash") if existing_rec else None, doc_hash)
+    on_chain_anchored = is_plausible_tx_hash(tx_hash, doc_hash)
+    on_chain_reason = None
+
+    if is_plausible_tx_hash(client_tx_hash, doc_hash):
+        tx_hash = str(client_tx_hash).strip()
+        on_chain_anchored = True
+    elif not on_chain_anchored:
+        try:
+            owner_val = (existing_rec.get("owner_name") if existing_rec else None) or "Graduando USM"
+            ced_val = (existing_rec.get("cedula") if existing_rec else None) or "V-28.315.101"
+            type_val = f"Apostilla La Haya ({country_destiny}) — {(existing_rec.get('document_type') if existing_rec else 'Título USM')}"
+            tx_res = send_register_transaction_detailed(doc_hash, owner_val, ced_val, type_val)
+            if tx_res.get("sent") and tx_res.get("txHash"):
+                tx_hash = tx_res["txHash"]
+                on_chain_anchored = True
+            elif tx_res.get("alreadyRegistered"):
+                on_chain_anchored = True
+            else:
+                on_chain_reason = tx_res.get("reason")
+        except Exception as e_tx:
+            on_chain_reason = str(e_tx)
 
     found = False
     for r in _records_memory:
@@ -2875,6 +2983,7 @@ def mppre_apostille_record(doc_hash: str):
             r["country_destiny"] = country_destiny
             r["notes"] = notes
             r["verified_by"] = auditor_name
+            r["tx_hash"] = tx_hash
             found = True
             break
 
@@ -2887,6 +2996,7 @@ def mppre_apostille_record(doc_hash: str):
             "mppre_date": now_str,
             "apostille_number": apostille_num,
             "verified_by": auditor_name,
+            "tx_hash": tx_hash,
             "created_at": datetime.datetime.utcnow().isoformat() + "Z"
         })
 
@@ -2900,7 +3010,8 @@ def mppre_apostille_record(doc_hash: str):
                 "mppre_officer": f"{auditor_name} (Cancillería)",
                 "mppre_date": now_str,
                 "apostille_number": apostille_num,
-                "verified_by": auditor_name
+                "verified_by": auditor_name,
+                "tx_hash": tx_hash
             }
             supabase.table("records").update(upd).eq("hash", doc_hash).execute()
             supabase.table("records").update(upd).eq("hash", f"0x{clean_h}").execute()
@@ -2910,12 +3021,16 @@ def mppre_apostille_record(doc_hash: str):
 
     increment_stat("titulos_blockchain", 0, log_entry=f"MPPRE APOSTILLA: Documento {doc_hash[:10]}... apostillado legalmente con código {apostille_num} por {auditor_name}.")
     rec_for_notif = next((r for r in _records_memory if _normalize_hex(r.get("hash")) == clean_h), {"hash": doc_hash, "apostille_number": apostille_num})
-    dispatch_document_notification("APOSTILLADO_MPPRE", rec_for_notif, {"apostille_number": apostille_num, "country_destiny": country_destiny})
+    dispatch_document_notification("APOSTILLADO_MPPRE", rec_for_notif, {"apostille_number": apostille_num, "country_destiny": country_destiny, "txHash": tx_hash})
     return jsonify({
         "success": True,
         "message": "Apostilla Electrónica de La Haya emitida y sellada digitalmente.",
         "status": "APOSTILLADO_MPPRE",
         "apostilleNumber": apostille_num,
+        "txHash": tx_hash,
+        "onChainAnchored": on_chain_anchored,
+        "onChainReason": on_chain_reason,
+        "explorerUrl": f"https://sepolia.etherscan.io/tx/{tx_hash}" if is_plausible_tx_hash(tx_hash, doc_hash) else None,
         "verifiedBy": auditor_name
     }), 200
 
@@ -3083,42 +3198,41 @@ def get_digital_certificate(doc_hash: str):
     cedula = None
     doc_type = None
     timestamp = int(datetime.datetime.now().timestamp())
-    tx_hash = f"0x{secrets.token_hex(32)}"
-    verified_by = "SAREN / MPPRE (saren_admin)"
+    tx_hash = None
+    verified_by = "GTU (MPPEU) / Cancillería (MPPRE)"
     is_revoked_on_chain = False
+    on_chain_verified = False
 
-    contract = get_contract()
-    if contract:
+    contract_addr = get_current_contract_address()
+    if sepolia_client is not None and contract_addr and contract_addr != "0x1234567890123456789012345678901234567890":
         for h in hash_variations:
             try:
-                result = contract.functions.verifyDocument(h).call()
-                if len(result) == 6:
-                    exists, is_rev, o_name, c_num, d_type, ts = result
-                else:
-                    exists, o_name, c_num, d_type, ts = result
-                    is_rev = False
-
-                if exists:
-                    owner_name = o_name
-                    cedula = c_num
-                    doc_type = d_type
-                    timestamp = int(ts)
-                    is_revoked_on_chain = is_rev
+                on_chain = sepolia_client.verify_document(contract_addr, h)
+                if on_chain and on_chain.get("exists"):
+                    owner_name = on_chain.get("ownerName")
+                    cedula = on_chain.get("cedula")
+                    doc_type = on_chain.get("documentType")
+                    timestamp = int(on_chain.get("timestamp") or timestamp)
+                    is_revoked_on_chain = bool(on_chain.get("isRevoked"))
+                    on_chain_verified = True
                     break
             except Exception:
                 pass
 
-    if not owner_name and supabase:
+    if supabase:
         for h in hash_variations:
             try:
                 res = supabase.table("records").select("*").eq("hash", h).execute()
                 if res.data and len(res.data) > 0:
                     rec = res.data[0]
-                    owner_name = rec.get("owner_name", "Graduando USM")
-                    cedula = rec.get("cedula", "V-28.315.101")
-                    doc_type = rec.get("document_type", "Título de Grado USM")
-                    tx_hash = rec.get("tx_hash", tx_hash)
-                    verified_by = rec.get("verified_by", verified_by)
+                    if not owner_name:
+                        owner_name = rec.get("owner_name", "Graduando USM")
+                        cedula = rec.get("cedula", "V-28.315.101")
+                        doc_type = rec.get("document_type", "Título de Grado USM")
+                    cand_tx = _sanitize_tx_hash(rec.get("tx_hash"), raw_hash)
+                    if is_plausible_tx_hash(cand_tx, raw_hash):
+                        tx_hash = cand_tx
+                    verified_by = rec.get("verified_by") or verified_by
                     if rec.get("is_revoked") or "Rechazado" in str(rec.get("status", "")) or "Revocado" in str(rec.get("status", "")):
                         is_revoked_on_chain = True
                     try:
@@ -3130,18 +3244,21 @@ def get_digital_certificate(doc_hash: str):
             except Exception as e:
                 logger.warning(f"Error consultando Supabase para certificado: {e}")
 
-    if not owner_name:
+    if not owner_name or not tx_hash:
         for r in _records_memory:
             if (
                 r.get("hash") in hash_variations
                 or _normalize_hex(r.get("hash")) == clean_hash.lower()
-                or _normalize_hex(r.get("tx_hash")) == clean_hash.lower()
+                or (is_plausible_tx_hash(r.get("tx_hash")) and _normalize_hex(r.get("tx_hash")) == clean_hash.lower())
             ):
-                owner_name = r.get("owner_name", "Graduando USM")
-                cedula = r.get("cedula", "V-28.315.101")
-                doc_type = r.get("document_type", "Título Universitario USM")
-                tx_hash = r.get("tx_hash", tx_hash)
-                verified_by = r.get("verified_by", verified_by)
+                if not owner_name:
+                    owner_name = r.get("owner_name", "Graduando USM")
+                    cedula = r.get("cedula", "V-28.315.101")
+                    doc_type = r.get("document_type", "Título Universitario USM")
+                cand_tx = _sanitize_tx_hash(r.get("tx_hash"), raw_hash)
+                if not tx_hash and is_plausible_tx_hash(cand_tx, raw_hash):
+                    tx_hash = cand_tx
+                verified_by = r.get("verified_by") or verified_by
                 if r.get("is_revoked") or "Rechazado" in str(r.get("status", "")) or "Revocado" in str(r.get("status", "")):
                     is_revoked_on_chain = True
                 try:
@@ -3168,9 +3285,11 @@ def get_digital_certificate(doc_hash: str):
         "owner": owner_name,
         "id_number": cedula,
         "document_type": doc_type,
-        "blockchain_status": "REVOCADO / ANULADO" if is_revoked_on_chain else "VALIDADO E INMUTABLE",
+        "blockchain_status": "REVOCADO / ANULADO" if is_revoked_on_chain else ("ANCLADO EN ETHEREUM SEPOLIA" if (on_chain_verified or tx_hash) else "CERTIFICADO MINISTERIAL (PENDIENTE ANCLAJE ON-CHAIN)"),
         "is_revoked": is_revoked_on_chain,
+        "on_chain_verified": bool(on_chain_verified or tx_hash),
         "network": "Ethereum Sepolia Testnet",
+        "contract_address": contract_addr,
         "registration_date": str(datetime.datetime.fromtimestamp(timestamp)),
         "document_hash": doc_hash,
         "tx_hash": tx_hash,
@@ -3184,14 +3303,13 @@ def get_digital_certificate(doc_hash: str):
 @app.route("/blockchain/send-raw-tx", methods=["POST"])
 @app.route("/api/blockchain/send-raw-tx", methods=["POST"])
 def send_client_raw_transaction():
-    if not w3:
-        return jsonify({"detail": "Nodo Web3 no conectado"}), 503
+    if sepolia_client is None:
+        return jsonify({"detail": "Nodo RPC Sepolia no conectado"}), 503
     try:
         data = request.get_json() or {}
         raw_tx = data.get("raw_transaction", "").strip()
-        tx_bytes = bytes.fromhex(raw_tx[2:] if raw_tx.startswith("0x") else raw_tx)
-        tx_hash = w3.eth.send_raw_transaction(tx_bytes)
-        return jsonify({"success": True, "txHash": w3.to_hex(tx_hash)}), 200
+        tx_hash = sepolia_client.send_raw_transaction(raw_tx)
+        return jsonify({"success": True, "txHash": tx_hash, "explorerUrl": f"https://sepolia.etherscan.io/tx/{tx_hash}"}), 200
     except Exception as e:
         return jsonify({"detail": f"Error transmitiendo transacción pre-firmada (SSI): {str(e)}"}), 400
 

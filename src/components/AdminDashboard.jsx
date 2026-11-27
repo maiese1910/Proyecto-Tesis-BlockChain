@@ -8,6 +8,7 @@ import {
 import html2pdf from 'html2pdf.js';
 import { dynamicDataAPI, adminAPI, blockchainAPI } from '../services/api';
 import { resolveDocumentUrl, resolveFallbackDocumentUrl } from '../services/documentStorage';
+import { isPlausibleTxHash } from '../services/web3Service';
 import DigitalCertificate from './DigitalCertificate';
 
 const statusWeight = (st) => {
@@ -218,7 +219,8 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
     const tomo = regOverride?.tomo || record.tomo || 'XVIII';
     const folio = regOverride?.folio || record.folio || '142';
     const nowIso = new Date().toISOString();
-    let txHash = record.txHash || '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    let txHash = isPlausibleTxHash(record.txHash, record.hash) ? record.txHash : 'PENDIENTE_ANCLAJE_ONCHAIN';
+    let onChainNote = '';
 
     try {
       const res = await blockchainAPI.mppeuCertifyRecord(record.hash, {
@@ -229,7 +231,10 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
         tomo,
         folio
       });
-      if (res?.txHash) txHash = res.txHash;
+      if (res?.txHash && isPlausibleTxHash(res.txHash, record.hash)) txHash = res.txHash;
+      if (res?.onChainAnchored === false && res?.onChainReason) {
+        onChainNote = ` (Nota Sepolia: ${res.onChainReason})`;
+      }
     } catch (_) {}
 
     const updated = {
@@ -249,8 +254,8 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
     syncLocalRecord(updated);
     setActionLoadingHash(null);
     setInspectRecord(null);
-    setFeedbackMsg(`Certificación GTU (CERTIFICADO_MPPEU) firmada y anclada para ${record.solicitudCode || record.hash.slice(0, 10)}.`);
-    setTimeout(() => setFeedbackMsg(''), 4000);
+    setFeedbackMsg(`Certificación GTU (CERTIFICADO_MPPEU) firmada para ${record.solicitudCode || record.hash.slice(0, 10)}.${onChainNote}`);
+    setTimeout(() => setFeedbackMsg(''), 6000);
   };
 
   // Emitir Apostilla Electrónica de La Haya (MPPRE -> APOSTILLADO_MPPRE)
@@ -260,7 +265,8 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
     setError('');
     const nowIso = new Date().toISOString();
     let apostilleNum = record.apostilleNumber || `APO-VE-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-    let txHash = record.txHash || '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    let txHash = isPlausibleTxHash(record.txHash, record.hash) ? record.txHash : 'PENDIENTE_ANCLAJE_ONCHAIN';
+    let onChainNote = '';
 
     try {
       const res = await blockchainAPI.mppreApostilleRecord(record.hash, {
@@ -269,7 +275,10 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
         auditor_ente: 'MPPRE'
       });
       if (res?.apostilleNumber) apostilleNum = res.apostilleNumber;
-      if (res?.txHash) txHash = res.txHash;
+      if (res?.txHash && isPlausibleTxHash(res.txHash, record.hash)) txHash = res.txHash;
+      if (res?.onChainAnchored === false && res?.onChainReason) {
+        onChainNote = ` (Nota Sepolia: ${res.onChainReason})`;
+      }
     } catch (_) {}
 
     const updated = {
@@ -288,8 +297,8 @@ const AdminDashboard = ({ adminData, onSwitchToMinisterial }) => {
     syncLocalRecord(updated);
     setActionLoadingHash(null);
     setInspectRecord(null);
-    setFeedbackMsg(`Apostilla Electrónica de La Haya (${apostilleNum}) emitida por MPPRE.`);
-    setTimeout(() => setFeedbackMsg(''), 4000);
+    setFeedbackMsg(`Apostilla Electrónica de La Haya (${apostilleNum}) emitida por MPPRE.${onChainNote}`);
+    setTimeout(() => setFeedbackMsg(''), 6000);
   };
 
   // Rechazar expediente desde GTU o MPPRE con observación

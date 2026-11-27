@@ -8,9 +8,10 @@ import {
 import {
   isMetaMaskInstalled, connectWallet, switchToSepolia,
   getContractAddress, setContractAddress, deployContractOnSepolia,
+  getContractStatusOnSepolia, isPlaceholderAddress, normalizeAddress,
   SEPOLIA_CHAIN_ID, SEPOLIA_EXPLORER_URL
 } from '../services/web3Service';
-import { statsAPI } from '../services/api';
+import { statsAPI, blockchainAPI } from '../services/api';
 
 const WalletConnect = () => {
   const [address, setAddress] = useState(null);
@@ -26,6 +27,34 @@ const WalletConnect = () => {
   const [inputContract, setInputContract] = useState('');
   const [showConfigContract, setShowConfigContract] = useState(false);
   const [error, setError] = useState(null);
+  const [contractDeployed, setContractDeployed] = useState(null);
+  const [onChainCount, setOnChainCount] = useState(0);
+
+  const checkContractLive = useCallback(async (addrOverride = null) => {
+    try {
+      const st = await getContractStatusOnSepolia(addrOverride || getContractAddress());
+      setContractDeployed(Boolean(st.deployed));
+      setOnChainCount(st.totalDocumentsCount || 0);
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    blockchainAPI.getBlockchainStatus()
+      .then((diag) => {
+        if (!active || !diag) return;
+        if (diag.contractAddress && !isPlaceholderAddress(diag.contractAddress)) {
+          const norm = setContractAddress(diag.contractAddress);
+          if (norm) setContractAddr(norm);
+        }
+        setContractDeployed(Boolean(diag.contractDeployed));
+        setOnChainCount(diag.totalDocumentsCount || 0);
+      })
+      .catch(() => {
+        if (active) checkContractLive();
+      });
+    return () => { active = false; };
+  }, [checkContractLive]);
 
   // Formateador de direcciones
   const formatAddress = (addr) => {
@@ -167,8 +196,11 @@ const WalletConnect = () => {
       const res = await deployContractOnSepolia();
       if (res.success) {
         setContractAddr(res.contractAddress);
+        setContractDeployed(true);
+        setOnChainCount(0);
+        try { await blockchainAPI.setContractAddress(res.contractAddress); } catch (_) {}
         setDeploySuccess(`Contrato desplegado con éxito en Sepolia:\n${res.contractAddress}`);
-        alert(`¡Contrato desplegado en Sepolia con éxito!\nDirección: ${res.contractAddress}\nTX: ${res.txHash}`);
+        alert(`¡Contrato desplegado en Sepolia con éxito!\nDirección: ${res.contractAddress}\nTX: ${res.txHash}\n\nRecuerda actualizar CONTRACT_ADDRESS y VITE_CONTRACT_ADDRESS en Vercel.`);
       }
     } catch (err) {
       console.error('Error desplegando contrato:', err);
@@ -180,15 +212,18 @@ const WalletConnect = () => {
   };
 
   // Guardar dirección manual de contrato
-  const handleSaveContractAddress = () => {
-    if (!inputContract.startsWith('0x') || inputContract.length !== 42) {
+  const handleSaveContractAddress = async () => {
+    const norm = normalizeAddress(inputContract);
+    if (!norm) {
       alert('Ingresa una dirección Ethereum válida (debe comenzar con 0x y tener 42 caracteres).');
       return;
     }
-    setContractAddress(inputContract.trim());
-    setContractAddr(inputContract.trim());
+    setContractAddress(norm);
+    setContractAddr(norm);
+    try { await blockchainAPI.setContractAddress(norm); } catch (_) {}
+    checkContractLive(norm);
     setShowConfigContract(false);
-    alert('Dirección del contrato actualizada para toda la aplicación.');
+    alert(`Dirección del contrato actualizada y normalizada (EIP-55): ${norm}`);
   };
 
   return (
@@ -413,9 +448,44 @@ const WalletConnect = () => {
                   </button>
                 </div>
 
-                <p style={{ margin: '0 0 0.5rem 0', fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
-                  {contractAddr || 'Sin desplegar'}
+                <p style={{ margin: '0 0 0.4rem 0', fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                  {contractAddr && !isPlaceholderAddress(contractAddr) ? contractAddr : 'Sin desplegar'}
                 </p>
+
+                {contractDeployed !== null && (
+                  <div style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    padding: '0.35rem 0.6rem',
+                    borderRadius: '8px',
+                    marginBottom: '0.55rem',
+                    background: contractDeployed ? '#ecfdf5' : '#fffbeb',
+                    color: contractDeployed ? '#047857' : '#b45309',
+                    border: `1px solid ${contractDeployed ? '#a7f3d0' : '#fde68a'}`
+                  }}>
+                    {contractDeployed
+                      ? `✓ Contrato verificado en Ethereum Sepolia (${onChainCount} documentos anclados)`
+                      : '⚠️ Esta dirección aún no tiene bytecode desplegado en Sepolia. Haz clic en "Desplegar Nuevo Contrato" para crear tu Smart Contract real.'}
+                  </div>
+                )}
+
+                {parseFloat(balance || '0') === 0 && (
+                  <div style={{
+                    fontSize: '0.71rem',
+                    padding: '0.45rem 0.6rem',
+                    borderRadius: '8px',
+                    marginBottom: '0.55rem',
+                    background: '#eff6ff',
+                    color: '#1e40af',
+                    border: '1px solid #bfdbfe',
+                    lineHeight: 1.4
+                  }}>
+                    Saldo actual 0.0000 SEP ETH. Obtén Sepolia ETH gratis para gas en:{' '}
+                    <a href="https://cloud.google.com/application/web3/faucet/ethereum/sepolia" target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: 700, textDecoration: 'underline' }}>
+                      Google Cloud Faucet ↗
+                    </a>
+                  </div>
+                )}
 
                 {showConfigContract ? (
                   <div style={{ marginTop: '0.6rem' }}>
@@ -455,15 +525,19 @@ const WalletConnect = () => {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                    <a
-                      href={`${SEPOLIA_EXPLORER_URL}/address/${contractAddr}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontSize: '0.75rem', color: 'var(--color-ink-black)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                    >
-                      <span>Ver Contrato en Etherscan</span>
-                      <ExternalLink size={12} />
-                    </a>
+                    {contractDeployed && contractAddr && !isPlaceholderAddress(contractAddr) ? (
+                      <a
+                        href={`${SEPOLIA_EXPLORER_URL}/address/${contractAddr}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: '0.75rem', color: 'var(--color-ink-black)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                      >
+                        <span>Ver Contrato en Sepolia Etherscan</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--color-slate-gray)' }}>Sin contrato en Sepolia aún</span>
+                    )}
 
                     <button
                       onClick={handleDeployContract}
