@@ -1710,9 +1710,11 @@ const StudentAuth = ({ onLogin, onSwitchToDemo, embedded = false }) => {
               }}>
                 💡 <strong>¿Cómo ingresar?</strong>
                 <ul style={{ margin: '0.3rem 0 0 1.1rem', padding: 0 }}>
-                  <li><strong>Opción 1:</strong> Escribe el código de 6 dígitos enviado a tu correo (en local consulta <a href="http://localhost:54324" target="_blank" rel="noreferrer" style={{ color: 'var(--color-sienna-brown)', fontWeight: 600, textDecoration: 'underline' }}>Mailpit :54324</a>).</li>
+                  <li><strong>Opción 1:</strong> Escribe el código de 6 dígitos enviado a tu correo electrónico (revisa también la carpeta de spam).</li>
                   <li><strong>Opción 2:</strong> Haz clic directamente en el enlace del correo para entrar sin escribir nada.</li>
-                  <li><strong>Modo Demo Jurado:</strong> Ingresa el código <strong style={{ color: 'var(--color-ink-black)' }}>123456</strong> para probar al instante.</li>
+                  {import.meta.env.DEV && (
+                    <li><strong>Entorno Local:</strong> Ingresa el código de prueba <strong style={{ color: 'var(--color-ink-black)' }}>123456</strong>.</li>
+                  )}
                 </ul>
               </div>
             </div>
