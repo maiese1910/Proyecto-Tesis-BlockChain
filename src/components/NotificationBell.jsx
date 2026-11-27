@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, CheckCheck, Mail, AlertTriangle, CheckCircle2, Info, X, Save } from 'lucide-react';
 import { notificationsAPI, authAPI } from '../services/api';
 
@@ -10,11 +11,50 @@ const NotificationBell = ({ role = 'student', cedula = '', ente = '', adminData 
   const [adminEmailInput, setAdminEmailInput] = useState(adminData?.email || '');
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState('');
+  const [popoverPos, setPopoverPos] = useState({ top: 64, left: 16, width: 360, listMaxHeight: 300 });
   const containerRef = useRef(null);
+  const buttonRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (adminData?.email) setAdminEmailInput(adminData.email);
   }, [adminData?.email]);
+
+  const updatePopoverPosition = useCallback(() => {
+    if (typeof window === 'undefined' || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const vw = window.innerWidth || 1024;
+    const vh = window.innerHeight || 768;
+    const panelWidth = Math.min(380, Math.max(260, vw - 24));
+
+    // Respetar el borde derecho del sidebar lateral en escritorio para no superponerse ni cortarse
+    let minLeft = 12;
+    const sidebarEl = document.querySelector('.sidebar');
+    if (sidebarEl) {
+      const sbRect = sidebarEl.getBoundingClientRect();
+      if (sbRect.width > 0 && sbRect.width < vw * 0.6 && sbRect.height > 200 && sbRect.right > 0) {
+        minLeft = Math.round(sbRect.right + 12);
+      }
+    }
+
+    const maxLeft = Math.max(minLeft, vw - panelWidth - 12);
+    // Si alinear a la derecha del botón invade el sidebar o sale de pantalla, abrir hacia la derecha desde rect.left
+    const rightAlignedLeft = rect.right - panelWidth;
+    const idealLeft = rightAlignedLeft < minLeft ? rect.left : rightAlignedLeft;
+    const clampedLeft = Math.min(Math.max(idealLeft, minLeft), maxLeft);
+
+    const top = Math.max(12, Math.round(rect.bottom + 8));
+    const availableBelow = vh - top - 16;
+    const headerReserve = role === 'admin' ? 135 : 65;
+    const listMaxHeight = Math.max(160, Math.min(300, availableBelow - headerReserve));
+
+    setPopoverPos({
+      top,
+      left: Math.round(clampedLeft),
+      width: Math.round(panelWidth),
+      listMaxHeight,
+    });
+  }, [role]);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -46,14 +86,32 @@ const NotificationBell = ({ role = 'student', cedula = '', ente = '', adminData 
   }, [loadNotifications]);
 
   useEffect(() => {
+    if (!open) return;
+    updatePopoverPosition();
+
     const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      const inTrigger = containerRef.current && containerRef.current.contains(e.target);
+      const inDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!inTrigger && !inDropdown) {
         setOpen(false);
       }
     };
-    if (open) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const handleReposition = () => updatePopoverPosition();
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
+    };
+  }, [open, updatePopoverPosition]);
 
   const handleMarkAllRead = async () => {
     try {
@@ -98,6 +156,7 @@ const NotificationBell = ({ role = 'student', cedula = '', ente = '', adminData 
   return (
     <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex' }}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => { setOpen((p) => !p); loadNotifications(); }}
         aria-label="Centro de Notificaciones"
@@ -139,18 +198,19 @@ const NotificationBell = ({ role = 'student', cedula = '', ente = '', adminData 
         )}
       </button>
 
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <div
+          ref={dropdownRef}
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            right: 0,
-            width: 'min(380px, 92vw)',
+            position: 'fixed',
+            top: `${popoverPos.top}px`,
+            left: `${popoverPos.left}px`,
+            width: `${popoverPos.width}px`,
             background: '#ffffff',
             border: '1px solid var(--border)',
             borderRadius: '16px',
-            boxShadow: '0 20px 45px rgba(23, 25, 28, 0.16)',
-            zIndex: 9500,
+            boxShadow: '0 20px 45px rgba(23, 25, 28, 0.2)',
+            zIndex: 10050,
             overflow: 'hidden',
           }}
         >
@@ -251,7 +311,7 @@ const NotificationBell = ({ role = 'student', cedula = '', ente = '', adminData 
             </form>
           )}
 
-          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: `${popoverPos.listMaxHeight}px`, overflowY: 'auto' }}>
             {items.length === 0 ? (
               <div style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'var(--color-slate-gray)', fontSize: '0.82rem' }}>
                 No hay notificaciones nuevas todavía. Cuando ocurra un cambio en los expedientes, aparecerá aquí y se enviará a los correos vinculados.
@@ -281,7 +341,8 @@ const NotificationBell = ({ role = 'student', cedula = '', ente = '', adminData 
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

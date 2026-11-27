@@ -359,17 +359,27 @@ const Dashboard = ({ user, onNavigate, onVerifyHash }) => {
 
   return (
     <div className="view-container">
-      <div className="dashboard-header">
-        <motion.div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-          <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 380px', minWidth: 0 }}>
+          <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '0.45rem' }}>
             Bienvenido al Portal USM{user?.nombre ? `, ${user.nombre.split(' ')[0]}` : ''}
           </motion.h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.55, margin: 0 }}>
+            Plataforma Descentralizada para la Verificación de Documentos y Ejecución de Procesos Administrativos ({user?.carrera || 'Ingeniería'} — {user?.semestre || '10mo Semestre'}).
+          </p>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', flexShrink: 0 }}
+        >
           <div style={{
             display: 'flex', alignItems: 'center', gap: '0.5rem',
             backgroundColor: '#ffffff',
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius-pill)',
-            padding: '0.35rem 0.85rem',
+            padding: '0.42rem 0.85rem',
             fontSize: '0.78rem',
             color: 'var(--color-ink-black)',
             fontWeight: 500,
@@ -385,9 +395,6 @@ const Dashboard = ({ user, onNavigate, onVerifyHash }) => {
           </div>
           <NotificationBell role="student" cedula={user?.cedula || ''} />
         </motion.div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.55 }}>
-          Plataforma Descentralizada para la Verificación de Documentos y Ejecución de Procesos Administrativos ({user?.carrera || 'Ingeniería'} — {user?.semestre || '10mo Semestre'}).
-        </p>
       </div>
 
       {/* 4 Tarjetas de Métricas */}

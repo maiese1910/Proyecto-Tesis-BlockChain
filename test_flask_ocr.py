@@ -94,7 +94,32 @@ def test_endpoints():
     assert "24/10/2026" in fields_u["fecha"]["value"]
     assert "V-28.315.101" in fields_u["cedula"]["value"]
 
-    print("\n>>> TODOS LOS TESTS DE FLASK Y OCR (PANAMÁ Y USM) PASARON CON ÉXITO AL 100% <<<")
+    # 5. Probar Diploma ULA ("Hace saber: Que ...", fecha nacimiento vs expedición y flujo continuo)
+    ula_text = """
+    República Bolivariana de Venezuela
+    Universidad de Los Andes
+    El Rector de la Universidad de Los Andes
+    Hace saber: Que CARLOS EDUARDO MÉNDEZ RIVAS, natural de Mérida, nacido el 03/01/2003, titular de la Cédula de Identidad V20797183, aspiró al Título de
+    Licenciado en Educación
+    Dado, firmado y sellado en Mérida, a los quince días del mes de julio del año dos mil veinticinco.
+    """
+    res_ocr_ula = client_main.post("/ocr/extract", json={"raw_text": ula_text})
+    assert res_ocr_ula.status_code == 200
+    ula_fields = res_ocr_ula.get_json()["fields"]
+    print("\nEXTRACTED FIELDS ULA:", ula_fields)
+    assert "Universidad de Los Andes" in ula_fields["institucion"]["value"]
+    assert ula_fields["nombre_completo"]["value"] == "CARLOS EDUARDO MÉNDEZ RIVAS"
+    assert "Licenciado en Educación" in ula_fields["carrera"]["value"]
+    assert ula_fields["cedula"]["value"] == "V20797183"
+    assert ula_fields["fecha"]["value"] == "15/07/2025"
+
+    # 6. Probar que si un texto ilegible no contiene nombre, NUNCA se inventa un nombre falso
+    noisy_no_name = "Universidad de Los Andes ... Licenciado en Educación ... 03/01/2003"
+    res_noisy = client_main.post("/ocr/extract", json={"raw_text": noisy_no_name})
+    assert res_noisy.status_code == 200
+    assert res_noisy.get_json()["fields"]["nombre_completo"]["value"] is None
+
+    print("\n>>> TODOS LOS TESTS DE FLASK Y OCR (PANAMÁ, USM Y ULA) PASARON CON ÉXITO AL 100% <<<")
 
 if __name__ == "__main__":
     test_endpoints()

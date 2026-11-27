@@ -57,7 +57,7 @@ const GovernmentPanel = ({ adminData }) => {
 
   // Obtener datos del funcionario actual logueado
 
-  const storedAdmin = adminData || JSON.parse(localStorage.getItem('admin_data') || '{}');
+  const storedAdmin = adminData || JSON.parse(sessionStorage.getItem('admin_data') || localStorage.getItem('admin_data') || '{}');
 
   const currentAuditorName = storedAdmin.username || 'mppeu_agente';
 
@@ -999,7 +999,7 @@ ${web3Account ? `Billetera Web3 Auditor: ${web3Account}` : 'Firma Custodial de R
 
       // Extraer token JWT del admin autenticado para autorizar la creación
 
-      const adminToken = JSON.parse(localStorage.getItem('admin_data') || '{}').token;
+      const adminToken = adminData?.token || JSON.parse(sessionStorage.getItem('admin_data') || localStorage.getItem('admin_data') || '{}').token;
 
       const data = await authAPI.registerAdmin(newAdmin, adminToken);
 

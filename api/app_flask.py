@@ -124,6 +124,26 @@ def extract_document():
     # Si el cliente ya extrajo el texto (ej: Tesseract.js WASM o PDF nativo en navegador)
     if raw_text_client and len(raw_text_client.strip()) > 15:
         ner_fields = USMOcrService.rule_based_ner(raw_text_client)
+        if (
+            not ner_fields.get("titular")
+            and image_bytes
+            and cv2 is not None
+            and np is not None
+            and not (image_bytes.startswith(b"%PDF") or b"%PDF-" in image_bytes[:40])
+            and USMOcrService.check_tesseract_available()
+        ):
+            try:
+                nparr = np.frombuffer(image_bytes, np.uint8)
+                img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img_cv is not None:
+                    tess_srv = USMOcrService.extract_with_tesseract(img_cv)
+                    srv_txt = (tess_srv.get("full_text") or "").strip()
+                    if srv_txt:
+                        raw_text_client = f"{srv_txt}\n{raw_text_client}".strip()
+                        ner_fields = USMOcrService.rule_based_ner(raw_text_client)
+            except Exception as srv_ocr_err:
+                logger.debug(f"Refuerzo OCR microservicio omitido: {srv_ocr_err}")
+
         resp = USMOcrService.format_for_frontend(
             ner_fields,
             raw_text_client,

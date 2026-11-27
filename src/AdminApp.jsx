@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, ArrowLeftRight } from 'lucide-react';
 import GovernmentPanel from './components/GovernmentPanel';
 import AdminDashboard from './components/AdminDashboard';
@@ -7,39 +7,105 @@ import ToastNotification from './components/ToastNotification';
 import WalletConnect from './components/WalletConnect';
 import NotificationBell from './components/NotificationBell';
 
-const AdminApp = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('admin_auth') === 'true';
-  });
-  const [adminData, setAdminData] = useState(() => {
+const isAdminJwtValid = (token) => {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length === 3) {
     try {
-      const stored = localStorage.getItem('admin_data');
-      return stored ? JSON.parse(stored) : null;
+      const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+      const payload = JSON.parse(atob(padded));
+      if (payload?.exp && payload.exp * 1000 <= Date.now()) {
+        return false;
+      }
     } catch (_) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const readActiveAdminSession = () => {
+  try {
+    if (typeof window === 'undefined') return null;
+    // Exigir sesión activa en la pestaña actual (sessionStorage) y purgar sesiones persistentes antiguas de localStorage
+    const isSessionAuth = sessionStorage.getItem('usm_admin_session') === 'true';
+    if (!isSessionAuth) {
+      localStorage.removeItem('admin_auth');
+      localStorage.removeItem('admin_data');
       return null;
     }
-  });
+    const raw = sessionStorage.getItem('admin_data');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !isAdminJwtValid(parsed.token)) {
+      sessionStorage.removeItem('usm_admin_session');
+      sessionStorage.removeItem('admin_data');
+      localStorage.removeItem('admin_auth');
+      localStorage.removeItem('admin_data');
+      return null;
+    }
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+};
+
+const AdminApp = () => {
+  const [adminData, setAdminData] = useState(() => readActiveAdminSession());
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(readActiveAdminSession()));
   // Vista activa del auditor (GTU-MPPEU o Cancillería-MPPRE):
   // 'bandeja' -> GovernmentPanel (Cotejo GTU / Apostilla MPPRE / IA / Lotes)
   // 'config_bitacora' -> AdminDashboard (Bitácora CSV/PDF + Cotejo Rápido + Checklist/Planillas/Guías)
   const [adminViewMode, setAdminViewMode] = useState('bandeja');
 
+  const handleLogout = useCallback(() => {
+    try {
+      sessionStorage.removeItem('usm_admin_session');
+      sessionStorage.removeItem('admin_data');
+      localStorage.removeItem('admin_auth');
+      localStorage.removeItem('admin_data');
+    } catch (_) {}
+    setAdminData(null);
+    setIsAuthenticated(false);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/admin') {
+      window.history.replaceState(null, '', '/admin');
+    }
+  }, []);
+
   const handleLogin = (data) => {
-    localStorage.setItem('admin_auth', 'true');
-    localStorage.setItem('admin_data', JSON.stringify(data));
+    try {
+      sessionStorage.setItem('usm_admin_session', 'true');
+      sessionStorage.setItem('admin_data', JSON.stringify(data));
+      localStorage.removeItem('admin_auth');
+      localStorage.removeItem('admin_data');
+    } catch (_) {}
     setAdminData(data);
     setIsAuthenticated(true);
     setAdminViewMode('bandeja');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (window.location.pathname !== '/admin') {
+        window.history.replaceState(null, '', '/admin');
+      }
+    }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_auth');
-    localStorage.removeItem('admin_data');
-    setAdminData(null);
-    setIsAuthenticated(false);
-  };
+  // Redirección limpia a /admin y cierre automático ante expiración/401 de token ministerial
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isAuthenticated || !adminData) {
+      if (window.location.pathname !== '/admin') {
+        window.history.replaceState(null, '', '/admin');
+      }
+      window.scrollTo(0, 0);
+    }
+    const onUnauthorized = () => handleLogout();
+    window.addEventListener('usm_admin_unauthorized', onUnauthorized);
+    return () => window.removeEventListener('usm_admin_unauthorized', onUnauthorized);
+  }, [isAuthenticated, adminData, handleLogout]);
 
-  if (!isAuthenticated || !adminData) {
+  if (!isAuthenticated || !adminData || !isAdminJwtValid(adminData.token)) {
     return <GovernmentLoginPortal onAdminLogin={handleLogin} />;
   }
 
@@ -115,7 +181,7 @@ const AdminApp = () => {
               onAdminEmailUpdated={(newEmail) => {
                 const updated = { ...adminData, email: newEmail };
                 setAdminData(updated);
-                try { localStorage.setItem('admin_data', JSON.stringify(updated)); } catch (_) {}
+                try { sessionStorage.setItem('admin_data', JSON.stringify(updated)); } catch (_) {}
               }}
             />
             <WalletConnect />

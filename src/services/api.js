@@ -23,7 +23,7 @@ async function apiFetch(path, options = {}) {
     try {
       const isAdminPath = path.includes('/admin') || path.includes('/mppeu-certify') || path.includes('/mppre-apostille') || path.endsWith('/verify') || path.endsWith('/reject') || path.includes('/contract-address');
       if (isAdminPath) {
-        const storedAdmin = JSON.parse(localStorage.getItem('admin_data') || 'null');
+        const storedAdmin = JSON.parse(sessionStorage.getItem('admin_data') || localStorage.getItem('admin_data') || 'null');
         if (storedAdmin?.token) resolvedToken = storedAdmin.token;
       } else {
         resolvedToken = sessionStorage.getItem('usm_student_token') || localStorage.getItem('usm_student_token') || null;
@@ -65,6 +65,20 @@ async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      typeof window !== 'undefined' &&
+      !path.includes('/admin/login') &&
+      (path.includes('/admin') || path.includes('/mppeu-certify') || path.includes('/mppre-apostille'))
+    ) {
+      try {
+        sessionStorage.removeItem('usm_admin_session');
+        sessionStorage.removeItem('admin_data');
+        localStorage.removeItem('admin_auth');
+        localStorage.removeItem('admin_data');
+        window.dispatchEvent(new CustomEvent('usm_admin_unauthorized'));
+      } catch (_) {}
+    }
     const errorData = await response.json().catch(() => ({}));
     const error = new Error(errorData.detail || errorData.error || `Error ${response.status}`);
     error.status = response.status;

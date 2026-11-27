@@ -300,11 +300,11 @@ export const safeString = (v) => {
    * Identifica la universidad real, el titular, el grado conferido y la fecha sin datos inventados.
    * Maneja tipografías góticas (Old English Text MT / Diploma) y errores comunes de digitalización.
    */
-  const parseDegreeAcademic = (text, userCedula = null, userNombre = null) => {
+  const parseDegreeAcademic = (text) => {
     if (!text || typeof text !== "string") {
       return {
-        nombre_completo: { value: userNombre || null, confidence: userNombre ? 0.90 : 0 },
-        cedula: { value: userCedula || null, confidence: userCedula ? 0.95 : 0 },
+        nombre_completo: { value: null, confidence: 0 },
+        cedula: { value: null, confidence: 0 },
         institucion: { value: null, confidence: 0 },
         facultad: { value: null, confidence: 0 },
         carrera: { value: null, confidence: 0 },
@@ -396,52 +396,90 @@ export const safeString = (v) => {
     const facMatch = text.match(/\b((?:Faculta[db]|Escuela)\s+(?:[db]e)?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n|Legalmente|El Rector|Confiere|Contiere|Por cuanto|Dado|En fe|el título|el titulo|el grado|$)/i);
     let facultad = facMatch ? facMatch[1].trim().replace(/\s+/g, " ").replace(/Facultab/i, "Facultad").replace(/\bbe\b/gi, "de") : null;
 
-    // 3. Titular / Graduando Universal (USMA, UCV, USM, LUZ, etc.)
+    // 3. Titular / Graduando Universal (ULA, UCV, USM, USMA, LUZ, UC, UPEL, etc.) — NUNCA autocompletar con datos de sesión ajenos al diploma
     let titular = null;
+    const HEADER_NOISE_RE = /\b(?:rep[uú]blica|bolivariana|venezuela|panam[aá]|universidad|universidab|instituto|colegio|facultad|facultab|escuela|rector|rectora|vicerrector|secretar[ií][oa]|decano|decana|registrador|ministerio|poder\s+popular|consejo|diploma|grado\s+acad[eé]mico|autoridad|leyes|requisitos|t[ií1]tulo|licenciad[oa]|ingenier[ií]?[oa]|abogad[oa]|m[eé]dic[oa]|cirujan[oa]|odont[oó]log[oa]|farmac[eé]utic[oa]|arquitect[oa]|economista|contador|educaci[oó]n|derecho|ciencias|pol[ií]ticas|medicina|sistemas|computaci[oó]n|administraci[oó]n|contadur[ií]a|comunicaci[oó]n|registrado|libro|tomo|folio|acta|hago\s+saber|hace\s+saber|confiere|contiere|otorga|constar|firmado|sellado|caracas|m[eé]rida|maracaibo|valencia|barquisimeto)\b/i;
 
-    // Patrón 1: Hacen constar que: [TITULAR] (USMA y universidades privadas)
-    const patHacenConstar = text.match(/hacen\s+constar\s*(?:que)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s*,?\s*(?:ha\s+cumplido|cumpli|el\s+t[ií1]tulo|titular|$))/i);
-    // Patrón 2: Invertido UCV: "confiere el título de [CARRERA] a: [TITULAR]"
-    const patInvertido = text.match(/(?:t[ií1]tulo|grado)\s+(?:de|be)\s+[^A-Z\n]*[A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?\s+(?:a|al|a\s+la)\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s*,?\s*(?:titular|c[eé]dula|por\s+haber|cumplido|$))/i);
-    // Patrón 3: Rectoral: "hago saber: que: [TITULAR]"
-    const patRectoral = text.match(/(?:hago\s+saber\s*:\s*(?:que\s*:\s*)?|rector\(?a?\)?\s*\n*)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|cumpli[oó]|por\s+lo\s+cual))/i);
-    // Patrón 4: Concesión directa: "confiere a [TITULAR] titular / el título"
-    const patConcesion = text.match(/(?:confiere|contiere|otorga|certifica)\s+(?:a|al|a\s+la)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular|el\s*t[ií1]tulo|el\s*grado|para\s*optar|ha\s*cumplido|c[eé]dula|$))/i);
-    // Patrón 5: Cumplimiento: "Por cuanto [TITULAR] ha cumplido..."
-    const patCumplimiento = text.match(/por\s+cuanto\s*[:#-]?\s*\n*(?:el\s+ciudadano|la\s+ciudadana)?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n|\s+ha\s+cumplido|\s+en\s+nombre)/i);
-
-    if (patHacenConstar) titular = patHacenConstar[1].trim().replace(/\s+/g, " ");
-    else if (patInvertido) titular = patInvertido[1].trim().replace(/\s+/g, " ");
-    else if (patConcesion) titular = patConcesion[1].trim().replace(/\s+/g, " ");
-    else if (patRectoral) titular = patRectoral[1].trim().replace(/\s+/g, " ");
-    else if (patCumplimiento) titular = patCumplimiento[1].trim().replace(/\s+/g, " ");
-
-    const HEADER_NOISE_RE = /\b(?:universidad|facultad|escuela|rep[uú]blica|bolivariana|venezuela|ministerio|secretar[ií]a|secretario|rector|decano|consejo|diploma|derecho|ciencias|pol[ií]ticas|medicina|sistemas|ingenier[ií]a|ingenier[oa]|licenciad[oa]|abogad[oa]|arquitect[oa]|arquitectura|hacen|constar|por\s+cuanto|confiere|dado|cumplido|requisitos|caracas|panam[aá]|registrado|libro|tomo|folio|t[ií]tulo|c[eé]dula)\b/i;
-
-    if (titular) {
-      titular = titular.replace(/^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana|de\s+la\s+c[eé]dula\s+de)\s+/i, "");
-      titular = titular.replace(/\s*(?:titular\s+de\s+la\s+c[eé]dula|titular|c[eé]dula|de\s+la\s+c[eé]dula).*$/i, "").trim();
-      if (titular.length < 4 || titular.length > 55 || HEADER_NOISE_RE.test(titular) || /^(?:de\s+la\s+c[eé]dula|cedula\s+de)$/i.test(titular)) {
-        titular = null;
+    const cleanPersonName = (rawCand) => {
+      if (!rawCand || typeof rawCand !== "string") return null;
+      let cand = rawCand.trim().replace(/\s+/g, " ");
+      for (let i = 0; i < 3; i++) {
+        cand = cand.replace(/^(?:que|a\s+favor\s+de|a\s+la\s+ciudadana|al\s+ciudadano|el\s+ciudadano|la\s+ciudadana|al\s+bachiller|a\s+la\s+bachiller|el\s+bachiller|la\s+bachiller|ciudadan[oa]|bachiller|br\.?|lic\.?|ing\.?|dr\.?|dra\.?|sr\.?|sra\.?|don|do[ñn]a|a|al|de|por|[:;#\-,.\s])+\s*/i, "").trim();
       }
+      cand = cand.replace(/\s*(?:,\s*)?(?:titular\s+de\s+la\s+c[eé]dula|portador(?:a)?\s+de\s+la\s+c[eé]dula|titular|portador(?:a)?|c[eé]dula\s+de\s+identidad|c[eé]dula|de\s+la\s+c[eé]dula|c\.?\s*i\.?(?:\s|[:#\-n°º]|$)|pasaporte|natural\s+de\b|nacid[oa]\s+en\b|nacid[oa]\s+el\b|venezolan[oa]\b|paname[ñn][oa]\b|colombian[oa]\b|mayor\s+de\s+edad|quien\s+cumpli|ha\s+cumplido|cumpli[oó]|habiendo\s+cumplido|por\s+haber|por\s+lo\s+cual|opt[oó]\s+al|aspir[oó]\s+al|para\s+optar|el\s+t[ií1]tulo|el\s+t[ií1]tvlo|el\s+grado|se\s+le\s+confiere)[\s\S]*$/i, "").trim();
+      cand = cand.replace(/^[,;:\-#*"'()[\]{}\s]+|[,;:\-#*"'()[\]{}\s]+$/g, "").trim();
+      if (cand.length < 5 || cand.length > 65) return null;
+      if (/\d/.test(cand) || HEADER_NOISE_RE.test(cand)) return null;
+      const tokens = cand.split(/\s+/).map(t => t.replace(/^[.,]+|[.,]+$/g, "")).filter(Boolean);
+      if (tokens.length < 2 || tokens.length > 7) return null;
+      const alphaWords = tokens.filter(t => /^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}$/.test(t));
+      if (alphaWords.length < 2) return null;
+      if (!tokens.every(t => /^[A-ZÁÉÍÓÚÑa-záéíóúñ]{1,25}$/.test(t))) return null;
+      return cand;
+    };
+
+    const delimLookahead = "(?=\\n|,|;|\\s+(?:titular|portador|natural\\s+de|nacid[oa]|venezolan[oa]|paname[ñn][oa]|mayor\\s+de\\s+edad|c[eé]dula|c\\.?\\s*i\\.?\\b|pasaporte|quien\\s+cumpli|ha\\s+cumplido|cumpli[oó]|habiendo\\s+cumplido|por\\s+haber|por\\s+lo\\s+cual|opt[oó]\\s+al|aspir[oó]\\s+al|para\\s+optar|el\\s*t[ií1]tulo|el\\s*t[ií1]tvlo|el\\s*grado|$))";
+
+    const titularPatterns = [
+      // Patrón 1 (Rectoral ULA / UCV / LUZ): "Hace saber: Que (el ciudadano) [TITULAR]" o "Hago saber: Que [TITULAR]"
+      new RegExp(`(?:[hfl]a[cg][eo]\\s+sa[bh]er\\s*[:;.]?\\s*(?:que\\s*[:;.]?\\s*)?(?:(?:el|la)\\s+ciudadan[oa]\\s*[:;.]?\\s*)?)\\n*([A-ZÁÉÍÓÚÑa-záéíóúñ.\\s]{5,65}?)${delimLookahead}`, "gi"),
+      // Patrón 2 (Concesión directa USM / USMA / privadas): "Hacen constar que / Confiere a / Otorga a [TITULAR]"
+      new RegExp(`(?:hacen\\s+constar\\s*(?:que)?|certifica(?:n)?\\s+que|(?:confiere|contiere|conjiere|otorga)\\s+(?!\\s*el\\s+(?:t[ií1]tulo|grado))(?:a\\s+la\\s+ciudadana|al\\s+ciudadano|a\\s+favor\\s+de|a|al|a\\s+la)?)\\s*[:;#-]?\\s*\\n*([A-ZÁÉÍÓÚÑa-záéíóúñ.\\s]{5,65}?)${delimLookahead}`, "gi"),
+      // Patrón 3 (Invertido UCV / ULA / UPEL): "el Título de [CARRERA] a / al ciudadano: [TITULAR]"
+      new RegExp(`(?:t[ií1]tulo|grado)\\s+(?:de|be)\\s*[:#-]?\\s*[^\\n]{3,70}?\\s+(?:a\\s+la\\s+ciudadana|al\\s+ciudadano|a\\s+favor\\s+de|a\\s+la|al|a)\\s*[:;#-]?\\s*\\n*([A-ZÁÉÍÓÚÑa-záéíóúñ.\\s]{5,65}?)${delimLookahead}`, "gi"),
+      // Patrón 4 (Cumplimiento): "Por cuanto (el ciudadano) [TITULAR] ha cumplido..."
+      new RegExp(`por\\s+cuanto\\s*[:;#-]?\\s*\\n*(?:(?:el|la|al)\\s+ciudadan[oa]\\s*[:;#-]?\\s*)?([A-ZÁÉÍÓÚÑa-záéíóúñ.\\s]{5,65}?)${delimLookahead}`, "gi"),
+      // Patrón 5 (Anclaje inverso antes de Cédula o datos biográficos)
+      /(?:^|\n|:\s*|que\s+)([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{4,60}?)\s*(?:,\s*(?:venezolan[oa]|natural\s+de\s+[^,\n]{2,40}|nacid[oa]\s+[^,\n]{2,40}|mayor\s+de\s+edad)\s*)*[,\s]+(?:titular\s+de\s+la\s+c[eé]dula|portador(?:a)?\s+de\s+la\s+c[eé]dula|c[eé]dula\s+de\s+identidad|c\.?\s*i\.?\s*(?:n[°ºo.]*)?\s*[vVeE\d])/gi,
+      // Patrón 6 (Etiqueta explícita)
+      /(?:graduand[oa]|egresad[oa]|otorgado\s+a|nombre\s+y\s+apellido[s]?|nombre\s+completo|titular\s*[:#-])\s*[:#-]?\s*(?!de\s+la\s+c[eé]dula)([A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{5,60}?)(?=\n|,|;|$)/gi,
+    ];
+
+    for (const rx of titularPatterns) {
+      for (const m of text.matchAll(rx)) {
+        const cleaned = cleanPersonName(m[1]);
+        if (cleaned) {
+          titular = cleaned;
+          break;
+        }
+      }
+      if (titular) break;
     }
 
-    // Escaneo forense por líneas: acepta tanto MAYÚSCULAS SOSTENIDAS como TitleCase
+    // Patrón 7: Proximidad de línea inmediatamente anterior a Cédula / "natural de" / "ha cumplido"
+    const rawLines = text.split("\n").map(l => l.trim()).filter(Boolean);
     if (!titular) {
-      const lineas = text.split("\n").map(l => l.trim()).filter(Boolean);
-      for (const l of lineas) {
-        if (/^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}){1,4}$/.test(l)) {
-          if (!HEADER_NOISE_RE.test(l)) {
-            titular = l;
-            break;
+      const anchorRe = /(?:titular\s+de\s+la\s+c[eé]dula|portador(?:a)?\s+de\s+la\s+c[eé]dula|c[eé]dula\s+de\s+identidad|\b[vVeE][-\s]?\d{1,2}\.?\d{3}\.?\d{3}\b|\b[vVeE]\d{7,8}\b|natural\s+de\s+[a-záéíóúñ]|ha\s+cumplido\s+con\s+todos\s+los\s+requisitos|cumpli[oó]\s+con\s+todos\s+los\s+requisitos)/i;
+      for (let i = 0; i < rawLines.length; i++) {
+        if (anchorRe.test(rawLines[i])) {
+          const prefixPart = rawLines[i].split(anchorRe)[0];
+          const sameLine = cleanPersonName(prefixPart);
+          if (sameLine) { titular = sameLine; break; }
+          for (const back of [1, 2]) {
+            if (i - back >= 0) {
+              const prevCand = cleanPersonName(rawLines[i - back]);
+              if (prevCand) { titular = prevCand; break; }
+            }
           }
+          if (titular) break;
         }
       }
     }
 
-    // Si aún no se detectó y el usuario activo está en sesión, se asocia por defecto
-    if (!titular && userNombre) {
-      titular = userNombre;
+    // Patrón 8: Escaneo de línea autónoma en el cuerpo central (excluyendo el bloque inferior de firmas rectorales)
+    if (!titular) {
+      const closingRe = /(?:en\s+fe\s+de\s+lo\s+cual|dado,\s*(?:firmado|sellado)|dado\s+en\s+|firmado\s+en\s+|t[oó]mese\s+raz[oó]n|qued[oó]\s+registrado)/i;
+      const authorityLineRe = /\b(?:rector|secretari[oa]|decan[oa]|registrador|director)\b/i;
+      for (let i = 0; i < rawLines.length; i++) {
+        if (closingRe.test(rawLines[i])) break;
+        const nextLn = rawLines[i + 1] || "";
+        if (authorityLineRe.test(nextLn)) continue;
+        const cand = cleanPersonName(rawLines[i]);
+        if (cand) {
+          titular = cand;
+          break;
+        }
+      }
     }
 
     // 4. Denominación del Título / Carrera
@@ -491,23 +529,31 @@ export const safeString = (v) => {
       }
     }
 
-    // 5. Cédula de Identidad (Búsqueda en texto o asociación de la cuenta de usuario)
+    // 5. Cédula de Identidad (Únicamente la impresa en el documento; no mezclar con la sesión del usuario)
     const mVen = text.match(/\b([VvEe][-\s]?\d{1,2}\.?\d{3}\.?\d{3})\b/);
+    const mVenPlain = text.match(/\b([VvEe]\d{7,8})\b/);
     const mPanama = text.match(/\b(\d{1,2}-\d{2,4}-\d{3,5})\b/);
-    const mLbl = text.match(/\b(?:c[eé]dula|c\.?\s*i\.?|identidad|pasaporte)\b\s*[:#-]?\s*([A-Za-z0-9\.\-]+)/i);
-    let cedula = mVen ? mVen[1].toUpperCase().replace(/\s+/g, "") : (mPanama ? mPanama[1] : ((mLbl && /\d/.test(mLbl[1])) ? mLbl[1].toUpperCase().trim() : (userCedula || null)));
+    const mLbl = text.match(/\b(?:c[eé]dula|c\.?\s*i\.?|identidad|pasaporte)\b\s*(?:n[°ºo.]*)?\s*[:#-]?\s*([A-Za-z0-9.\-]+)/i);
+    let cedula = mVen
+      ? mVen[1].toUpperCase().replace(/\s+/g, "")
+      : mVenPlain
+        ? mVenPlain[1].toUpperCase()
+        : mPanama
+          ? mPanama[1]
+          : ((mLbl && /\d/.test(mLbl[1])) ? mLbl[1].toUpperCase().trim() : null);
 
-    // 6. Fecha de Expedición / Grado
+    // 6. Fecha de Expedición / Grado (priorizando fecha de emisión sobre fecha de nacimiento)
     let fecha = null;
     const MESES = { enero: "01", febrero: "02", marzo: "03", abril: "04", mayo: "05", junio: "06", julio: "07", agosto: "08", septiembre: "09", setiembre: "09", octubre: "10", noviembre: "11", diciembre: "12" };
     const NUMS = { un: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, dieciséis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21, veintiuno: 21, veintidos: 22, veintidós: 22, veintitres: 23, veintitrés: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintiséis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, "treinta y uno": 31, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90 };
 
-    const dateMatch = text.toLowerCase().match(/(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be|del\s+a[ñn]o\s+(?:de|be)?|del\s+a[ñn]o)?\s+([a-záéíóúñ\d\s]+)/);
-    if (dateMatch) {
+    const lowerFull = text.toLowerCase();
+    const writtenDateRe = /(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be|del\s+a[ñn]o\s+(?:de|be)?|del\s+a[ñn]o)?\s+([a-záéíóúñ\d\s]+)/g;
+    const writtenCandidates = [];
+    for (const dateMatch of lowerFull.matchAll(writtenDateRe)) {
       const diaRaw = dateMatch[1].trim();
       const words = diaRaw.split(/\s+/);
       let dia = null;
-      // Escanear de atrás hacia adelante (la palabra numérica más próxima al mes) con rango 1..31
       for (let i = words.length - 1; i >= 0; i--) {
         const w = words[i];
         if (i >= 2 && NUMS[`${words[i - 2]} ${words[i - 1]} ${w}`]) {
@@ -549,21 +595,40 @@ export const safeString = (v) => {
       }
 
       if (dia && mes && ano) {
-        fecha = `${String(dia).padStart(2, "0")}/${mes}/${ano}`;
+        const startIdx = dateMatch.index || 0;
+        const ctxBefore = lowerFull.slice(Math.max(0, startIdx - 35), startIdx);
+        const isBirth = /\b(?:nacid[oa]|nacimiento)\b/.test(ctxBefore);
+        writtenCandidates.push({ isBirth, val: `${String(dia).padStart(2, "0")}/${mes}/${ano}` });
       }
     }
 
+    const nonBirthWritten = writtenCandidates.find(c => !c.isBirth);
+    if (nonBirthWritten) {
+      fecha = nonBirthWritten.val;
+    }
+
     if (!fecha) {
+      const numericCandidates = [];
       const numMatches = text.matchAll(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b/g);
       for (const m of numMatches) {
         let d = parseInt(m[1], 10);
         let mo = parseInt(m[2], 10);
         let y = parseInt(m[3], 10);
         if (m[3].length === 2) y = y < 50 ? 2000 + y : 1900 + y;
+        const startIdx = m.index || 0;
+        const ctxBefore = lowerFull.slice(Math.max(0, startIdx - 35), startIdx);
+        const isBirth = /\b(?:nacid[oa]|nacimiento)\b/.test(ctxBefore);
         if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y >= 1950 && y <= 2050) {
-          fecha = `${String(d).padStart(2, "0")}/${String(mo).padStart(2, "0")}/${y}`;
-          break;
+          numericCandidates.push({ isBirth, val: `${String(d).padStart(2, "0")}/${String(mo).padStart(2, "0")}/${y}` });
         }
+      }
+      const nonBirthNum = numericCandidates.find(c => !c.isBirth);
+      if (nonBirthNum) {
+        fecha = nonBirthNum.val;
+      } else if (writtenCandidates.length > 0) {
+        fecha = writtenCandidates[writtenCandidates.length - 1].val;
+      } else if (numericCandidates.length > 0) {
+        fecha = numericCandidates[numericCandidates.length - 1].val;
       }
     }
 
@@ -1687,9 +1752,9 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
         const applyExtractionResults = (gData, engineName, rawPreviewText = "") => {
           const safeData = (gData && typeof gData === 'object') ? gData : {};
           const rawTitular = safeString(safeData.nombre_completo || safeData.nombre || safeData.titular || safeData.graduando);
-          const titular = rawTitular || safeString(user?.nombre);
+          const titular = rawTitular;
           const rawCed = safeString(safeData.cedula);
-          const ced = rawCed || safeString(user?.cedula);
+          const ced = rawCed;
           const rawInst = safeString(safeData.institucion_educativa || safeData.institucion || "");
           const inst = matchOfficialUniversity(rawInst) || rawInst;
           const rawCarrera = safeString(safeData.mencion_carrera || safeData.carrera || safeData.titulo_conferido || "");
@@ -1706,8 +1771,8 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             engine: engineName,
             overall_confidence: computedConf,
             fields: {
-              nombre_completo: { value: titular || null, confidence: rawTitular ? 0.96 : (titular ? 0.65 : 0.0) },
-              cedula: { value: ced || null, confidence: rawCed ? 0.98 : (ced ? 0.75 : 0.0) },
+              nombre_completo: { value: titular || null, confidence: rawTitular ? 0.96 : 0.0 },
+              cedula: { value: ced || null, confidence: rawCed ? 0.98 : 0.0 },
               institucion: { value: inst || null, confidence: inst ? 0.98 : 0.0 },
               facultad: { value: fac || null, confidence: fac ? 0.92 : 0.0 },
               carrera: { value: carrera || null, confidence: carrera ? 0.96 : 0.0 },
@@ -1747,7 +1812,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             setOcrProgressText("Extrayendo texto estructurado del documento PDF...");
             let extractedPdfImgB64 = null;
             try {
-              const pdfServerRes = await ocrAPI.extractDocument(targetB64, null, user?.cedula || null);
+              const pdfServerRes = await ocrAPI.extractDocument(targetB64, null, null);
               if (pdfServerRes) {
                 if (pdfServerRes.fields) backendDocFields = pdfServerRes.fields;
                 if (pdfServerRes.full_text) backendFullText = pdfServerRes.full_text;
@@ -1787,10 +1852,10 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
               const processedImage = await preprocessImageCanvas(imagePreview);
               recognizedText = await runBrowserTesseract(processedImage, "Pase 1 (Alto Contraste)");
 
-              // Verificar si la binarización perdió encabezado/texto clave; si faltan campos, hacer pase 2 sobre imagen original
-              const prelimFields = parseDegreeAcademic(recognizedText, null, null);
+              // Si faltan campos clave o el nombre del graduando no fue detectado tras la binarización, hacer Pase 2 sobre la imagen original
+              const prelimFields = parseDegreeAcademic(recognizedText);
               const prelimHits = ["institucion", "nombre_completo", "carrera", "fecha"].filter(k => prelimFields[k]?.value).length;
-              if (prelimHits < 2) {
+              if (prelimHits < 3 || !prelimFields.nombre_completo?.value) {
                 const secondPassSource = targetB64 ? `data:image/jpeg;base64,${targetB64}` : imagePreview;
                 const secondPassText = await runBrowserTesseract(secondPassSource, "Pase 2 (Escala Original)");
                 if (secondPassText) {
@@ -1810,7 +1875,7 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
               const docRes = await ocrAPI.extractDocument(
                 isPdf ? null : targetB64,
                 recognizedText || null,
-                user?.cedula || null
+                null
               );
               if (docRes && docRes.success) {
                 if (docRes.fields) backendDocFields = docRes.fields;
@@ -1824,8 +1889,8 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             }
           }
 
-          // Combinar resultados NER cliente + NER backend (sin inventar datos del perfil todavía para medir precisión real)
-          const localFields = parseDegreeAcademic(recognizedText, null, null);
+          // Combinar resultados NER cliente + NER backend estrictamente a partir del documento (sin inyectar nombre/cédula de sesión)
+          const localFields = parseDegreeAcademic(recognizedText);
           if (backendDocFields) {
             Object.keys(localFields).forEach(k => {
               const bField = backendDocFields[k];
@@ -1840,9 +1905,9 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
             });
           }
 
-          // Si el servidor tiene GEMINI_API_KEY configurada y el OCR local extrajo menos de 3 campos clave, intentar mejora rápida en servidor
+          // Si el servidor tiene GEMINI_API_KEY configurada y el OCR local extrajo menos de 3 campos clave o falta el nombre, intentar mejora rápida en servidor
           const extractedCount = ["institucion", "nombre_completo", "carrera", "fecha"].filter(k => localFields[k]?.value).length;
-          if (extractedCount < 3) {
+          if (extractedCount < 3 || !localFields.nombre_completo?.value) {
             try {
               const geminiRes = await ocrAPI.extractGemini(targetB64);
               if (geminiRes && geminiRes.success && geminiRes.data) {
@@ -1856,13 +1921,11 @@ Devuelve ÚNICAMENTE un objeto JSON puro con:
 
           if (!geminiSucceeded) {
             const docDetectedCount = ["institucion", "nombre_completo", "carrera", "fecha"].filter(k => localFields[k]?.value).length;
-            // Si la cédula no aparece impresa en el diploma, asociar la cédula inmutable de la sesión del egresado
-            if (!localFields.cedula?.value && user?.cedula) {
-              localFields.cedula = { value: user.cedula, confidence: 0.75 };
+            if (!localFields.cedula?.value) {
+              localFields.cedula = { value: null, confidence: 0 };
             }
-            // Pre-sugerir nombre del perfil solo con confianza moderada si el OCR no pudo leerlo (el modal exige validación)
-            if (!localFields.nombre_completo?.value && user?.nombre) {
-              localFields.nombre_completo = { value: user.nombre, confidence: 0.60 };
+            if (!localFields.nombre_completo?.value) {
+              localFields.nombre_completo = { value: null, confidence: 0 };
             }
             if (!localFields.fecha?.value) {
               localFields.fecha = { value: null, confidence: 0 };

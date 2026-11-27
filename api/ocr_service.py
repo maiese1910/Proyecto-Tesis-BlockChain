@@ -292,33 +292,142 @@ class AcademicDegreeNER:
 
         return None
 
+    NOISE_TITULAR_RE = re.compile(
+        r'\b(?:rep[uú]blica|bolivariana|venezuela|panam[aá]|universidad|universidab|instituto|colegio|'
+        r'facultad|facultab|escuela|rector|rectora|vicerrector|secretar[ií][oa]|decano|decana|registrador|'
+        r'ministerio|poder\s+popular|consejo|diploma|grado\s+acad[eé]mico|autoridad|leyes|requisitos|'
+        r't[ií1]tulo|licenciad[oa]|ingenier[ií]?[oa]|abogad[oa]|m[eé]dic[oa]|cirujan[oa]|odont[oó]log[oa]|'
+        r'farmac[eé]utic[oa]|arquitect[oa]|economista|contador|educaci[oó]n|derecho|ciencias|pol[ií]ticas|'
+        r'medicina|sistemas|computaci[oó]n|administraci[oó]n|contadur[ií]a|comunicaci[oó]n|'
+        r'registrado|libro|tomo|folio|acta|hago\s+saber|hace\s+saber|confiere|contiere|otorga|'
+        r'constar|firmado|sellado|caracas|m[eé]rida|maracaibo|valencia|barquisimeto)\b',
+        re.IGNORECASE
+    )
+
+    @classmethod
+    def _clean_person_name(cls, raw: Optional[str]) -> Optional[str]:
+        """Limpia prefijos/sufijos solemnes y valida que el candidato sea un nombre humano real."""
+        if not raw or not isinstance(raw, str):
+            return None
+        cand = ' '.join(raw.strip().split())
+        # Limpiar fórmulas introductorias repetidas
+        for _ in range(3):
+            cand = re.sub(
+                r'^(?:que|a\s+favor\s+de|a\s+la\s+ciudadana|al\s+ciudadano|el\s+ciudadano|la\s+ciudadana|'
+                r'al\s+bachiller|a\s+la\s+bachiller|el\s+bachiller|la\s+bachiller|ciudadan[oa]|bachiller|'
+                r'br\.?|lic\.?|ing\.?|dr\.?|dra\.?|sr\.?|sra\.?|don|do[ñn]a|a|al|de|por|[:;#\-,.\s])+\s*',
+                '',
+                cand,
+                flags=re.IGNORECASE
+            ).strip()
+
+        # Recortar cláusulas legales posteriores en la misma línea
+        cand = re.sub(
+            r'\s*(?:,\s*)?(?:titular\s+de\s+la\s+c[eé]dula|portador(?:a)?\s+de\s+la\s+c[eé]dula|'
+            r'titular|portador(?:a)?|c[eé]dula\s+de\s+identidad|c[eé]dula|de\s+la\s+c[eé]dula|'
+            r'c\.?\s*i\.?(?:\s|[:#\-n°º]|$)|pasaporte|natural\s+de\b|nacid[oa]\s+en\b|nacid[oa]\s+el\b|'
+            r'venezolan[oa]\b|paname[ñn][oa]\b|colombian[oa]\b|mayor\s+de\s+edad|'
+            r'quien\s+cumpli|ha\s+cumplido|cumpli[oó]|habiendo\s+cumplido|por\s+haber|por\s+lo\s+cual|'
+            r'opt[oó]\s+al|aspir[oó]\s+al|para\s+optar|el\s+t[ií1]tulo|el\s+t[ií1]tvlo|el\s+grado|'
+            r'se\s+le\s+confiere).*$',
+            '',
+            cand,
+            flags=re.IGNORECASE | re.DOTALL
+        ).strip()
+
+        cand = cand.strip(" ,;:-#*\"'()[]{}")
+        if not (5 <= len(cand) <= 65):
+            return None
+        if re.search(r'\d', cand):
+            return None
+        if cls.NOISE_TITULAR_RE.search(cand):
+            return None
+
+        tokens = [t.strip(".,") for t in cand.split() if t.strip(".,")]
+        if not (2 <= len(tokens) <= 7):
+            return None
+        alpha_words = [t for t in tokens if re.match(r'^[A-ZÁÉÍÓÚÑa-záéíóúñ]{2,}$', t)]
+        if len(alpha_words) < 2:
+            return None
+        if not all(re.match(r'^[A-ZÁÉÍÓÚÑa-záéíóúñ]{1,25}$', t) for t in tokens):
+            return None
+        return cand
+
     @classmethod
     def extract_titular(cls, text: str) -> Optional[str]:
         """
         Extrae el nombre y apellidos completos del graduando / titular del diploma.
-        Universal: admite patrones rectorales (UCV), de concesión (USM/USMA) y por cumplimiento.
+        Soporta formatos ULA, UCV, USM, USMA, LUZ, UC, UPEL y extranjeros tanto multilínea como en línea continua.
         """
+        if not text or not isinstance(text, str):
+            return None
+
+        delim_lookahead = (
+            r'(?=\n|,|;|\s+(?:titular|portador|natural\s+de|nacid[oa]|venezolan[oa]|paname[ñn][oa]|'
+            r'mayor\s+de\s+edad|c[eé]dula|c\.?\s*i\.?\b|pasaporte|quien\s+cumpli|ha\s+cumplido|'
+            r'cumpli[oó]|habiendo\s+cumplido|por\s+haber|por\s+lo\s+cual|opt[oó]\s+al|aspir[oó]\s+al|'
+            r'para\s+optar|el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|$))'
+        )
+
         patrones = [
-            # Patrón A (Rectoral / UCV): "Hago saber: Que: [NOMBRE] Titular de la cédula..."
-            r'(?:hago\s+saber\s*:\s*(?:que\s*:\s*)?|rector\(?a?\)?\s*\n*)\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular\s+de\s+la\s+c[eé]dula|c[eé]dula|cumpli[oó]|por\s+lo\s+cual))',
-            # Patrón B (Concesión): "Confiere a [NOMBRE] el título de..."
-            r'(?:confiere|contiere|conjiere|otorga|hacen\s+constar\s+que|hacen\s+constar|certifica\s+que|a\s+favor)\s+(?:a|al|a\s+la|de)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\n\s*(?:titular|el\s*t[ií1]tulo|el\s*t[ií1]tvlo|el\s*grado|para\s*optar|ha\s*cumplido|por\s*haber|c[eé]dula|$))',
-            # Patrón C (Cumplimiento): "Por cuanto [NOMBRE] ha cumplido..."
-            r'por\s+cuanto\s*(?:el\s+ciudadano|la\s+ciudadana|al\s+ciudadano)?\s*[:#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,55}?)(?=\n\s*(?:titular|ha\s+cumplido|cumpli[oó]|en\s+nombre|c[eé]dula|\d))',
-            r'(?:graduando|egresado|titular\s*[:#-])\s*[:#-]?\s*(?!de\s+la\s+c[eé]dula)([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{6,45})(?=\n|$)'
+            # Patrón 1 (Rectoral ULA / UCV / LUZ): "Hace saber: Que (el ciudadano) [NOMBRE]" o "Hago saber: Que [NOMBRE]"
+            rf'(?:[hfl]a[cg][eo]\s+sa[bh]er\s*[:;.]?\s*(?:que\s*[:;.]?\s*)?(?:(?:el|la)\s+ciudadan[oa]\s*[:;.]?\s*)?)\n*([A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{{5,65}}?){delim_lookahead}',
+            # Patrón 2 (Concesión directa USM / USMA / privadas): "Hacen constar que / Confiere a / Otorga a [NOMBRE]"
+            rf'(?:hacen\s+constar\s*(?:que)?|certifica(?:n)?\s+que|(?:confiere|contiere|conjiere|otorga)\s+(?!\s*el\s+(?:t[ií1]tulo|grado))(?:a\s+la\s+ciudadana|al\s+ciudadano|a\s+favor\s+de|a|al|a\s+la)?)\s*[:;#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{{5,65}}?){delim_lookahead}',
+            # Patrón 3 (Invertido UCV / ULA / UPEL): "el Título de [CARRERA] a / al ciudadano: [NOMBRE]"
+            rf'(?:t[ií1]tulo|grado)\s+(?:de|be)\s*[:#-]?\s*[^\n]{{3,70}}?\s+(?:a\s+la\s+ciudadana|al\s+ciudadano|a\s+favor\s+de|a\s+la|al|a)\s*[:;#-]?\s*\n*([A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{{5,65}}?){delim_lookahead}',
+            # Patrón 4 (Cumplimiento): "Por cuanto (el ciudadano) [NOMBRE] ha cumplido..."
+            rf'por\s+cuanto\s*[:;#-]?\s*\n*(?:(?:el|la|al)\s+ciudadan[oa]\s*[:;#-]?\s*)?([A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{{5,65}}?){delim_lookahead}',
+            # Patrón 5 (Anclaje inverso antes de Cédula / datos biográficos del graduando)
+            r'(?:^|\n|:\s*|que\s+)([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{4,60}?)\s*(?:,\s*(?:venezolan[oa]|natural\s+de\s+[^,\n]{2,40}|nacid[oa]\s+[^,\n]{2,40}|mayor\s+de\s+edad)\s*)*[,\s]+(?:titular\s+de\s+la\s+c[eé]dula|portador(?:a)?\s+de\s+la\s+c[eé]dula|c[eé]dula\s+de\s+identidad|c\.?\s*i\.?\s*(?:n[°ºo.]*)?\s*[vVeE\d])',
+            # Patrón 6 (Etiqueta explícita)
+            r'(?:graduand[oa]|egresad[oa]|otorgado\s+a|nombre\s+y\s+apellido[s]?|nombre\s+completo|titular\s*[:#-])\s*[:#-]?\s*(?!de\s+la\s+c[eé]dula)([A-ZÁÉÍÓÚÑa-záéíóúñ.\s]{5,60}?)(?=\n|,|;|$)'
         ]
+
         for pat in patrones:
-            m = re.search(pat, text, re.IGNORECASE)
-            if m:
-                cand = ' '.join(m.group(1).strip().split())
-                cand = re.sub(r'^(?:que|a|al|el\s+ciudadano|la\s+ciudadana|al\s+ciudadano|a\s+la\s+ciudadana|de\s+la\s+c[eé]dula\s+de)\s+', '', cand, flags=re.IGNORECASE)
-                cand = re.sub(r'\s*(?:titular\s+de\s+la\s+c[eé]dula|titular|c[eé]dula|de\s+la\s+c[eé]dula).*$', '', cand, flags=re.IGNORECASE | re.DOTALL).strip()
-                if (
-                    4 <= len(cand) <= 55
-                    and not re.search(r'^(?:de\s+la\s+c[eé]dula|cedula\s+de)$', cand, re.IGNORECASE)
-                    and not re.search(r'\b(?:rep[uú]blica|bolivariana|venezuela|universidad|facultad|rector|ministerio|secretar[ií]a)\b', cand, re.IGNORECASE)
-                ):
-                    return cand
+            for m in re.finditer(pat, text, re.IGNORECASE):
+                cleaned = cls._clean_person_name(m.group(1))
+                if cleaned:
+                    return cleaned
+
+        # Patrón 7: Anclaje por proximidad de línea inmediatamente anterior a Cédula / "natural de" / "ha cumplido"
+        raw_lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        anchor_re = re.compile(
+            r'(?:titular\s+de\s+la\s+c[eé]dula|portador(?:a)?\s+de\s+la\s+c[eé]dula|c[eé]dula\s+de\s+identidad|'
+            r'\b[vVeE][-\s]?\d{1,2}\.?\d{3}\.?\d{3}\b|\b[vVeE]\d{7,8}\b|natural\s+de\s+[a-záéíóúñ]|'
+            r'ha\s+cumplido\s+con\s+todos\s+los\s+requisitos|cumpli[oó]\s+con\s+todos\s+los\s+requisitos)',
+            re.IGNORECASE
+        )
+        for idx, ln in enumerate(raw_lines):
+            if anchor_re.search(ln):
+                # Intentar extraer de la misma línea antes del ancla
+                prefix_part = anchor_re.split(ln, maxsplit=1)[0]
+                same_line_cand = cls._clean_person_name(prefix_part)
+                if same_line_cand:
+                    return same_line_cand
+                # Intentar en las 1-2 líneas inmediatamente superiores
+                for back in (1, 2):
+                    if idx - back >= 0:
+                        prev_cand = cls._clean_person_name(raw_lines[idx - back])
+                        if prev_cand:
+                            return prev_cand
+
+        # Patrón 8: Escaneo de línea autónoma en el cuerpo central (excluyendo el bloque final de firmas de autoridades)
+        closing_re = re.compile(
+            r'(?:en\s+fe\s+de\s+lo\s+cual|dado,\s*(?:firmado|sellado)|dado\s+en\s+|firmado\s+en\s+|'
+            r't[oó]mese\s+raz[oó]n|qued[oó]\s+registrado)',
+            re.IGNORECASE
+        )
+        authority_line_re = re.compile(r'\b(?:rector|secretari[oa]|decan[oa]|registrador|director)\b', re.IGNORECASE)
+        for idx, ln in enumerate(raw_lines):
+            if closing_re.search(ln):
+                break
+            next_ln = raw_lines[idx + 1] if idx + 1 < len(raw_lines) else ""
+            if authority_line_re.search(next_ln):
+                continue
+            cand = cls._clean_person_name(ln)
+            if cand:
+                return cand
 
         return None
 
@@ -444,14 +553,13 @@ class AcademicDegreeNER:
         """
         text_clean = text.lower()
 
-        # 1. Fecha escrita en letras con soporte de variantes góticas y prefijos solemnes (incluyendo tildes áéíóúñ)
+        # 1. Fecha escrita en letras con soporte de variantes góticas y prefijos solemnes (priorizando fechas de expedición sobre fechas de nacimiento)
         pat_escrita = r'(?:el|a\s+los|en\s+[a-záéíóúñ,\s]+,\s*(?:el|al)?)?\s*\b([a-záéíóúñ\d\s]+?)\s+(?:de|be|del\s+mes\s+de)\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de|be|del\s+a[ñn]o\s+(?:de|be)?|del\s+a[ñn]o)?\s+([a-záéíóúñ\d\s]+)'
-        m = re.search(pat_escrita, text_clean)
-        if m:
+        written_candidates = []
+        for m in re.finditer(pat_escrita, text_clean):
             dia_raw = m.group(1).strip()
             words = dia_raw.split()
             dia = None
-            # Escanear de atrás hacia adelante (la palabra numérica más próxima al mes) con rango 1..31
             for i in range(len(words) - 1, -1, -1):
                 w = words[i]
                 if i >= 2 and f"{words[i-2]} {words[i-1]} {words[i]}" in cls.NUMS:
@@ -471,17 +579,37 @@ class AcademicDegreeNER:
             ano = cls._parse_spanish_year(ano_str)
 
             if dia and mes and ano:
-                return f"{dia:02d}/{mes}/{ano}"
+                ctx_before = text_clean[max(0, m.start() - 35):m.start()]
+                is_birth = bool(re.search(r'\b(?:nacid[oa]|nacimiento)\b', ctx_before))
+                written_candidates.append((is_birth, f"{dia:02d}/{mes}/{ano}"))
 
-        # 2. Fecha numérica con validación estricta de rangos de calendario
+        for is_birth, formatted in written_candidates:
+            if not is_birth:
+                return formatted
+        if written_candidates:
+            # Si la única fecha escrita era de nacimiento, verificar primero si existe fecha numérica de expedición más adelante
+            pass
+
+        # 2. Fecha numérica con validación estricta de rangos de calendario (ignorando fechas de nacimiento si hay otra)
+        numeric_candidates = []
         for nm in re.finditer(r'\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b', text):
-            d, m, y = int(nm.group(1)), int(nm.group(2)), int(nm.group(3))
+            d, m_num, y = int(nm.group(1)), int(nm.group(2)), int(nm.group(3))
             if len(nm.group(3)) == 2:
                 y = 2000 + y if y < 50 else 1900 + y
-            if 1 <= d <= 31 and 1 <= m <= 12 and 1950 <= y <= 2050:
-                return f"{d:02d}/{m:02d}/{y}"
-            elif 1 <= m <= 31 and 1 <= d <= 12 and 1950 <= y <= 2050:
-                return f"{m:02d}/{d:02d}/{y}"
+            ctx_before = text_clean[max(0, nm.start() - 35):nm.start()]
+            is_birth = bool(re.search(r'\b(?:nacid[oa]|nacimiento)\b', ctx_before))
+            if 1 <= d <= 31 and 1 <= m_num <= 12 and 1950 <= y <= 2050:
+                numeric_candidates.append((is_birth, f"{d:02d}/{m_num:02d}/{y}"))
+            elif 1 <= m_num <= 31 and 1 <= d <= 12 and 1950 <= y <= 2050:
+                numeric_candidates.append((is_birth, f"{m_num:02d}/{d:02d}/{y}"))
+
+        for is_birth, formatted in numeric_candidates:
+            if not is_birth:
+                return formatted
+        if written_candidates:
+            return written_candidates[-1][1]
+        if numeric_candidates:
+            return numeric_candidates[-1][1]
 
         return None
 
